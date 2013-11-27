@@ -3,12 +3,13 @@
 """
 
 import numpy as np
+from scipy.special import gammaln
 
 class ProposalDensity(object):
     """A proposal density for a local-random-walk Markov chain sampler."""
 
-    def evaluate(x, y):
-        """Evaluate log of the density to propose ``x`` given ``y``, log(q(x|y)).
+    def evaluate(self, x, y):
+        """Evaluate log of the density to propose ``x`` given ``y``, namely log(q(x|y)).
 
         :param x:
 
@@ -21,9 +22,9 @@ class ProposalDensity(object):
         """
         raise NotImplementedError()
 
-    def propose(y, rng):
+    def propose(self, y, rng = 'numpy.random.mtrand'):
         """Propose a new point given ``y`` using the random number
-        generator ``rng``
+        generator ``rng``.
 
         :param y:
 
@@ -33,13 +34,18 @@ class ProposalDensity(object):
 
             The state of a random number generator like numpy.random.mtrand
 
+        .. important::
+            ``rng`` must return a numpy array of N samples from: \n
+            - **rng.normal(0,1,N)**: standard gaussian distribution
+            - **rng.chisquare(degree_of_freedom, N)**: any chi-squared distribution
+
         """
         raise NotImplementedError()
 
 class AdaptiveProposal(ProposalDensity):
     """Abstract proposal density with adaptation"""
 
-    def adapt(points):
+    def adapt(self, points):
         """Adapt the proposal function based on a sequence of chain
         samples.
 
@@ -56,27 +62,13 @@ class Multivariate(AdaptiveProposal):
     rescaling
 
     """
-    pass
 
-class MultivariateGaussian(Multivariate):
-    """A multivariate Gaussian density with covariance adaptation and rescaling
-
-    :param mu:
-
-         A numpy array of the mean values.
-
-    :param sigma:
-
-         A numpy array representing the covariance-matrix.
-
-    """
-
-    def __init__(self, mu, sigma):
-        self.mu    = mu.copy()
-        self.dim   = len(mu)
+    def __init__(self, sigma):
+        self.dim   = sigma.shape[0]
         self.sigma = sigma.copy()
 
         self._sigmaDecompose()
+
 
     def _sigmaDecompose(self):
         """Private function to calculate the Cholesky decomposition, the
@@ -84,41 +76,67 @@ class MultivariateGaussian(Multivariate):
         store it in the object instance
 
         """
-        self.choleskySigma    =  np.linalg.cholesky(self.sigma)
-        self.invSigma         =  np.linalg.inv(self.sigma)
+        self.choleskySigma =  np.linalg.cholesky(self.sigma)
+        self.invSigma      =  np.linalg.inv(self.sigma)
+        self._computeNorm()
+
+    def _computeNorm(self):
+        """Private function to calculate the normalisation of the
+        covariance matrix sigma and store it in the object instance
+
+        """
+        raise NotImplementedError()
+
+    def _getGaussSample(self, rng):
+        """transform sample from standard gauss to Gauss(mean=0, sigma = sigma)"""
+        return np.dot(self.choleskySigma,rng.normal(0,1,self.dim))
+
+class MultivariateGaussian(Multivariate):
+    """A multivariate Gaussian density with covariance adaptation and rescaling
+
+    :param sigma:
+
+         A numpy array representing the covariance-matrix.
+
+    """
+
+    def _computeNorm(self):
         self.logNormalisation = -.5 * self.dim * np.log(2*np.pi) + .5 * np.log(np.linalg.det(self.invSigma))
 
     def evaluate(self, x , y):
-        """Evaluate log of the density to propose ``x`` given ``y``, log(q(x|y)).
-
-        :param x:
-
-            The proposed point.
-
-        :param y:
-
-            The current point of the Markov chain.
-
-        """
         return self.logNormalisation - .5 * np.dot(np.dot(x-y,self.invSigma),x-y)
 
-    def propose(self, y, rng):
-        """Propose a new point given ``y`` using the random number
-        generator ``rng``
+    def propose(self, y, rng = np.random.mtrand):
+        return y + self._getGaussSample(rng)
 
-        :param y:
+class MultivariateStudentT(Multivariate):
+    """A multivariate Student-t density with covariance adaptation and rescaling
 
-            The current position of the chain.
+    :param sigma:
 
-        :param rng:
+         A numpy array representing the covariance-matrix.
 
-            The state of a random number generator like numpy.random.mtrand
 
-        """
-        # Box-Muller transform to obtain samples from standard gauss
-        sample = np.sqrt(-2.*np.log(np.random.rand(self.dim))) * np.cos(2.*np.pi*np.random.rand(self.dim))
+    :param dof:
 
-        # transform sample from standard gauss
-        sample = self.mu + np.dot(self.choleskySigma,sample)
+         A float or int representing the degree of freedom.
 
-        return y + sample
+    """
+
+    def __init__(self, sigma, dof):
+        self.dof = dof
+        super(MultivariateStudentT, self).__init__(sigma)
+
+    def _computeNorm(self):
+        self.logNormalisation = gammaln(.5*(self.dof+self.dim)) - gammaln(.5*self.dof) - .5*self.dim*np.log(self.dof*np.pi) + .5*np.log(np.linalg.det(self.invSigma))
+
+    def evaluate(self, x , y):
+        return self.logNormalisation  - .5 * (self.dof + self.dim) * np.log(1. + (np.dot(np.dot(x-y,self.invSigma),x-y)) / self.dof)
+
+    def propose(self, y, rng = np.random.mtrand):
+        # when Z is normally distributed with expected value 0 and std deviation sigma
+        # and  V is chi-squared distributed with dof degrees of freedom
+        # and  Z and V are independent
+        # then Z*sqrt(dof/V) is t-distributed with dof degrees of freedom and std deviation sigma
+
+        return y + self._getGaussSample(rng) * np.sqrt(self.dof/rng.chisquare(self.dof))

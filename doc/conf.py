@@ -82,7 +82,7 @@ pygments_style = 'sphinx'
 #modindex_common_prefix = []
 
 # turn off flags by hand using :no-members:
-autodoc_default_flags = ['members', 'show-inheritance']
+autodoc_default_flags = ['members', 'show-inheritance', 'inherited-members']
 
 # -- Options for HTML output ---------------------------------------------------
 
