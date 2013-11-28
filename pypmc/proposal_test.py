@@ -37,38 +37,56 @@ class TestGaussian(unittest.TestCase):
 
     def test_propose(self):
         sigma = offdiagSigma
-        delta = .001
+        delta_chisq = .005
+        delta_mean  = .001
+        delta_var0  = .0001
+        delta_var1  = .00003
 
         t = MultivariateGaussian(sigma=sigma)
 
         np.random.seed(rng_seed)
         current = np.array([4.3, 1.1])
-        target_mean1 = 4.3
-        target_mean2 = 1.1
-        target_chiSq = 2.0
-        normalization = -np.log(2. * np.pi) - 0.5 * np.log(1.6e-5)
+        target_mean0 = current[0]
+        target_var0  = offdiagSigma[0,0]
+        target_mean1 = current[1]
+        target_var1  = offdiagSigma[1,1]
+        target_chisq = 2.0
+        log_normalization = -np.log(2. * np.pi) - 0.5 * np.log(1.6e-5)
 
-        mean1 = 0.
-        mean2 = 0.
-        chiSq = 0.
+        values0 = []
+        values1 = []
+        chisq = 0.
 
-        for i in xrange(NumberOfRandomSteps-1):
+        for i in range(NumberOfRandomSteps-1):
             proposal = t.propose(current, np.random)
-            mean1 += proposal[0]
-            mean2 += proposal[1]
-            chiSq += -2.0 * (t.evaluate(proposal, current) - normalization)
+            values0 += [proposal[0]]
+            values1 += [proposal[1]]
+            chisq += -2.0 * (t.evaluate(proposal, current) - log_normalization)
+
+        # test if value for rng can be omitted
         proposal = t.propose(current)
-        mean1 += proposal[0]
-        mean2 += proposal[1]
-        chiSq += -2.0 * (t.evaluate(proposal, current) - normalization)
+        values0 += [proposal[0]]
+        values1 += [proposal[1]]
+        chisq += -2.0 * (t.evaluate(proposal, current) - log_normalization)
 
-        mean1 /= NumberOfRandomSteps
-        mean2 /= NumberOfRandomSteps
-        chiSq /= NumberOfRandomSteps
+        chisq /= NumberOfRandomSteps
 
-        self.assertAlmostEqual(mean1, target_mean1, delta=.001)
-        self.assertAlmostEqual(mean2, target_mean2, delta=.001)
-        self.assertAlmostEqual(chiSq, target_chiSq, delta=.005)
+        values0 = np.array(values0)
+        values1 = np.array(values1)
+
+        mean0 = values0.mean()
+        mean1 = values1.mean()
+        var0  = values0.var()
+        var1  = values1.var()
+
+
+        self.assertAlmostEqual(chisq, target_chisq, delta=delta_chisq)
+
+        self.assertAlmostEqual(mean0, target_mean0, delta=delta_mean)
+        self.assertAlmostEqual(mean1, target_mean1, delta=delta_mean)
+
+        self.assertAlmostEqual(var0 , target_var0 , delta=delta_var0)
+        self.assertAlmostEqual(var1 , target_var1 , delta=delta_var1)
 
 class TestStudentT(unittest.TestCase):
     def test_badCovarianceInput(self):
@@ -111,10 +129,12 @@ class TestStudentT(unittest.TestCase):
         mean = 0.
         var  = 0.
 
-        for i in xrange(NumberOfRandomSteps-1):
+        for i in range(NumberOfRandomSteps-1):
             proposal = t.propose(current, np.random)
             mean += proposal[0]
             var  += proposal[0]**2
+
+        # test if value for rng can be omitted
         proposal = t.propose(current)
         mean += proposal[0]
         var  += proposal[0]**2
@@ -127,30 +147,43 @@ class TestStudentT(unittest.TestCase):
         self.assertAlmostEqual(var , target_var , delta=delta)
 
     def test_propose_2D(self):
-        sigma = offdiagSigma
-        dof   = 5.
-        delta = .001
+        sigma      = offdiagSigma
+        dof        = 5.
+        delta_mean = .001
+        delta_var0 = .0001
+        delta_var1 = .00003
 
         t = MultivariateStudentT(sigma=sigma, dof=dof)
 
         np.random.seed(rng_seed)
         current = np.array([4.3, 1.1])
-        target_mean1 = 4.3
-        target_mean2 = 1.1
+        target_mean0 = current[0]
+        target_var0  = offdiagSigma[0,0] * dof/(dof-2)
+        target_mean1 = current[1]
+        target_var1  = offdiagSigma[1,1] * dof/(dof-2)
 
-        mean1 = 0.
-        mean2 = 0.
+        values0 = []
+        values1 = []
 
-        for i in xrange(NumberOfRandomSteps-1):
+        for i in range(NumberOfRandomSteps-1):
             proposal = t.propose(current, np.random)
-            mean1 += proposal[0]
-            mean2 += proposal[1]
+            values0 += [proposal[0]]
+            values1 += [proposal[1]]
+
+        # test if value for rng can be omitted
         proposal = t.propose(current)
-        mean1 += proposal[0]
-        mean2 += proposal[1]
+        values0 += [proposal[0]]
+        values1 += [proposal[1]]
 
-        mean1 /= NumberOfRandomSteps
-        mean2 /= NumberOfRandomSteps
+        values0 = np.array(values0)
+        values1 = np.array(values1)
 
-        self.assertAlmostEqual(mean1, target_mean1, delta=delta)
-        self.assertAlmostEqual(mean2, target_mean2, delta=delta)
+        mean0 = values0.mean()
+        var0  = values0.var()
+        mean1 = values1.mean()
+        var1  = values1.var()
+
+        self.assertAlmostEqual(mean0, target_mean0, delta=delta_mean)
+        self.assertAlmostEqual(var0 , target_var0 , delta=delta_var0)
+        self.assertAlmostEqual(mean1, target_mean1, delta=delta_mean)
+        self.assertAlmostEqual(var1 , target_var1 , delta=delta_var1)
