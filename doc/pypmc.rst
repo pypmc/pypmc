@@ -1,0 +1,4 @@
+pypmc source
+============
+
+.. automodule:: proposal
