@@ -4,8 +4,15 @@ import numpy as _np
 from scipy.special import gammaln as _gammaln
 from _tools import _inherit_docstring
 
-class _ProposalDensity(object):
-    """A proposal density for a local-random-walk Markov chain sampler."""
+class ProposalDensity(object):
+    """A proposal density for a local-random-walk Markov chain sampler.
+
+    """
+
+    symmetric = False
+
+    def __init__(self):
+        raise NotImplementedError('Do not create instances from this class, use derived classes instead.')
 
     def evaluate(self, x, y):
         """Evaluate log of the density to propose ``x`` given ``y``, namely log(q(x|y)).
@@ -42,9 +49,6 @@ class _ProposalDensity(object):
         """
         raise NotImplementedError()
 
-class _AdaptiveProposal(_ProposalDensity):
-    """Abstract proposal density with adaptation"""
-
     def adapt(self, points):
         """Adapt the proposal function based on a sequence of chain
         samples.
@@ -57,9 +61,10 @@ class _AdaptiveProposal(_ProposalDensity):
         """
         raise NotImplementedError()
 
-class Multivariate(_AdaptiveProposal):
-    """A multivariate proposal density with covariance adaptation and
-    rescaling
+class Multivariate(ProposalDensity):
+    """Abstract multivariate proposal density with covariance adaptation
+    and rescaling. Do not create instances from this class, use derived
+    classes instead.
 
     """
 
@@ -99,15 +104,18 @@ class MultivariateGaussian(Multivariate):
          A numpy array representing the covariance-matrix.
 
     """
+    def __init__(self, sigma):
+        self.symmetric = True
+        super(MultivariateGaussian, self).__init__(sigma)
 
     def _compute_norm(self):
         self.log_normalization = -.5 * self.dim * _np.log(2 * _np.pi) + .5 * _np.log(_np.linalg.det(self.inv_sigma))
 
-    @_inherit_docstring(_ProposalDensity)
+    @_inherit_docstring(ProposalDensity)
     def evaluate(self, x , y):
         return self.log_normalization - .5 * _np.dot(_np.dot(x-y, self.inv_sigma), x-y)
 
-    @_inherit_docstring(_ProposalDensity)
+    @_inherit_docstring(ProposalDensity)
     def propose(self, y, rng = _np.random.mtrand):
         return y + self._get_gauss_sample(rng)
 
@@ -126,19 +134,20 @@ class MultivariateStudentT(Multivariate):
     """
 
     def __init__(self, sigma, dof):
-        self.dof = dof
+        self.symmetric = True
+        self.dof       = dof
         super(MultivariateStudentT, self).__init__(sigma)
 
     def _compute_norm(self):
         self.log_normalization = _gammaln(.5 * (self.dof + self.dim)) - _gammaln(.5 * self.dof) \
                                  -0.5 * self.dim * _np.log(self.dof * _np.pi) + .5 * _np.log(_np.linalg.det(self.inv_sigma))
 
-    @_inherit_docstring(_ProposalDensity)
+    @_inherit_docstring(ProposalDensity)
     def evaluate(self, x , y):
         return self.log_normalization  - .5 * (self.dof + self.dim) \
             * _np.log(1. + (_np.dot(_np.dot(x-y, self.inv_sigma), x-y)) / self.dof)
 
-    @_inherit_docstring(_ProposalDensity)
+    @_inherit_docstring(ProposalDensity)
     def propose(self, y, rng = _np.random.mtrand):
         # when Z is normally distributed with expected value 0 and std deviation sigma
         # and  V is chi-squared distributed with dof degrees of freedom

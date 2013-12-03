@@ -3,7 +3,7 @@
 '''
 
 # set the version number
-from _version import __version__
+from ._version import __version__
 
 # import these submodules by default
-import proposal
+from . import proposal
