@@ -1,6 +1,9 @@
-#! /usr/bin/env python
-# -*- coding: utf-8 -*-
+'''Implements in PY(thon) the P(opulation)M(onte)C(arlo)
+
+'''
 
 # set the version number
-from . import version
-__version__ = version.__version__
+from _version import __version__
+
+# import these submodules by default
+import proposal

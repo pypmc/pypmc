@@ -1,9 +1,10 @@
 """Collect MCMC proposal densities"""
 
-import numpy as np
-from scipy.special import gammaln
+import numpy as _np
+from scipy.special import gammaln as _gammaln
+from _tools import _inherit_docstring
 
-class ProposalDensity(object):
+class _ProposalDensity(object):
     """A proposal density for a local-random-walk Markov chain sampler."""
 
     def evaluate(self, x, y):
@@ -20,8 +21,9 @@ class ProposalDensity(object):
         """
         raise NotImplementedError()
 
-    def propose(self, y, rng = 'numpy.random.mtrand'):
-        """Propose a new point given ``y`` using the random number
+    def propose(self, y, rng = _np.random.mtrand):
+        """propose(self, y, rng = numpy.random.mtrand)
+        Propose a new point given ``y`` using the random number
         generator ``rng``.
 
         :param y:
@@ -40,7 +42,7 @@ class ProposalDensity(object):
         """
         raise NotImplementedError()
 
-class AdaptiveProposal(ProposalDensity):
+class _AdaptiveProposal(_ProposalDensity):
     """Abstract proposal density with adaptation"""
 
     def adapt(self, points):
@@ -55,7 +57,7 @@ class AdaptiveProposal(ProposalDensity):
         """
         raise NotImplementedError()
 
-class Multivariate(AdaptiveProposal):
+class Multivariate(_AdaptiveProposal):
     """A multivariate proposal density with covariance adaptation and
     rescaling
 
@@ -74,8 +76,8 @@ class Multivariate(AdaptiveProposal):
         store it in the object instance
 
         """
-        self.cholesky_sigma = np.linalg.cholesky(self.sigma)
-        self.inv_sigma      = np.linalg.inv(self.sigma)
+        self.cholesky_sigma = _np.linalg.cholesky(self.sigma)
+        self.inv_sigma      = _np.linalg.inv(self.sigma)
         self._compute_norm()
 
     def _compute_norm(self):
@@ -87,7 +89,7 @@ class Multivariate(AdaptiveProposal):
 
     def _get_gauss_sample(self, rng):
         """transform sample from standard gauss to Gauss(mean=0, sigma = sigma)"""
-        return np.dot(self.cholesky_sigma,rng.normal(0,1,self.dim))
+        return _np.dot(self.cholesky_sigma,rng.normal(0,1,self.dim))
 
 class MultivariateGaussian(Multivariate):
     """A multivariate Gaussian density with covariance adaptation and rescaling
@@ -99,12 +101,14 @@ class MultivariateGaussian(Multivariate):
     """
 
     def _compute_norm(self):
-        self.log_normalization = -.5 * self.dim * np.log(2 * np.pi) + .5 * np.log(np.linalg.det(self.inv_sigma))
+        self.log_normalization = -.5 * self.dim * _np.log(2 * _np.pi) + .5 * _np.log(_np.linalg.det(self.inv_sigma))
 
+    @_inherit_docstring(_ProposalDensity)
     def evaluate(self, x , y):
-        return self.log_normalization - .5 * np.dot(np.dot(x-y, self.inv_sigma), x-y)
+        return self.log_normalization - .5 * _np.dot(_np.dot(x-y, self.inv_sigma), x-y)
 
-    def propose(self, y, rng = np.random.mtrand):
+    @_inherit_docstring(_ProposalDensity)
+    def propose(self, y, rng = _np.random.mtrand):
         return y + self._get_gauss_sample(rng)
 
 class MultivariateStudentT(Multivariate):
@@ -126,17 +130,19 @@ class MultivariateStudentT(Multivariate):
         super(MultivariateStudentT, self).__init__(sigma)
 
     def _compute_norm(self):
-        self.log_normalization = gammaln(.5 * (self.dof + self.dim)) - gammaln(.5 * self.dof) \
-                                 -0.5 * self.dim * np.log(self.dof * np.pi) + .5 * np.log(np.linalg.det(self.inv_sigma))
+        self.log_normalization = _gammaln(.5 * (self.dof + self.dim)) - _gammaln(.5 * self.dof) \
+                                 -0.5 * self.dim * _np.log(self.dof * _np.pi) + .5 * _np.log(_np.linalg.det(self.inv_sigma))
 
+    @_inherit_docstring(_ProposalDensity)
     def evaluate(self, x , y):
         return self.log_normalization  - .5 * (self.dof + self.dim) \
-            * np.log(1. + (np.dot(np.dot(x-y, self.inv_sigma), x-y)) / self.dof)
+            * _np.log(1. + (_np.dot(_np.dot(x-y, self.inv_sigma), x-y)) / self.dof)
 
-    def propose(self, y, rng = np.random.mtrand):
+    @_inherit_docstring(_ProposalDensity)
+    def propose(self, y, rng = _np.random.mtrand):
         # when Z is normally distributed with expected value 0 and std deviation sigma
         # and  V is chi-squared distributed with dof degrees of freedom
         # and  Z and V are independent
         # then Z*sqrt(dof/V) is t-distributed with dof degrees of freedom and std deviation sigma
 
-        return y + self._get_gauss_sample(rng) * np.sqrt(self.dof / rng.chisquare(self.dof))
+        return y + self._get_gauss_sample(rng) * _np.sqrt(self.dof / rng.chisquare(self.dof))

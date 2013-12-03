@@ -6,7 +6,7 @@ except ImportError:
     setup
 
 # set the version number
-with open('pypmc/version.py') as f:
+with open('pypmc/_version.py') as f:
     exec(f.read())
 
 n = 'pypmc'
