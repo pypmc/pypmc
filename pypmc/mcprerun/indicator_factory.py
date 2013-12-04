@@ -16,9 +16,9 @@ def ball(center = _np.zeros(3), radius = 1., bdy = True):
 
     :param bdy:
 
-        Bool, when bdy=True and x is at the ball's boundary then
-        ball_indicator(x) returns True, otherwise ball_indicator(x)
-        returns False.
+        Bool, When ``x`` is at the ball's boundary then
+        ``ball_indicator(x)`` returns ``True`` if and only if
+        ``bdy=True``.
 
     Using standard values, the indicator of the 3-dim unit ball
     (including the boundary) is returned.
@@ -57,8 +57,8 @@ def hyperrectangle(lower = _np.zeros(3), upper = _np.ones(3), bdy = True):
 
     :param bdy:
 
-        Bool, when bdy=True and x is at the hyperrectangles's boundary then
-        hr_indicator(x) returns True, otherwise hr_indicator(x) returns False.
+        Bool. When ``x`` is at the hyperrectangles's boundary then
+        ``hr_indicator(x)`` returns ``True`` if and only if ``bdy=True``.
 
     Using standard values, the indicator of [0,1]**3 is returned.
 

@@ -14,7 +14,7 @@ def _inherit_docstring(from_class):
             raise NotImplementedError('No mood specified')
 
     class good_mood(mood):
-        @inherit_docstring(mood)
+        @_inherit_docstring(mood)
         def how_are_you(self):
             print 'Fine, thanks.'
 

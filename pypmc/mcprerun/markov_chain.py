@@ -44,12 +44,13 @@ class MarkovChain(_Chain):
 
     :param proposal:
 
-        The proposal density. Should be of type :py:class:`pypmc.mcprerun.proposal.ProposalDensity`.
+        The proposal density.
+        Should be of type :py:class:`pypmc.mcprerun.proposal.ProposalDensity`.
 
         .. hint::
             When your proposal density is symmetric, define the member
-            variable proposal.symmetric = True. This will omit calls to
-            proposal.evaluate
+            variable ``proposal.symmetric = True``. This will omit calls
+            to proposal.evaluate
 
     :param start:
 
@@ -70,13 +71,13 @@ class MarkovChain(_Chain):
 
         The rng passed to the proposal when calling proposal.propose
 
-    .. important::
-        ``rng`` must return a numpy array of N samples from the uniform
-        distribution [0,1) when calling **rng.rand(N)**
+        .. important::
+            ``rng`` must return a numpy array of N samples from the
+            uniform distribution [0,1) when calling **rng.rand(N)**
 
-    .. warning::
-        ``rng`` must fulfill the requirements of
-        :py:meth:`pypmc.mcprerun.proposal.ProposalDensity.propose` as well.
+        .. seealso::
+            ``rng`` must also fulfill the requirements of
+            :py:meth:`pypmc.mcprerun.proposal.ProposalDensity.propose`
 
     """
     def __init__(self, target, proposal, start, indicator = lambda x: True, rng = _np.random.mtrand):
