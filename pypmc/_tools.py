@@ -34,3 +34,13 @@ def _inherit_docstring(from_class):
         method.__doc__ = parent_doc
         return method
     return wrapper
+
+def _add_to_docstring(string):
+    '''Private wrapper function. Appends ``string`` to the
+    docstring of the wrapped function.
+
+    '''
+    def wrapper(method):
+        method.__doc__ += string
+        return method
+    return wrapper
