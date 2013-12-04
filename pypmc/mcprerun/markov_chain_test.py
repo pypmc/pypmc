@@ -2,8 +2,8 @@
 
 """
 
-from markov_chain import *
-import proposal
+from .markov_chain import *
+from . import proposal
 import numpy as np
 import unittest
 
@@ -77,8 +77,8 @@ class TestMarkovChain(unittest.TestCase):
         mc = MarkovChain(log_target, prop, start)
 
         #prerun for burn-in
-        mc.run(NumberOfRandomSteps/10)
-        self.assertEqual(len(mc.points), NumberOfRandomSteps/10+1)
+        mc.run(int(NumberOfRandomSteps/10))
+        self.assertEqual(len(mc.points), int(NumberOfRandomSteps/10)+1)
         mc.clear()
         self.assertEqual(len(mc.points), 1)
 

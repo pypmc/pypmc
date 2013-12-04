@@ -6,4 +6,4 @@
 from ._version import __version__
 
 # import these submodules by default
-from . import proposal, markov_chain, indicator_factory
+from . import mcprerun

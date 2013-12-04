@@ -1,13 +1,13 @@
 """Collect Markov Chain"""
 
 import numpy as _np
-from _tools import _inherit_docstring
+from .._tools import _inherit_docstring
 
 class _Chain(object):
     """Abstract base class implementing a sequence of points
 
     """
-    def run(self, N = 1, adapt = 0):
+    def run(self, N = 1):
         '''Runs the chain and stores the history of visited points into
         the member variable self.points
 
@@ -15,13 +15,16 @@ class _Chain(object):
 
             An int which defines the number of steps to run the chain.
 
-        :param adapt:
-
-            The int "adapt" defies how frequent the proposal density's
-            covariance matrix is updated. 0 means never.
-
         '''
         raise NotImplementedError()
+
+    def adapt(self):
+        """Update the proposal's covariance matrix using the points
+        stored in self.points
+
+        """
+        return self.proposal.adapt(self.points)
+
 
     def clear(self):
         """Delete all history of visited points except the last one
@@ -30,7 +33,7 @@ class _Chain(object):
         self.points = [self.points[-1]]
 
 class MarkovChain(_Chain):
-    """MarkovChain(target, proposal, start, indicator = lambda x: True,
+    """MarkovChain(target, proposal, start, indicator = None,
     rng = numpy.random.mtrand)\n
     A Markov chain with adaptive proposal density
 
@@ -41,7 +44,7 @@ class MarkovChain(_Chain):
 
     :param proposal:
 
-        The proposal density. Should be of type :py:class:`proposal.ProposalDensity`.
+        The proposal density. Should be of type :py:class:`pypmc.mcprerun.proposal.ProposalDensity`.
 
         .. hint::
             When your proposal density is symmetric, define the member
@@ -61,7 +64,7 @@ class MarkovChain(_Chain):
         Use this function to specify the support of the target.
 
         .. seealso::
-            :py:mod:`indicator_factory`
+            :py:mod:`pypmc.mcprerun.indicator_factory`
 
     :param rng:
 
@@ -73,7 +76,7 @@ class MarkovChain(_Chain):
 
     .. warning::
         ``rng`` must fulfill the requirements of
-        :py:meth:`proposal.ProposalDensity.propose` as well.
+        :py:meth:`pypmc.mcprerun.proposal.ProposalDensity.propose` as well.
 
     """
     def __init__(self, target, proposal, start, indicator = lambda x: True, rng = _np.random.mtrand):

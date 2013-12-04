@@ -2,7 +2,7 @@
 
 import numpy as _np
 from scipy.special import gammaln as _gammaln
-from _tools import _inherit_docstring
+from .._tools import _inherit_docstring
 
 class ProposalDensity(object):
     """A proposal density for a local-random-walk Markov chain sampler.

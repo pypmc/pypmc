@@ -2,7 +2,7 @@
 
 """
 
-from proposal import *
+from .proposal import *
 import numpy as np
 import unittest
 
