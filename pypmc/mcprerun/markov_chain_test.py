@@ -106,3 +106,89 @@ class TestMarkovChain(unittest.TestCase):
         mc = MarkovChain(bad_target, prop, start)
 
         self.assertRaisesRegexp(ValueError, 'encountered NaN', mc.run)
+
+class TestAdaptiveMarkovChain(unittest.TestCase):
+    def test_adapt(self):
+        delta_mean   = .005
+
+        relative_error_unscaled_sigma = .05
+
+        prop_dof   = 50.
+        prop_sigma = np.array([[0.1 , 0.  ]
+                               ,[0.  , 0.02]])
+
+        prop = proposal.MultivariateStudentT(prop_sigma, prop_dof)
+
+        target_sigma = offdiagSigma
+        target_mean  = np.array([4.3, 1.1])
+        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiagSigma))
+
+        #good starting values; prerun is already tested in TestMarkovChain
+        start = np.array([4.2, 1.])
+
+        np.random.mtrand.seed(rng_seed)
+
+        mc = AdaptiveMarkovChain(log_target, prop, start)
+
+        scale_up_visited   = False
+        scale_down_visited = False
+        covar_scale_factor = 1.
+        mc.set_adapt_params(covar_scale_factor = covar_scale_factor)
+
+        for i in range(10):
+            mc.run(int(NumberOfRandomSteps/10))
+            mc.adapt()
+
+            if   mc.covar_scale_factor > covar_scale_factor:
+                scale_up_visited   = True
+            elif mc.covar_scale_factor < covar_scale_factor:
+                scale_down_visited = True
+
+            covar_scale_factor = mc.covar_scale_factor
+
+        values = np.array(mc.points)
+
+        mean0 = values[:,0].mean()
+        mean1 = values[:,1].mean()
+
+        self.assertAlmostEqual(mean0, target_mean[0]   , delta=delta_mean)
+        self.assertAlmostEqual(mean1, target_mean[1]   , delta=delta_mean)
+
+        self.assertAlmostEqual(mc.unscaled_sigma[0,0] , target_sigma[0,0], delta=relative_error_unscaled_sigma * target_sigma[0,0])
+        self.assertAlmostEqual(mc.unscaled_sigma[0,1] , target_sigma[0,1], delta=relative_error_unscaled_sigma * target_sigma[0,1])
+        self.assertAlmostEqual(mc.unscaled_sigma[1,0] , target_sigma[1,0], delta=relative_error_unscaled_sigma * target_sigma[1,0])
+        self.assertAlmostEqual(mc.unscaled_sigma[1,1] , target_sigma[1,1], delta=relative_error_unscaled_sigma * target_sigma[1,1])
+
+        self.assertTrue(scale_up_visited)
+        self.assertTrue(scale_down_visited)
+
+    def test_set_adapt_parameters(self):
+        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiagSigma))
+        prop_sigma = np.array([[1. , 0.  ]
+                              ,[0. , 1.  ]])
+        prop = proposal.MultivariateGaussian(prop_sigma)
+        start = np.array([4.2, 1.])
+
+        test_value = 4.
+
+        mc = AdaptiveMarkovChain(log_target, prop, start, covar_scale_multiplier = test_value)
+
+        mc.set_adapt_params(                                     covar_scale_factor     = test_value,
+                            covar_scale_factor_max = test_value, covar_scale_factor_min = test_value)
+
+        mc.set_adapt_params(force_acceptance_max   = test_value, force_acceptance_min   = test_value)
+
+        mc.set_adapt_params(damping                = test_value)
+
+        self.assertEqual(mc.covar_scale_multiplier , test_value)
+        self.assertEqual(mc.covar_scale_factor     , test_value)
+        self.assertEqual(mc.covar_scale_factor_max , test_value)
+        self.assertEqual(mc.covar_scale_factor_min , test_value)
+        self.assertEqual(mc.force_acceptance_max   , test_value)
+        self.assertEqual(mc.force_acceptance_min   , test_value)
+        self.assertEqual(mc.damping                , test_value)
+
+        self.assertRaisesRegexp(TypeError, r'keyword args only; try set_adapt_parameters\(keyword = value\)',
+                                mc.set_adapt_params, test_value)
+        self.assertRaisesRegexp(TypeError, r"unexpected keyword\(s\)\: ",
+                                mc.set_adapt_params, unknown_kw = test_value)
