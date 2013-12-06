@@ -122,7 +122,9 @@ class TestMarkovChain(unittest.TestCase):
 
         start = np.array((0.,))
 
-        mc = MarkovChain(target, ProposalPlusOne(), start)
+        # preallocate for half of the planned sampling length to check both,
+        # use of preallocated memory and dynamically reallocated memory
+        mc = MarkovChain(target, ProposalPlusOne(), start, prealloc_for = 50)
 
         # the above configuration creates an ever accepting markov chain
         # the visited points will be 0., 1., 2., 3., 4., ...
