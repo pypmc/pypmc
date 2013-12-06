@@ -1,4 +1,4 @@
-'''Private helper functions for general purposes
+'''Functions to modify docstrings
 
 '''
 

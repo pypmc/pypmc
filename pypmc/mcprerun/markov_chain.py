@@ -1,8 +1,8 @@
 """Collect Markov Chain"""
 
-from __future__ import division
+from __future__ import division as _div
 import numpy as _np
-from .._tools import _inherit_docstring
+from .._tools._doc import _inherit_docstring
 
 class _Chain(object):
     """Abstract base class implementing a sequence of points
