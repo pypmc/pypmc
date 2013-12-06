@@ -78,13 +78,13 @@ class TestMarkovChain(unittest.TestCase):
 
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
-        self.assertEqual(len(mc.points), int(NumberOfRandomSteps/10)+1)
+        self.assertEqual(len(mc.hist.get_run_points()), int(NumberOfRandomSteps/10))
         mc.clear()
-        self.assertEqual(len(mc.points), 1)
+        self.assertEqual(len(mc.hist.get_run_points()), 1)
 
         mc.run(NumberOfRandomSteps)
 
-        values = np.array(mc.points)
+        values = np.array(mc.hist.points)
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -106,6 +106,46 @@ class TestMarkovChain(unittest.TestCase):
         mc = MarkovChain(bad_target, prop, start)
 
         self.assertRaisesRegexp(ValueError, 'encountered NaN', mc.run)
+
+    def test_hist(self):
+        # dummy; not a real proposal
+        class ProposalPlusOne(proposal.ProposalDensity):
+            symmetric = True
+            def __init__(self):
+                pass
+            def propose(self, y, rng):
+                return y + 1.
+
+        # dummy target
+        def target(x):
+            return x + 1
+
+        start = np.array((0.,))
+
+        mc = MarkovChain(target, ProposalPlusOne(), start)
+
+        # the above configuration creates an ever accepting markov chain
+        # the visited points will be 0., 1., 2., 3., 4., ...
+        # this is convenient when testing if the history is stored correctly
+
+        for i in range(10):
+            mc.run(10)
+
+        float_acc = 1e-15
+
+        # check initial point
+        self.assertAlmostEqual(0., mc.hist.get_run_points(0))
+
+        # check all runs
+        for run in range(1,11):
+            this_run        = mc.hist.get_run_points(run)
+            this_run_target = np.arange(1.,11.)+(run-1)*10
+            for i in range(10):
+                self.assertAlmostEqual(this_run[i][0], this_run_target[i], float_acc)
+
+        # mc.hist.get_run_points() should return the last run by default, i.e.
+        for i in range(10):
+            self.assertEqual(mc.hist.get_run_points()[i], mc.hist.get_run_points(-1)[i])
 
 class TestAdaptiveMarkovChain(unittest.TestCase):
     def test_adapt(self):
@@ -146,7 +186,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
             covar_scale_factor = mc.covar_scale_factor
 
-        values = np.array(mc.points)
+        values = np.array(mc.hist.points)
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()

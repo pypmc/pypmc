@@ -3,31 +3,7 @@
 from __future__ import division as _div
 import numpy as _np
 from .._tools._doc import _inherit_docstring
-
-class _Chain(object):
-    """Abstract base class implementing a sequence of points
-
-    """
-    accept_count = 0
-
-    def run(self, N = 1):
-        '''Runs the chain and stores the history of visited points into
-        the member variable self.points
-
-        :param N:
-
-            An int which defines the number of steps to run the chain.
-
-        '''
-        raise NotImplementedError()
-
-    def clear(self):
-        """Deletes the history of visited points except the last and
-        resets ``accept_count`` to zero.
-
-        """
-        self.points = [self.points[-1]]
-        self.accept_count = 0
+from .._tools._chain import _Chain
 
 class MarkovChain(_Chain):
     """MarkovChain(target, proposal, start, indicator = None,
@@ -79,8 +55,8 @@ class MarkovChain(_Chain):
     """
     def __init__(self, target, proposal, start, indicator = None, rng = _np.random.mtrand):
         # store input into instance
+        super(MarkovChain, self).__init__(start = start)
         self.proposal  = proposal
-        self.points    = [start]
         self.rng       = rng
         self._merge_target_with_indicator(target, indicator)
 
@@ -104,9 +80,13 @@ class MarkovChain(_Chain):
         else:
             get_log_rho = self._get_log_rho_metropolis_hasting
 
+        # allocate an empty numpy array to temporary store this run
+        this_run     = _np.empty((N,len(self.current)))
+        accept_count = 0
+
         for i_N in range(N):
             # propose new point
-            proposed_point = self.proposal.propose(self.points[-1], self.rng)
+            proposed_point = self.proposal.propose(self.current, self.rng)
 
             # log_rho := log(probability to accept point), where log_rho > 0 is meant to imply rho = 1
             log_rho = get_log_rho(proposed_point)
@@ -114,18 +94,32 @@ class MarkovChain(_Chain):
             # check for NaN
             if _np.isnan(log_rho): raise ValueError('encountered NaN')
 
-            if log_rho >=0: #accept if rho = 1
-                self.accept_count += 1
-                self.points.append(proposed_point)
-            elif log_rho >= _np.log(self.rng.rand()): #accept with probability rho
-                self.accept_count += 1
-                self.points.append(proposed_point)
-            else: #reject if not accepted
-                self.points.append(self.points[-1])
+
+            # accept if rho = 1
+            if log_rho >=0:
+                accept_count += 1
+                this_run[i_N] = proposed_point
+                self.current  = proposed_point
+
+            # accept with probability rho
+            elif log_rho >= _np.log(self.rng.rand()):
+                accept_count += 1
+                this_run[i_N] = proposed_point
+                self.current  = proposed_point
+
+            # reject if not accepted
+            else:
+                this_run[i_N] = self.current
+                #do not need to update self.current
+                #self.current = self.current
+        # ---------------------- end for --------------------------------
+
+        # store the run in history
+        self.hist.append(this_run,accept_count)
 
     def _get_log_rho_metropolis(self, proposed_point):
         """calculate the log of the metropolis ratio"""
-        return self.target(proposed_point) - self.target(self.points[-1])
+        return self.target(proposed_point) - self.target(self.current)
 
     def _get_log_rho_metropolis_hasting(self, proposed_point):
         """calculate log(metropolis ratio times hastings factor)"""
@@ -145,10 +139,10 @@ class AdaptiveMarkovChain(MarkovChain):
 
     #TODO: include citation HST01 & Wra+09 into docstring
 
-    adapt_count = 0
-
     def __init__(self, *args, **kwargs):
         # set adaption params
+        self.adapt_count = 0
+
         self.covar_scale_multiplier = kwargs.pop('covar_scale_multiplier' ,   1.5   )
 
         self.covar_scale_factor     = kwargs.pop('covar_scale_factor'     ,   1.    )
@@ -266,41 +260,42 @@ class AdaptiveMarkovChain(MarkovChain):
     def adapt(self):
         """Update the proposal's covariance matrix using the points
         stored in self.points and the parameters which can be set via
-        :py:mod:`pypmc.mcprerun.markov_chain.set_adapt_params`.
+        :py:mod:`pypmc.mcprerun.markov_chain.AdaptiveMarkovChain.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
         described in detail.
 
-        .. warning::
+        .. note::
 
-            This function will always use ALL points stored in
-            ``self.points``, not only points from the last run
+            This function only uses the points obtained during the last run.
 
         """
         self.adapt_count += 1
 
         time_dependent_damping_factor = 1./self.adapt_count**self.damping
 
+        last_run        = self.hist.get_run_points()
+        accept_rate     = float(self.hist.get_run_accept_count())/len(last_run)
+
         # careful with rowvar!
         # in this form it is expected that each column  of ``points``
         # represents sampling values of a variable
         # this is the case if points is a list of sampled points
-        covar_estimator = _np.cov(self.points, rowvar=0)
+        covar_estimator = _np.cov(last_run, rowvar=0)
 
         # update sigma
         self.unscaled_sigma = (1-time_dependent_damping_factor) * self.unscaled_sigma\
                                + time_dependent_damping_factor  * covar_estimator
-        self._update_scale_factor()
+        self._update_scale_factor(accept_rate)
 
         self.proposal.update_sigma(self.covar_scale_factor * self.unscaled_sigma)
 
-    def _update_scale_factor(self):
+    def _update_scale_factor(self, accept_rate):
         '''Private function.
         Updates the covariance scaling factor ``covar_scale_factor``
         according to its limits
 
         '''
-        acceptance_ratio = self.accept_count / len(self.points)
-        if acceptance_ratio > self.force_acceptance_max and self.covar_scale_factor < self.covar_scale_factor_max:
+        if accept_rate > self.force_acceptance_max and self.covar_scale_factor < self.covar_scale_factor_max:
             self.covar_scale_factor *= self.covar_scale_multiplier
-        elif acceptance_ratio < self.force_acceptance_min and self.covar_scale_factor > self.covar_scale_factor_min:
+        elif accept_rate < self.force_acceptance_min and self.covar_scale_factor > self.covar_scale_factor_min:
             self.covar_scale_factor /= self.covar_scale_multiplier
