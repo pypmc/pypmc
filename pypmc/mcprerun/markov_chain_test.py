@@ -74,7 +74,7 @@ class TestMarkovChain(unittest.TestCase):
 
         np.random.mtrand.seed(rng_seed)
 
-        mc = MarkovChain(log_target, prop, start)
+        mc = MarkovChain(log_target, prop, start, prealloc_for = NumberOfRandomSteps)
 
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
@@ -84,7 +84,7 @@ class TestMarkovChain(unittest.TestCase):
 
         mc.run(NumberOfRandomSteps)
 
-        values = np.array(mc.hist.points)
+        values = np.array(mc.hist.get_all_points())
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -168,7 +168,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
         np.random.mtrand.seed(rng_seed)
 
-        mc = AdaptiveMarkovChain(log_target, prop, start)
+        mc = AdaptiveMarkovChain(log_target, prop, start, prealloc_for = NumberOfRandomSteps)
 
         scale_up_visited   = False
         scale_down_visited = False
@@ -186,7 +186,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
             covar_scale_factor = mc.covar_scale_factor
 
-        values = np.array(mc.hist.points)
+        values = np.array(mc.hist.get_all_points())
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()

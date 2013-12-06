@@ -40,6 +40,15 @@ class MarkovChain(_Chain):
         .. seealso::
             :py:mod:`pypmc.mcprerun.indicator_factory`
 
+    :param prealloc_for:
+
+        An int, defines the number of points for which memory in ``hist``
+        is allocated. If more memory is needed, it will be allocated on
+        demand.
+
+        .. hint::
+            Preallocating memory can speed up the calcualtion.
+
     :param rng:
 
         The rng passed to the proposal when calling proposal.propose
@@ -53,9 +62,10 @@ class MarkovChain(_Chain):
             :py:meth:`pypmc.mcprerun.proposal.ProposalDensity.propose`
 
     """
-    def __init__(self, target, proposal, start, indicator = None, rng = _np.random.mtrand):
+    def __init__(self, target, proposal, start, indicator = None,
+                 prealloc_for = 0, rng = _np.random.mtrand):
         # store input into instance
-        super(MarkovChain, self).__init__(start = start)
+        super(MarkovChain, self).__init__(start = start, prealloc_for = prealloc_for)
         self.proposal  = proposal
         self.rng       = rng
         self._merge_target_with_indicator(target, indicator)
@@ -81,7 +91,7 @@ class MarkovChain(_Chain):
             get_log_rho = self._get_log_rho_metropolis_hasting
 
         # allocate an empty numpy array to temporary store this run
-        this_run     = _np.empty((N,len(self.current)))
+        this_run     = self.hist._alloc(N)
         accept_count = 0
 
         for i_N in range(N):
@@ -115,7 +125,7 @@ class MarkovChain(_Chain):
         # ---------------------- end for --------------------------------
 
         # store the run in history
-        self.hist.append(this_run,accept_count)
+        self.hist._append_accept_count(accept_count)
 
     def _get_log_rho_metropolis(self, proposed_point):
         """calculate the log of the metropolis ratio"""
