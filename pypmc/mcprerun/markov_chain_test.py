@@ -84,7 +84,7 @@ class TestMarkovChain(unittest.TestCase):
 
         mc.run(NumberOfRandomSteps)
 
-        values = np.array(mc.hist.get_all_points())
+        values = mc.hist.get_all_points()
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -188,7 +188,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
             covar_scale_factor = mc.covar_scale_factor
 
-        values = np.array(mc.hist.get_all_points())
+        values = mc.hist.get_all_points()
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()

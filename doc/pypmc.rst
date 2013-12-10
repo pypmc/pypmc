@@ -9,3 +9,5 @@ pypmc source
 .. autoclass::  pypmc.mcprerun.markov_chain.AdaptiveMarkovChain(target, proposal, start, indicator = None, rng = numpy.random.mtrand)
 
 .. automodule:: pypmc.mcprerun.indicator_factory
+
+.. autoclass:: pypmc._tools._chain._Hist()

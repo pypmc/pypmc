@@ -12,11 +12,14 @@ class _Chain(object):
     def __init__(self, start, prealloc_for = 0):
         self.prealloc_for =  prealloc_for
         self.current      = _np.array(start)                  # call array constructor to make sure to have a copy
-        self.hist         = _hist(self.current, prealloc_for) # initialize history
+        self.hist         = _Hist(self.current, prealloc_for) # initialize history
 
     def run(self, N = 1):
         '''Runs the chain and stores the history of visited points into
         the member variable ``self.hist``
+
+        .. seealso::
+            :py:class:`pypmc._tools._chain._Hist`
 
         :param N:
 
@@ -26,24 +29,31 @@ class _Chain(object):
         raise NotImplementedError()
 
     def clear(self):
-        """Deletes the history
+        """Deletes the history stored in ``self.hist``
+
+        .. seealso::
+            :py:class:`pypmc._tools._chain._Hist`
 
         """
-        self.hist = _hist(self.current, self.prealloc_for)
+        self.hist = _Hist(self.current, self.prealloc_for)
 
-_hist_get_functions_common_part_of_docstring =''':param run_nr:
+_hist_get_functions_common_part_of_docstring =\
+''':param run_nr:
 
             int, the number of the run to be extracted
 
-                .. hint::
-                    negative numbers mean backwards counting, i.e. the standard
-                    value -1 resturns the last run, -2 the run before the last
-                    run and so on.
+            .. hint::
+                Negative numbers are supported.
+                The standard value ``-1`` returns the latest run.\n\n'''
 
-'''
+_hist_get_points_functions_warning =\
+'''.. warning::\n\
+            This function returns a reference. Modification of this\n\
+            function's output without explicitly copying it first may\n\
+            result in an inconsistent history of the chain!\n\n'''
 
-class _hist(object):
-#    Manage history of _Chain objects
+class _Hist(object):
+    """Manages the history of _Chain objects"""
 #
 #    :var points:
 #
@@ -127,13 +137,10 @@ class _hist(object):
         self._accept_counts.append(accept_count)
 
     @_add_to_docstring(_hist_get_functions_common_part_of_docstring)
+    @_add_to_docstring('        ')
+    @_add_to_docstring(_hist_get_points_functions_warning)
     def get_run_points(self, run_nr = -1):
         '''Returns a reference to the points of a specific run
-
-        .. warning::
-            This function returns a reference. Modification of this functions
-            output without explicitly copying it first may result in an
-            inconsistent history of the chain!
 
         '''
         requested_slice = self._slice_for_run_nr[run_nr]
@@ -141,17 +148,19 @@ class _hist(object):
 
     @_add_to_docstring(_hist_get_functions_common_part_of_docstring)
     def get_run_accept_count(self, run_nr = -1):
-        '''Returns a reference to the points of a specific run
+        '''Returns the number of accepted steps during specific run
 
         '''
         return self._accept_counts[run_nr]
 
+    @_add_to_docstring(_hist_get_points_functions_warning)
     def get_all_points(self):
-        '''Returns a reference to the points visited in all runs including
-        the initial point.
+        '''Returns a reference the points visited in all runs including
+        the initial point
 
         '''
         return self._points[:self._slice_for_run_nr[-1][1]]
 
     def get_all_accept_count(self):
+        '''Returns the number of accepted steps during all runs'''
         return sum(self._accept_counts)

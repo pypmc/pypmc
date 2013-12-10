@@ -269,7 +269,7 @@ class AdaptiveMarkovChain(MarkovChain):
 
     def adapt(self):
         """Update the proposal's covariance matrix using the points
-        stored in self.points and the parameters which can be set via
+        stored in ``self.points`` and the parameters which can be set via
         :py:mod:`pypmc.mcprerun.markov_chain.AdaptiveMarkovChain.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
         described in detail.
