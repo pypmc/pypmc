@@ -37,3 +37,6 @@ nosetests.xml
 
 # documentation
 doc/_build/*
+
+# backup files
+*.*~
