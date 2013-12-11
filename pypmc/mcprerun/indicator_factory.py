@@ -1,8 +1,8 @@
-"""Collect generators of typical indicator functions for the Markov chain"""
+"""Collect generators of typical indicator functions."""
 
 import numpy as _np
 
-def ball(center = _np.zeros(3), radius = 1., bdy = True):
+def ball(center, radius = 1., bdy = True):
     '''Returns the indicator function of a ball.
 
     :param center:
@@ -20,20 +20,23 @@ def ball(center = _np.zeros(3), radius = 1., bdy = True):
         ``ball_indicator(x)`` returns ``True`` if and only if
         ``bdy=True``.
 
-    Using standard values, the indicator of the 3-dim unit ball
-    (including the boundary) is returned.
-
     '''
     dim = len(center)
 
-    def ball_indicator(x):
-        if len(x) != dim:
-            raise ValueError('input has wrong dimension (%i istead of %i)' %(len(x), dim))
-        if _np.linalg.norm(x) < radius:
-            return True
-        if bdy and _np.linalg.norm(x) == radius:
-            return True
-        return False
+    if bdy:
+        def ball_indicator(x):
+            if len(x) != dim:
+                raise ValueError('input has wrong dimension (%i instead of %i)' % (len(x), dim))
+            if _np.linalg.norm(x) <= radius:
+                return True
+            return False
+    else:
+        def ball_indicator(x):
+            if len(x) != dim:
+                raise ValueError('input has wrong dimension (%i instead of %i)' % (len(x), dim))
+            if _np.linalg.norm(x) < radius:
+                return True
+            return False
 
     # write docstring for ball_indicator
     ball_indicator.__doc__  = 'automatically generated ball indicator function:'
@@ -43,7 +46,7 @@ def ball(center = _np.zeros(3), radius = 1., bdy = True):
 
     return ball_indicator
 
-def hyperrectangle(lower = _np.zeros(3), upper = _np.ones(3), bdy = True):
+def hyperrectangle(lower, upper, bdy=True):
     '''Returns the indicator function of a hyperrectangle.
 
     :param lower:
@@ -60,24 +63,22 @@ def hyperrectangle(lower = _np.zeros(3), upper = _np.ones(3), bdy = True):
         Bool. When ``x`` is at the hyperrectangles's boundary then
         ``hr_indicator(x)`` returns ``True`` if and only if ``bdy=True``.
 
-    Using standard values, the indicator of [0,1]**3 is returned.
-
     '''
     dim = len(lower)
-    if (upper < lower).any():
-        raise ValueError('invalid input; found upper < lower')
+    if (upper <= lower).any():
+        raise ValueError('invalid input; found upper <= lower')
 
     if bdy:
         def hr_indicator(x):
             if len(x) != dim:
-                raise ValueError('input has wrong dimension (%i istead of %i)' %(len(x), dim))
+                raise ValueError('input has wrong dimension (%i instead of %i)' % (len(x), dim))
             if (lower <= x).all() and (x <= upper).all():
                 return True
             return False
     else:
         def hr_indicator(x):
             if len(x) != dim:
-                raise ValueError('input has wrong dimension (%i istead of %i)' %(len(x), dim))
+                raise ValueError('input has wrong dimension (%i instead of %i)' % (len(x), dim))
             if (lower < x).all() and (x < upper).all():
                 return True
             return False
