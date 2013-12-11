@@ -7,7 +7,8 @@ from .._tools._chain import _Chain
 
 class MarkovChain(_Chain):
     r"""MarkovChain(target, proposal, start, indicator = None,
-    rng = numpy.random.mtrand)\n
+    rng = numpy.random.mtrand)
+
     A Markov chain to generate samples from the target density.
 
     :param target:
@@ -147,7 +148,8 @@ class AdaptiveMarkovChain(MarkovChain):
     # - ProposalDensity by Multivariate in description of :param propoasal:
     __doc__ = MarkovChain.__doc__\
     .replace('MarkovChain(', 'AdaptiveMarkovChain(')\
-    .replace('A Markov chain', 'A Markov chain with proposal covariance adaptation as in [HST01]_, [Wra+09]_' , 1)\
+    .replace('A Markov chain', '''A Markov chain with proposal covariance adaptation as in [HST01]_,
+    [Wra+09]_''' , 1)\
     .replace('ProposalDensity', 'Multivariate')
 
     def __init__(self, *args, **kwargs):
@@ -156,7 +158,7 @@ class AdaptiveMarkovChain(MarkovChain):
 
         self.covar_scale_multiplier = kwargs.pop('covar_scale_multiplier' ,   1.5   )
 
-        self.covar_scale_factor     = kwargs.pop('covar_scale_factor'     ,   1.    )
+        self.covar_scale_factor     = kwargs.pop('covar_scale_factor'     , None    )
         self.covar_scale_factor_max = kwargs.pop('covar_scale_factor_max' , 100.    )
         self.covar_scale_factor_min = kwargs.pop('covar_scale_factor_min' ,    .0001)
 
@@ -167,6 +169,9 @@ class AdaptiveMarkovChain(MarkovChain):
 
         super(AdaptiveMarkovChain, self).__init__(*args, **kwargs)
 
+        if self.covar_scale_factor == None:
+            self.covar_scale_factor = 2.38**2/len(self.current)
+
         # initialize unscaled sigma
         self.unscaled_sigma = self.proposal.sigma / self.covar_scale_factor
 
@@ -176,16 +181,22 @@ class AdaptiveMarkovChain(MarkovChain):
         When ``adapt`` is called, the proposal's covariance matrix is
         adapted in order to improve the chain's performance. The aim
         is to improve the efficiency of the chain by making better
-        proposals and forcing the acceptance rate of the chain to lie
-        in an interval ensuring good exploration:
+        proposals and forcing the acceptance rate :math:`\alpha` of
+        the chain to lie in an interval ensuring good exploration:
 
         :param force_acceptance_max:
 
             Float, the upper limit (in (0,1])
 
+            Default: :math:`\alpha_{max}=.35`
+
+
         :param force_acceptance_min:
 
             Float, the lower limit (in [0,1))
+
+            Default: :math:`\alpha_{min}=.15`
+
 
         This is achieved in two steps:
 
@@ -207,6 +218,9 @@ class AdaptiveMarkovChain(MarkovChain):
         :param damping:
 
             Float, see formula above
+
+            Default: :math:`\lambda=.5`
+
 
         The ``damping`` :math:`\lambda` is neccessary to assure
         convergence and should be in [0,1]. A default value of 0.5 was
@@ -235,6 +249,9 @@ class AdaptiveMarkovChain(MarkovChain):
             :math:`2.38^2/d`. Use this argument to increase
             performance from the start before any adaptation.
 
+            Default: :math:`c=2.38^2/d`
+
+
         ``covar_scale_factor`` is updated using :math:`\beta`
 
         :param covar_scale_multiplier:
@@ -243,7 +260,10 @@ class AdaptiveMarkovChain(MarkovChain):
             if the acceptance rate is larger than ``force_acceptance_max``,
             :math:`c \to \beta c`.
             If the acceptance rate is smaller than ``force_acceptance_min``,
-            :math:`c \to c / \beta`. Default :math:`\beta=1.5`
+            :math:`c \to c / \beta`.
+
+            Default :math:`\beta=1.5`
+
 
         Additionally, an upper and a lower limit on
         ``covar_scale_factor`` can be provided. This is useful to hint
@@ -252,11 +272,17 @@ class AdaptiveMarkovChain(MarkovChain):
 
         :param covar_scale_factor_max:
 
-            Float, ``covar_scale_factor`` is kept below this value. Default: 100.
+            Float, ``covar_scale_factor`` is kept below this value.
+
+            Default: :math:`c_{max}=100`
+
 
         :param covar_scale_factor_min:
 
-            Float, ``covar_scale_factor`` is kept above this value. Default: 1e-4.
+            Float, ``covar_scale_factor`` is kept above this value.
+
+            Default: :math:`c_{max}=10^{-4}`
+
 
         """
 
@@ -285,7 +311,6 @@ class AdaptiveMarkovChain(MarkovChain):
         described in detail.
 
         .. note::
-
             This function only uses the points obtained during the last run.
 
         """
