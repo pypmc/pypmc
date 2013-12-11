@@ -41,7 +41,7 @@ class MarkovChain(_Chain):
         .. seealso::
             :py:mod:`pypmc.mcprerun.indicator_factory`
 
-    :param prealloc_for:
+    :param prealloc:
 
         An integer, defines the number of Markov chain points for
         which memory in ``hist`` is allocated. If more memory is
@@ -66,9 +66,9 @@ class MarkovChain(_Chain):
 
     """
     def __init__(self, target, proposal, start, indicator = None,
-                 prealloc_for = 0, rng = _np.random.mtrand):
+                 prealloc = 0, rng = _np.random.mtrand):
         # store input into instance
-        super(MarkovChain, self).__init__(start = start, prealloc_for = prealloc_for)
+        super(MarkovChain, self).__init__(start = start, prealloc = prealloc)
         self.proposal  = proposal
         self.rng       = rng
         self._merge_target_with_indicator(target, indicator)

@@ -9,10 +9,10 @@ class _Chain(object):
     """Abstract base class implementing a sequence of points
 
     """
-    def __init__(self, start, prealloc_for = 0):
-        self.prealloc_for =  prealloc_for
-        self.current      = _np.array(start)                  # call array constructor to make sure to have a copy
-        self.hist         = _Hist(self.current, prealloc_for) # initialize history
+    def __init__(self, start, prealloc = 0):
+        self.prealloc     =  prealloc
+        self.current      = _np.array(start)              # call array constructor to make sure to have a copy
+        self.hist         = _Hist(self.current, prealloc) # initialize history
 
     def run(self, N = 1):
         '''Runs the chain and stores the history of visited points into
@@ -27,15 +27,6 @@ class _Chain(object):
 
         '''
         raise NotImplementedError()
-
-    def clear(self):
-        """Deletes the history stored in ``self.hist``
-
-        .. seealso::
-            :py:class:`pypmc._tools._chain._Hist`
-
-        """
-        self.hist = _Hist(self.current, self.prealloc_for)
 
 _hist_get_functions_common_part_of_docstring =\
 ''':param run_nr:
@@ -72,20 +63,33 @@ class _Hist(object):
 #
 #        numpy arrray, the initial point of the chain
 #
-#    :param prealloc_for:
+#    :param prealloc:
 #
 #       int, indicates for how many points memory is allocated in advance
 #       When more memory is needed, it will be allocated on demand
 #
-    def __init__(self, initial_point, prealloc_for = 0):
+    def __init__(self, initial_point, prealloc = 0):
         self._dim = len(initial_point)
-        if prealloc_for <= 0:
-            self._points         = initial_point.copy()
+        if prealloc <= 0:
+            self._prealloc       = 0
             self._memleft        = 0
+            self._points         = initial_point.copy()
         else:
-            self._points         = _np.empty((prealloc_for + 1, len(initial_point)))
+            self._prealloc       = prealloc
+            self._memleft        = prealloc
+            self._points         = _np.empty((prealloc + 1, len(initial_point)))
             self._points[0:1]    = initial_point
-            self._memleft        = prealloc_for
+        self._slice_for_run_nr   = [(0,1)]
+        self._accept_counts      = [0]
+
+    def clear(self):
+        """Deletes the history"""
+        self._memleft        = self._prealloc
+
+        new_first_point      = self.get_run_points()[-1]
+        self._points         = _np.empty((self._prealloc + 1, len(new_first_point)))
+        self._points[0:1]    = new_first_point
+
         self._slice_for_run_nr   = [(0,1)]
         self._accept_counts      = [0]
 

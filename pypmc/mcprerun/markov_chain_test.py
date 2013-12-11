@@ -74,12 +74,12 @@ class TestMarkovChain(unittest.TestCase):
 
         np.random.mtrand.seed(rng_seed)
 
-        mc = MarkovChain(log_target, prop, start, prealloc_for = NumberOfRandomSteps)
+        mc = MarkovChain(log_target, prop, start, prealloc = NumberOfRandomSteps)
 
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
         self.assertEqual(len(mc.hist.get_run_points()), int(NumberOfRandomSteps/10))
-        mc.clear()
+        mc.hist.clear()
         self.assertEqual(len(mc.hist.get_run_points()), 1)
 
         mc.run(NumberOfRandomSteps)
@@ -124,7 +124,7 @@ class TestMarkovChain(unittest.TestCase):
 
         # preallocate for half of the planned sampling length to check both,
         # use of preallocated memory and dynamically reallocated memory
-        mc = MarkovChain(target, ProposalPlusOne(), start, prealloc_for = 50)
+        mc = MarkovChain(target, ProposalPlusOne(), start, prealloc = 50)
 
         # the above configuration creates an ever accepting markov chain
         # the visited points will be 0., 1., 2., 3., 4., ...
@@ -170,7 +170,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
         np.random.mtrand.seed(rng_seed)
 
-        mc = AdaptiveMarkovChain(log_target, prop, start, prealloc_for = NumberOfRandomSteps)
+        mc = AdaptiveMarkovChain(log_target, prop, start, prealloc = NumberOfRandomSteps)
 
         scale_up_visited   = False
         scale_down_visited = False
