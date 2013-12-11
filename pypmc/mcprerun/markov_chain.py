@@ -6,24 +6,25 @@ from .._tools._doc import _inherit_docstring
 from .._tools._chain import _Chain
 
 class MarkovChain(_Chain):
-    """MarkovChain(target, proposal, start, indicator = None,
+    r"""MarkovChain(target, proposal, start, indicator = None,
     rng = numpy.random.mtrand)\n
-    A Markov chain
+    A Markov chain to generate samples from the target density.
 
     :param target:
 
-        The target density. Must be a function which recieves a 1d numpy
-        array and returns a float, namely log(P(x)) the log of the target.
+        The target density. Must be a function accepting a 1d numpy
+        array and returning a float, namely :math:`\log(P(x))`,
+        the log of the target `P`.
 
     :param proposal:
 
-        The proposal density.
+        The proposal density `q`.
         Should be of type :py:class:`pypmc.mcprerun.proposal.ProposalDensity`.
 
         .. hint::
-            When your proposal density is symmetric, define the member
+            If your proposal density is symmetric, define the member
             variable ``proposal.symmetric = True``. This will omit calls
-            to proposal.evaluate
+            to proposal.evaluate in the Metropolis-Hastings steps.
 
     :param start:
 
@@ -31,7 +32,7 @@ class MarkovChain(_Chain):
 
     :param indicator:
 
-        A function wich recieves a numpy array and returns bool.
+        The indicator function receives a numpy array and returns bool.
         The target is only called if indicator(proposed_point)
         returns True, otherwise the proposed point is rejected
         without call to target.
@@ -42,12 +43,14 @@ class MarkovChain(_Chain):
 
     :param prealloc_for:
 
-        An int, defines the number of points for which memory in ``hist``
-        is allocated. If more memory is needed, it will be allocated on
-        demand.
+        An integer, defines the number of Markov chain points for
+        which memory in ``hist`` is allocated. If more memory is
+        needed, it will be allocated on demand.
 
         .. hint::
-            Preallocating memory can speed up the calcualtion.
+            Preallocating memory can speed up the calculation, in
+            particular if it is known in advance how long the chains
+            are run.
 
     :param rng:
 
@@ -140,17 +143,15 @@ class MarkovChain(_Chain):
 class AdaptiveMarkovChain(MarkovChain):
     # set the docstring --> inherit from Base class, but replace:
     # - MarkovChain(*args, **kwargs) --> AdaptiveMarkovChain(*args, **kwargs)
-    # - A Markov chain --> A Markov chain with proposal covariance adaption
+    # - A Markov chain --> A Markov chain with proposal covariance adaptation
     # - ProposalDensity by Multivariate in description of :param propoasal:
     __doc__ = MarkovChain.__doc__\
     .replace('MarkovChain(', 'AdaptiveMarkovChain(')\
-    .replace('A Markov chain', 'A Markov chain with proposal covariance adaption' , 1)\
+    .replace('A Markov chain', 'A Markov chain with proposal covariance adaptation as in [HST01]_, [Wra+09]_' , 1)\
     .replace('ProposalDensity', 'Multivariate')
 
-    #TODO: include citation HST01 & Wra+09 into docstring
-
     def __init__(self, *args, **kwargs):
-        # set adaption params
+        # set adaptation params
         self.adapt_count = 0
 
         self.covar_scale_multiplier = kwargs.pop('covar_scale_multiplier' ,   1.5   )
@@ -170,85 +171,94 @@ class AdaptiveMarkovChain(MarkovChain):
         self.unscaled_sigma = self.proposal.sigma / self.covar_scale_factor
 
     def set_adapt_params(self, *args, **kwargs):
-        """Sets variables for covariance adaption
+        r"""Sets variables for covariance adaptation.
 
-        When ``adapt`` is called, the proposal's covariance matrix is adapted
-        in order to improve the chain's performance. The aim is to force the
-        acceptance rate of the chain to lie in a distinc interval:
+        When ``adapt`` is called, the proposal's covariance matrix is
+        adapted in order to improve the chain's performance. The aim
+        is to improve the efficiency of the chain by making better
+        proposals and forcing the acceptance rate of the chain to lie
+        in an interval ensuring good exploration:
 
         :param force_acceptance_max:
 
-            Float, the upper limit
+            Float, the upper limit (in (0,1])
 
         :param force_acceptance_min:
 
-            Float, the lower limit
+            Float, the lower limit (in [0,1))
 
-        That is achieved in two steps:
+        This is achieved in two steps:
 
-        The first step is updating the proposal's covariance matrix
-        (unscaled_sigma) with the newly gained knowledge during the run.
-        The adapt function first calculates an estimate for the covariance
-        matrix (covar_estimator, temporary variable) from the samples.
-        Then, the covariance matrix (unscaled_sigma) is updated
-        according to
+        1. **Estimate the target covariance**: compute the sample
+        covariance from the last (the t-th) run as :math:`S^t`
+        then combine with previous estimate :math:`\Sigma^{t-1}`
+        with a weight damping out over time as
 
-        unscaled_sigma = (1-a) * unscaled_sigma + a * covar_estimator
-        where a = 1./adapt_count**damping
+        .. math::
 
-        which describes
+            \Sigma^t = (1-a^t) \Sigma^{t-1} + a^t S^t
+
+        where the weight is given by
+
+        .. math::
+
+            a^t = 1/t^{\lambda}.
 
         :param damping:
 
             Float, see formula above
 
-        The damping is neccessary to assure convergence.
+        The ``damping`` :math:`\lambda` is neccessary to assure
+        convergence and should be in [0,1]. A default value of 0.5 was
+        found to work well in practice. For details, see [Wra+09]_.
 
-        The second step is rescaling the covariance matrix. Remember that
-        the goal is to force the acceptance rate into a specific interval.
+        2. **Rescale the covariance matrix**: Remember that the goal
+        is to force the acceptance rate into a specific interval.
         Suppose that the chain already is in a region of significant
         probability mass (should be the case before adapting it).
-        When the acceptance rate is close to zero, the chain cannot move
-        at all, i.e. the proposal does not propose points in regions of
-        significantly higher probability density than that of the point
-        where the chain is stuck. In this case the covariance matrix could
-        be divided by some number > 1 in order to increase "locality" of
-        the chain.
-        In the opposite case, when the acceptance rate is close to one,
-        the chain most probably only explores a small feature of the mode.
-        Then dividing the covariance matrix by some number > 1 decreases
-        "locality".
-        In this implementation, the covariance matrix is not directly
-        rescaled. Instead,
+        When the acceptance rate is close to zero, the chain cannot
+        move at all; i.e., the proposed points have a low probability
+        relative to the current point. In this case the proposal
+        covariance should decrease to increase "locality" of the
+        chain.  In the opposite case, when the acceptance rate is
+        close to one, the chain most probably only explores a small
+        volume of the target.  Then enlarging the covariance matrix
+        decreases "locality".  In this implementation, the proposal
+        covariance matrix is :math:`c \Sigma^t`
 
         :param covar_scale_factor:
 
-            Float, this number is multiplied to unscaled_sigma after it
-            has been recalculated
+            Float, this number ``c`` is multiplied to :math:`\Sigma^t`
+            after it has been recalculated. The higher the dimension
+            :math:`d`, the smaller it should be. For a Gaussian
+            proposal and target, the optimal factor is
+            :math:`2.38^2/d`. Use this argument to increase
+            performance from the start before any adaptation.
 
-        is rescaled and then multiplied to unscaled_sigma. To be precise:
+        ``covar_scale_factor`` is updated using :math:`\beta`
 
         :param covar_scale_multiplier:
 
             Float;
             if the acceptance rate is larger than ``force_acceptance_max``,
-            ``covar_scale_factor`` is multiplied by covar_scale_multiplier
-            if the acceptance rate is smaller than ``force_acceptance_min``,
-            ``covar_scale_factor`` is divided by covar_scale_multiplier.
+            :math:`c \to \beta c`.
+            If the acceptance rate is smaller than ``force_acceptance_min``,
+            :math:`c \to c / \beta`. Default :math:`\beta=1.5`
 
-        Additionally, an upper and a lower limit ``for covar_scale_factor``
-        can be provided.
+        Additionally, an upper and a lower limit on
+        ``covar_scale_factor`` can be provided. This is useful to hint
+        at bugs in the target or MC implementation that cause the
+        efficiency to run away.
 
         :param covar_scale_factor_max:
 
-            Float, ``covar_scale_factor`` is kept below this value
+            Float, ``covar_scale_factor`` is kept below this value. Default: 100.
 
         :param covar_scale_factor_min:
 
-            Float, ``covar_scale_factor`` is kept above this value
+            Float, ``covar_scale_factor`` is kept above this value. Default: 1e-4.
 
         """
-        #TODO: include citation HST01 & Wra+09 into docstring
 
         if args != (): raise TypeError('keyword args only; try set_adapt_parameters(keyword = value)')
 
