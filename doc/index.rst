@@ -11,6 +11,7 @@ Contents:
    :maxdepth: 2
 
    pypmc
+   cluster
    references
 
 Indices and tables
