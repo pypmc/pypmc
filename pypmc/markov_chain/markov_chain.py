@@ -20,7 +20,7 @@ class MarkovChain(_Chain):
     :param proposal:
 
         The proposal density `q`.
-        Should be of type :py:class:`pypmc.mcprerun.proposal.ProposalDensity`.
+        Should be of type :py:class:`pypmc.markov_chain.proposal.ProposalDensity`.
 
         .. hint::
             If your proposal density is symmetric, define the member
@@ -40,7 +40,7 @@ class MarkovChain(_Chain):
         Use this function to specify the support of the target.
 
         .. seealso::
-            :py:mod:`pypmc.mcprerun.indicator_factory`
+            :py:mod:`pypmc.markov_chain.indicator_factory`
 
     :param prealloc:
 
@@ -63,7 +63,7 @@ class MarkovChain(_Chain):
 
         .. seealso::
             ``rng`` must also fulfill the requirements of your proposal
-            :py:meth:`pypmc.mcprerun.proposal.ProposalDensity.propose`
+            :py:meth:`pypmc.markov_chain.proposal.ProposalDensity.propose`
 
     """
     def __init__(self, target, proposal, start, indicator = None,
@@ -306,7 +306,7 @@ class AdaptiveMarkovChain(MarkovChain):
     def adapt(self):
         """Update the proposal's covariance matrix using the points
         stored in ``self.points`` and the parameters which can be set via
-        :py:mod:`pypmc.mcprerun.markov_chain.AdaptiveMarkovChain.set_adapt_params`.
+        :py:mod:`pypmc.markov_chain.markov_chain.AdaptiveMarkovChain.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
         described in detail.
 
