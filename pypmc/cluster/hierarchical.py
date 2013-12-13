@@ -6,15 +6,43 @@ import numpy as np
 import scipy.linalg as linalg
 
 class GaussianMixture(object):
-    """Minimal description of a Gaussian mixture density"""
-    # todo add check if weights are normalized with Kaman(?) precision included
-    # todo add a normalization method
-    # make weights available as numpy array
-    def __init__(self, components):
+    """A Gaussian mixture density.
+
+    :param components:
+
+        An iterable of ``Component``.
+
+    :param weights:
+
+        The weight associated with each component. If ``None``, assign
+        equal weight to every component. If given, the weights are
+        normalized to sum to one.
+
+    """
+    def __init__(self, components, weights=None):
         self.comp = list(components)
+        if weights is None:
+            self.w = np.ones(len(self.comp))
+        else:
+            assert len(weights) == len(self.comp)
+            self.w = np.array(weights)
+        self.normalize()
 
     def __getitem__(self, i):
         return self.comp[i]
+
+    def normalize(self):
+        """Normalize the component weights to sum up to 1."""
+        self.w /= self.w.sum()
+
+    def normalized(self):
+        try:
+            # precision loss in sum of many small numbers, so can't
+            # expect 1.0 exactly
+            np.testing.assert_allclose(self.w.sum(), 1.0)
+            return True
+        except AssertionError:
+            return False
 
     def prune(self):
         """Remove components with vanishing weight.
@@ -25,9 +53,13 @@ class GaussianMixture(object):
         removed_indices = []
         n = len(self.comp)
         for i, c in enumerate(reversed(self.comp)):
-            if not c.weight:
-                removed_indices.append(n - i)
+            if not self.w[n - i - 1]:
+                removed_indices.append(n - i - 1)
                 self.comp.pop(removed_indices[-1])
+
+        # adjust weights
+        if removed_indices:
+            self.w = np.delete(self.w, removed_indices)
 
         return removed_indices
 
@@ -36,7 +68,7 @@ class GaussianMixture(object):
             yield c
 
     class Component(object):
-        """Minimal description of a Gaussian component in a mixture density
+        """Minimal description of a Gaussian component in a mixture density.
 
         :param weight:
 
@@ -54,9 +86,17 @@ class GaussianMixture(object):
 
             Compute inverse and determinant of ``cov``.
 
+        :attribute det:
+
+            Determinant of the covariance.
+
+        :attribute inv:
+
+            Inverse of the covariance. Only available if ``inv``
+            enabled at start up.
+
         """
-        def __init__(self, weight, mean, cov, inv=False):
-            self.weight = weight
+        def __init__(self, mean, cov, inv=False):
             self.mean = mean
             self.cov = cov
 
@@ -67,11 +107,8 @@ class GaussianMixture(object):
                 self._inv()
 
         def _verify(self):
-            # a weight is in [0, 1]
-            assert(self.weight >= 0)
-            assert(self.weight <= 1)
-
-            # dimension have to match
+            assert len(self.mean) > 0
+            # dimensions have to match
             assert(self.cov.shape == (len(self.mean), len(self.mean)))
 
         def _det(self):
@@ -96,12 +133,26 @@ class Hierarchical(object):
     """Hierarchical clustering as described in [GR04]_.
 
     Find a Gaussian mixture density with components :math:`g_j` that
-    most closely matches the Gaussian mixture density specified by the
-    ``f``, :math:`f_i`, but with less components. The
-    algorithm is an iterative EM procedure alternating between a
-    *regroup* and a *refit* step, and requires an ``initial_guess`` of
-    the output density that defines the maximum number of components
-    to use.
+    most closely matches the Gaussian mixture density specified by
+    ``f`` and its components :math:`f_i`, but with less
+    components. The algorithm is an iterative EM procedure alternating
+    between a *regroup* and a *refit* step, and requires an
+    ``initial_guess`` of the output density that defines the maximum
+    number of components to use.
+
+    :param input_components:
+
+        :py:class:`pypmc.cluster.hierarchical.GaussianMixture`, the Gaussian
+        mixture to be reduced.
+
+    :param initial_guess:
+
+        :py:class:`pypmc.cluster.hierarchical.GaussianMixture`, initial guess for
+        the EM algorithm.
+
+    :param verbose:
+
+        Output information on progress of algorithm.
 
     """
     def __init__(self, input_components, initial_guess, verbose=False):
@@ -113,7 +164,6 @@ class Hierarchical(object):
         assert self.nin > self.nout, "Cannot reduce number of input components: %s" % (self.nin, self.nout)
         assert self.nout > 0, "Invalid number of output components %s" % self.nout
 
-        # todo check if weights are properly normalized
         self.f = input_components
         self.g = copy.copy(initial_guess)
 
@@ -151,11 +201,7 @@ class Hierarchical(object):
 
     def _distance(self):
         """Compute the distance function d(f,g,\pi), Eq. (3)"""
-        d = 0.0
-        # todo use np.average once weights available as array
-        for i in range(self.nin):
-            d += self.f[i].weight * self.min_kl[i]
-        return d
+        return np.average(self.min_kl, weights=self.f.w)
 
     def _refit(self):
         """Update the map :math:`\pi` keeping the output :math:`g` fixed
@@ -170,9 +216,6 @@ class Hierarchical(object):
         sigma = np.empty_like(self.f[0].cov)
 
         for j, c in enumerate(self.g):
-            # new weight
-            c.weight = 0.0
-
             # stop if inv_map is empty for j-th comp.
             if not self.inv_map[j]:
                 continue
@@ -181,14 +224,13 @@ class Hierarchical(object):
             c.mean[:] = 0.0
             c.cov[:] = 0.0
 
-            # todo use np.average? Needs weights as vector
             # compute total weight and mean
+            weight = self.f.w[self.inv_map[j]].sum()
             for i in self.inv_map[j]:
-                c.weight += self.f[i].weight
-                c.mean += self.f[i].weight * self.f[i].mean
+                c.mean += self.f.w[i] * self.f[i].mean
 
             # rescale by total weight
-            c.mean /= c.weight
+            c.mean /= weight
 
             # update covariance
             for i in self.inv_map[j]:
@@ -203,15 +245,12 @@ class Hierarchical(object):
                 sigma += self.f[i].cov
 
                 # multiply with alpha_i
-                sigma *= self.f[i].weight
+                sigma *= self.f.w[i]
 
                 # sigma_j += alpha_i * (sigma_i + (mu'_j - mu_i) (mu'_j - mu_i)^T
                 c.cov += sigma
             # 1 / beta_j
-            c.cov /= c.weight
-
-            if self._verbose:
-                print('beta_%d = %g' % (j, c.weight))
+            c.cov /= weight
 
     def _regroup(self):
         """Update the output :math:`g` keeping the map :math:`\pi` fixed.
@@ -237,12 +276,15 @@ class Hierarchical(object):
             self.inv_map[j_min].append(i)
 
     def run(self, eps=1e-4, kill=True, max_steps=50):
-        """Perform the clustering on the input components
+        r"""Perform the clustering on the input components
         updating the initial guess.
 
         :param eps:
             If relative change of distance between current and last step falls below ``eps``,
-            declare convergence.
+            declare convergence:
+
+            .. math::
+                0 < \frac{d^t - d^{t-1}}{d^t} < \varepsilon
 
         :param kill:
              If a component is assigned zero weight (no input components), it is removed.
@@ -251,9 +293,11 @@ class Hierarchical(object):
              Perform a maximum number of update steps.
 
         """
-        old_distance = np.inf
-        new_distance = np.inf
+        old_distance = np.finfo(np.float64).max
+        new_distance = np.finfo(np.float64).max
 
+        if self._verbose:
+            print('Starting hierarchical clustering with %d components.' % len(self.g.comp))
         converged = False
         step = 0
         while not converged and step < max_steps:
@@ -285,6 +329,9 @@ class Hierarchical(object):
             step += 1
 
         assert converged
+        self._cleanup(kill)
+        if self._verbose:
+            print('%d components remain.' % len(self.g.comp))
 
         return self.g
 
