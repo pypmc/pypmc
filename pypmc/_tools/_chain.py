@@ -28,23 +28,24 @@ class _Chain(object):
         '''
         raise NotImplementedError()
 
-_hist_get_functions_common_part_of_docstring =\
-''':param run_nr:
-
-            int, the number of the run to be extracted
-
-            .. hint::
-                Negative numbers are supported.
-                The standard value ``-1`` returns the latest run.\n\n'''
-
-_hist_get_points_functions_warning =\
-'''.. warning::\n\
-            This function returns a reference. Modification of this\n\
-            function's output without explicitly copying it first may\n\
-            result in an inconsistent history of the chain!\n\n'''
-
 class _Hist(object):
-    """Manages the history of _Chain objects"""
+    """Manages the history of _Chain objects
+
+    Access:
+
+        ``self[run_nr]`` and ``self[run_begin:run_end]`` return
+        tuple(accept_count, points) for the runs specified (excluding run_end)
+
+        .. warning::
+            Index access returns a reference. Modification of ``points``
+            without explicitly copying it first may result in an inconsistent
+            history of the chain!
+
+        .. hint::
+            Negative numbers are supported, for example ``self[-1]`` returns
+            the latest run.
+
+    """
 #
 #    :var points:
 #
@@ -86,12 +87,33 @@ class _Hist(object):
         """Deletes the history"""
         self._memleft        = self._prealloc
 
-        new_first_point      = self.get_run_points()[-1]
+        new_first_point      = self[-1][1][-1]
         self._points         = _np.empty((self._prealloc + 1, len(new_first_point)))
         self._points[0:1]    = new_first_point
 
         self._slice_for_run_nr   = [(0,1)]
         self._accept_counts      = [0]
+
+    def __getitem__(self, item):
+        if type(item) == slice and not item.step == None:
+            raise NotImplementedError('strided slicing is not supported')
+
+        # get accept count
+        if type(item) == slice:
+            out1 = sum(self._accept_counts[item])
+        else:
+            out1 = self._accept_counts[item]
+
+        # get points
+        if type(item) == slice:
+            requested_slice    = [None,None]
+            requested_slice[0] = self._slice_for_run_nr[item][0] [0]
+            requested_slice[1] = self._slice_for_run_nr[item][-1][1]
+        else:
+            requested_slice    = self._slice_for_run_nr[item]
+        out2               = self._points[requested_slice[0] : requested_slice[1]]
+
+        return out1, out2
 
     def _alloc(self, new_points_len):
         '''Allocates memory for a run and returns a reference to that memory
@@ -116,7 +138,7 @@ class _Hist(object):
         if self._memleft < new_points_len: #need to allocate new memory
             self._memleft = 0
             #careful: do not use self._points because this may include unused memory
-            self._points  = _np.vstack(( self.get_all_points() , _np.empty((new_points_len, self._dim)) ))
+            self._points  = _np.vstack(( self[:][1] , _np.empty((new_points_len, self._dim)) ))
 
         else: #have enough memory
             self._memleft -= new_points_len
@@ -139,32 +161,3 @@ class _Hist(object):
         '''
         # append accept count
         self._accept_counts.append(accept_count)
-
-    @_add_to_docstring(_hist_get_functions_common_part_of_docstring)
-    @_add_to_docstring('        ')
-    @_add_to_docstring(_hist_get_points_functions_warning)
-    def get_run_points(self, run_nr = -1):
-        '''Returns a reference to the points of a specific run
-
-        '''
-        requested_slice = self._slice_for_run_nr[run_nr]
-        return self._points[requested_slice[0] : requested_slice[1]]
-
-    @_add_to_docstring(_hist_get_functions_common_part_of_docstring)
-    def get_run_accept_count(self, run_nr = -1):
-        '''Returns the number of accepted steps during specific run
-
-        '''
-        return self._accept_counts[run_nr]
-
-    @_add_to_docstring(_hist_get_points_functions_warning)
-    def get_all_points(self):
-        '''Returns a reference the points visited in all runs including
-        the initial point
-
-        '''
-        return self._points[:self._slice_for_run_nr[-1][1]]
-
-    def get_all_accept_count(self):
-        '''Returns the number of accepted steps during all runs'''
-        return sum(self._accept_counts)

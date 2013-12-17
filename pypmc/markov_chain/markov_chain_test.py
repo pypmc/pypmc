@@ -78,13 +78,13 @@ class TestMarkovChain(unittest.TestCase):
 
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
-        self.assertEqual(len(mc.hist.get_run_points()), int(NumberOfRandomSteps/10))
+        self.assertEqual(len(mc.hist[-1][1]), int(NumberOfRandomSteps/10))
         mc.hist.clear()
-        self.assertEqual(len(mc.hist.get_run_points()), 1)
+        self.assertEqual(len(mc.hist[-1][1]), 1)
 
         mc.run(NumberOfRandomSteps)
 
-        values = mc.hist.get_all_points()
+        values = mc.hist[:][1]
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -136,18 +136,18 @@ class TestMarkovChain(unittest.TestCase):
         float_acc = 1e-15
 
         # check initial point
-        self.assertAlmostEqual(0., mc.hist.get_run_points(0))
+        self.assertAlmostEqual(0., mc.hist[0][1])
 
         # check all runs
         for run in range(1,11):
-            this_run        = mc.hist.get_run_points(run)
+            this_run        = mc.hist[run][1]
             this_run_target = np.arange(1.,11.)+(run-1)*10
             for i in range(10):
                 self.assertAlmostEqual(this_run[i][0], this_run_target[i], float_acc)
 
-        # mc.hist.get_run_points() should return the last run by default, i.e.
-        for i in range(10):
-            self.assertEqual(mc.hist.get_run_points()[i], mc.hist.get_run_points(-1)[i])
+        # check slicing
+        for i in range(50):
+            self.assertAlmostEqual(mc.hist[:6][1][i], np.arange(50)[i], float_acc)
 
 class TestAdaptiveMarkovChain(unittest.TestCase):
     def test_adapt(self):
@@ -188,7 +188,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
             covar_scale_factor = mc.covar_scale_factor
 
-        values = mc.hist.get_all_points()
+        values = mc.hist[:][1]
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()

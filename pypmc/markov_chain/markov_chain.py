@@ -318,8 +318,8 @@ class AdaptiveMarkovChain(MarkovChain):
 
         time_dependent_damping_factor = 1./self.adapt_count**self.damping
 
-        last_run        = self.hist.get_run_points()
-        accept_rate     = float(self.hist.get_run_accept_count())/len(last_run)
+        last_accept_count, last_run = self.hist[-1]
+        accept_rate = float(last_accept_count)/len(last_run)
 
         # careful with rowvar!
         # in this form it is expected that each column  of ``points``
