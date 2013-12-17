@@ -43,18 +43,21 @@ class TestGaussianMixture(unittest.TestCase):
         self.assertEqual(len(mix.w), ncomp - 1)
         self.assertTrue(mix.normalized())
 
+hierarcical_cov = np.eye(2) #must be defined outside for python3 --> see line 'initial_components = ...'
+
 class TestHierarchical(unittest.TestCase):
     # bimodal Gaussian distribution with a few components
     # randomly scattered around each mode
     means = [np.array([+5, 0]), np.array([-5, 0])]
-    cov = np.eye(2)
+    cov = hierarcical_cov
 
     # generate 50% of components from each mode
     ncomp = 500
     np.random.seed(ncomp)
     random_centers = np.random.multivariate_normal(means[0], cov, size=(ncomp // 2))
     random_centers = np.vstack((random_centers, np.random.multivariate_normal(means[1], cov, size=ncomp // 2)))
-    input_components = GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers])
+    #input_components = GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers]) --> does not work in python3
+    input_components = GaussianMixture([GaussianMixture.Component(mu, hierarcical_cov) for mu in random_centers])
     initial_guess = GaussianMixture([GaussianMixture.Component(np.zeros(2) + 0.1, cov*3),
                      GaussianMixture.Component(np.zeros(2) - 0.1, cov*3),])
 
