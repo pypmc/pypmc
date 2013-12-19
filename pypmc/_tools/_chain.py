@@ -95,23 +95,26 @@ class _Hist(object):
         self._accept_counts      = [0]
 
     def __getitem__(self, item):
-        if type(item) == slice and not item.step == None:
-            raise NotImplementedError('strided slicing is not supported')
-
-        # get accept count
         if type(item) == slice:
+            if not item.step == None:
+                raise NotImplementedError('strided slicing is not supported')
+
+            # get accept count
             out1 = sum(self._accept_counts[item])
-        else:
-            out1 = self._accept_counts[item]
 
-        # get points
-        if type(item) == slice:
+            # get points
             requested_slice    = [None,None]
             requested_slice[0] = self._slice_for_run_nr[item][0] [0]
             requested_slice[1] = self._slice_for_run_nr[item][-1][1]
+            out2 = self._points[requested_slice[0] : requested_slice[1]]
+
         else:
-            requested_slice    = self._slice_for_run_nr[item]
-        out2               = self._points[requested_slice[0] : requested_slice[1]]
+            # get accept count
+            out1 = self._accept_counts[item]
+
+            # get points
+            requested_slice = self._slice_for_run_nr[item]
+            out2            = self._points[requested_slice[0] : requested_slice[1]]
 
         return out1, out2
 
