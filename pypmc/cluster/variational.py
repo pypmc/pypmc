@@ -153,8 +153,10 @@ class GaussianInference(_Inference):
         self.nu0    = kwargs.pop('nu0'   , self.dim + 1.)
 
 
-        self.m0     = kwargs.pop('m0'    , _np.zeros(self.dim * self.components).\
-                                            reshape((self.components,self.dim)) )
+        # starting m0[k] all equal unables the algorithm to diverge into unequal components
+        # thus do not use: m0 = np.zeros
+        self.m0     = kwargs.pop('m0'    , _np.linspace(-1.,1., self.components*self.dim).\
+                                           reshape((self.components,self.dim)) )
 
         # covariance matrix; unit matrix <--> unknown correlation
         self.W0     = kwargs.pop('W0'    , None)
@@ -170,9 +172,7 @@ class GaussianInference(_Inference):
 
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
-        # starting x_mean_comp[k] all equal unables the algorithm to diverge into unequal components
-        # thus do not use: self.x_mean_comp = self.m0.copy() if m0=np.zeros
-        self.x_mean_comp = self.m0.copy() + _np.linspace(-1.,1., self.components*self.dim).reshape((self.components,self.dim))
+        self.x_mean_comp = self.m0.copy()
         self.nu = _np.zeros(self.components) + (self.nu0 + 1)
         self.W = _np.array([self.W0 for i in range(self.components)])
         self.expectation_gauss_exponent = _np.zeros((  self.N,self.components  ))
@@ -212,6 +212,10 @@ class GaussianInference(_Inference):
         unnormalized_r  = _np.exp(self.expectation_ln_pi + .5 * self.expectation_det_ln_lambda
                           - .5*self.dim*_np.log(2.*_np.pi) - .5*self.expectation_gauss_exponent)
         normalization_r = unnormalized_r.sum(axis=1).reshape((self.N,1))
+
+        # avoid division by zero
+        normalization_r = _np.where(normalization_r==0, 1., normalization_r)
+
         self.r          = unnormalized_r/normalization_r
 
     def _update_expectation_det_ln_lambda(self):
@@ -262,8 +266,6 @@ class GaussianInference(_Inference):
     def prune(self, threshold = 1.):
         components_to_survive = _np.where(self.N_comp>=threshold)[0]
         self.components = len(components_to_survive)
-
-        self.expectation_gauss_exponent = _np.empty((  self.N,self.components  ))
 
         k_new = 0
         for k_old in components_to_survive:
