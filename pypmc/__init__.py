@@ -6,4 +6,4 @@
 from ._version import __version__
 
 # import these submodules by default
-from . import markov_chain
+from . import markov_chain, cluster

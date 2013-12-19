@@ -3,4 +3,4 @@
 '''
 
 # import these submodules by default
-from . import hierarchical
+from . import hierarchical, variational
