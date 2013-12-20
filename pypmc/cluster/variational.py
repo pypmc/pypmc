@@ -176,7 +176,7 @@ class GaussianInference(_Inference):
         self.nu = _np.zeros(self.components) + (self.nu0 + 1)
         self.W = _np.array([self.W0 for i in range(self.components)])
         self.expectation_gauss_exponent = _np.zeros((  self.N,self.components  ))
-        self.N_comp = _np.array([self.N/self.components for i in range(self.components)])
+        self.N_comp = self.N / self.components * _np.ones(self.components)
         self.beta = self.N_comp.copy() + self.beta0
         self.S = _np.empty_like(self.W)
         self.m = _np.empty((self.components,self.dim))
@@ -193,7 +193,7 @@ class GaussianInference(_Inference):
             self._update_r() #eqn 10.46 and 10.49 in [Bis06]
 
             #M-like-step
-            self.N_comp = self.r.sum(axis = 0) #eqn 10.51 in [Bis06]
+            self.N_comp = self.r.sum(axis=0) #eqn 10.51 in [Bis06]
             self.nu = self.nu0 + self.N_comp + 1. #eqn 10.63 in [Bis06]
             self._update_x_mean_comp() #eqn 10.52 in [Bis06]
             self._update_S() #eqn 10.53 in [Bis06]
@@ -209,14 +209,20 @@ class GaussianInference(_Inference):
             self.m[k] = 1./self.beta[k] * (self.beta0*self.m0[k] + self.N_comp[k]*self.x_mean_comp[k])
 
     def _update_r(self):
-        unnormalized_r  = _np.exp(self.expectation_ln_pi + .5 * self.expectation_det_ln_lambda
-                          - .5*self.dim*_np.log(2.*_np.pi) - .5*self.expectation_gauss_exponent)
-        normalization_r = unnormalized_r.sum(axis=1).reshape((self.N,1))
+        log_rho = self.expectation_ln_pi + 0.5 * self.expectation_det_ln_lambda \
+                  - 0.5 * self.dim*_np.log(2. * _np.pi) - 0.5 * self.expectation_gauss_exponent
 
-        # avoid division by zero
-        normalization_r = _np.where(normalization_r==0, 1., normalization_r)
+        # rescale log avoid divide by zero:
+        # find largest log for fixed comp. k
+        # and subtract it s.t. largest value at 0 (or 1 on linear scale)
+        log_rho -= log_rho.max(axis=1).reshape((self.N,1))
+        rho = _np.exp(log_rho)
 
-        self.r          = unnormalized_r/normalization_r
+        # compute normalization for each comp. k
+        normalization_rho = rho.sum(axis=1).reshape((self.N,1))
+
+        # in the division, the extra scale factor drops out automagically
+        self.r          = rho / normalization_rho
 
     def _update_expectation_det_ln_lambda(self):
         logdet_W = _np.array([_np.log(_np.linalg.det(self.W[k])) for k in range(self.components)])
@@ -230,15 +236,17 @@ class GaussianInference(_Inference):
     def _update_expectation_gauss_exponent(self): #_expectation_gauss_exponent --> _expectation_gauss_exponent[n,k]
         for k in range(self.components):
             for n in range(self.N):
-                tmp                                  = _np.array([self.data[n] - self.x_mean_comp[k]])
-                self.expectation_gauss_exponent[n,k] = self.dim/self.beta[k] + self.nu[k]*_np.dot(tmp,_np.dot(self.W[k],tmp.T))
+                tmp                                  = self.data[n] - self.x_mean_comp[k]
+                self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.transpose().dot(self.W[k]).dot(tmp)
 
     def _update_x_mean_comp(self):
+        # todo use np.average
         for k in range(self.components):
             if not self.N_comp[k] == 0: # prevent errors and x_mean is unimportant for a dead component
                 self.x_mean_comp[k] = 1./self.N_comp[k] * (self.r[:,k] * self.data.T).T.sum(axis = 0)
 
     def _update_S(self):
+        # todo use .transpose()
         self.S = _np.zeros_like(self.S)
         for k in range(self.components):
             for n in range(self.N):
@@ -247,6 +255,8 @@ class GaussianInference(_Inference):
                     self.S[k] += 1./self.N_comp[k] * self.r[n,k] * _np.dot(tmp.T,tmp)
 
     def _update_W(self):
+        # todo use .transpose()
+        # does _np.dot(tmp.T,tmp) yield a matrix?
         for k in range(self.components):
             tmp = _np.array([self.x_mean_comp[k] - self.m0[k]])
             new_Wk = self.inv_W0 + self.N_comp[k]*self.S[k] +\
