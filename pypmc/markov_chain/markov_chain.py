@@ -92,7 +92,7 @@ class MarkovChain(_Chain):
         if self.proposal.symmetric:
             get_log_rho = self._get_log_rho_metropolis
         else:
-            get_log_rho = self._get_log_rho_metropolis_hasting
+            get_log_rho = self._get_log_rho_metropolis_hastings
 
         # allocate an empty numpy array to temporary store this run
         this_run     = self.hist._alloc(N)
@@ -135,7 +135,7 @@ class MarkovChain(_Chain):
         """calculate the log of the metropolis ratio"""
         return self.target(proposed_point) - self.target(self.current)
 
-    def _get_log_rho_metropolis_hasting(self, proposed_point):
+    def _get_log_rho_metropolis_hastings(self, proposed_point):
         """calculate log(metropolis ratio times hastings factor)"""
         return self._get_log_rho_metropolis(proposed_point, self.points[-1])\
              - self.proposal.evaluate      (proposed_point, self.points[-1])\
