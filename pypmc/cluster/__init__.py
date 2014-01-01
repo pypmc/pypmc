@@ -3,4 +3,4 @@
 '''
 
 # import these submodules by default
-from . import hierarchical, variational
+from . import gaussian_mixture, hierarchical, variational
