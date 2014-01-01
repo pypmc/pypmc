@@ -3,6 +3,7 @@
 """
 
 from .variational import *
+from .gaussian_mixture import GaussianMixture
 import numpy as np
 import unittest
 
@@ -24,7 +25,7 @@ delta_cov1 = .001
 
 
 rng_seed = 625135153
-
+@unittest.skip("skipping old Gaussian inference")
 class TestGaussianInference(unittest.TestCase):
     def test_update(self):
         np.random.mtrand.seed(rng_seed)
@@ -99,3 +100,122 @@ class TestGaussianInference(unittest.TestCase):
 
         self.assertTrue( (np.abs(target_cov1 - inferred_covars[0])<delta_cov0).all()  )
         self.assertTrue( (np.abs(target_cov2 - inferred_covars[1])<delta_cov1).all()  )
+
+def create_mixture(means, cov, ncomp):
+    '''Create mixture density with different means but common covariance.
+
+    For each vector in ``means``, ``ncomp`` Gaussian components are created
+    by drawing new means from a multivariate Gaussian with covariance ``cov``.
+    Each component has covariance ``cov``.
+
+    '''
+    random_centers = np.random.multivariate_normal(means[0], cov, size=ncomp)
+    for mu in means[1:]:
+        random_centers = np.vstack((random_centers, np.random.multivariate_normal(mu, cov, size=ncomp)))
+
+    return GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers])
+
+class TestVBMerge(unittest.TestCase):
+
+    def setUp(self):
+        np.random.mtrand.seed(rng_seed)
+
+    def test_bimodal(self):
+        '''Compress bimodal distribution with four components to two components.'''
+
+        means = (np.array([5, 0]), np.array([-5,0]))
+        cov = np.eye(2)
+        input_components = create_mixture(means, cov, 2)
+        initial_guess = create_mixture(means, cov, 1)
+        N = 500
+        print('input')
+        for c in input_components:
+            print(c.mean)
+
+        print('initial guess')
+        for c in initial_guess:
+            print(c.mean)
+
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, alpha0=1e-5, beta0=1e-5)
+
+        # initial guess taken over?
+        for i,c in enumerate(initial_guess):
+            np.testing.assert_array_equal(vb.m[i], c.mean)
+            np.testing.assert_array_equal(vb.W[i],  c.inv)
+
+        vb.update()
+        # each output comp. should get half of the virtual samples
+        self.assertAlmostEqual(vb.N_comp[0], N / 2)
+
+        # all components have same weight initially
+        self.assertAlmostEqual(vb.expectation_ln_pi[0], vb.expectation_ln_pi[1])
+
+        # all matrices are unit matrices, compute result by hand
+        self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], vb.expectation_det_ln_lambda[1])
+        self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], 0.84556867019693416)
+
+        # painful calculation by hand
+        self.assertAlmostEqual(vb.log_rho[0,0], -18750628.396350645, delta=1e-5)
+
+        # first/second input mapped to first output
+        self.assertAlmostEqual(vb.r[0,0], 1)
+        self.assertAlmostEqual(vb.r[1,0], 1)
+
+        # third/fourth input mapped to second output
+        self.assertAlmostEqual(vb.r[2,1], 1)
+        self.assertAlmostEqual(vb.r[3,1], 1)
+
+        # alpha and beta equal after first update
+        np.testing.assert_allclose(vb.alpha, vb.N_comp + 1e-5, rtol=1e-15)
+        np.testing.assert_allclose(vb.beta, vb.N_comp + 1e-5, rtol=1e-15)
+
+        # mean simply average of two input components
+        average = np.array([[ 4.16920636,  1.22792254],
+                            [-3.9225488 ,  0.61861674]])
+        np.testing.assert_allclose(vb.x_mean_comp[0], average[0], rtol=1e-7)
+        np.testing.assert_allclose(vb.x_mean_comp[1], average[1], rtol=1e-7)
+
+        # compute S_0 + C_0 by hand
+        S0 =  np.array([[ 1.02835205, -0.12980275],
+                        [-0.12980275,  1.5942694 ]])
+        np.testing.assert_allclose(vb.S[0], S0)
+
+        # is output properly generated?
+        output = vb.get_result()
+        self.assertAlmostEqual(output.w[0], 0.5, 13)
+        # best fit is just the average
+        for i in range(2):
+            np.testing.assert_allclose(output[i].mean, average[i], rtol=1e-7)
+
+        # covariance only roughly determined
+        for c in output:
+            for i in range(2):
+                self.assertGreater(c.cov[i, i], 0.5)
+                self.assertLess(   c.cov[i, i], 3)
+            self.assertAlmostEqual(c.cov[0, 1], c.cov[1, 0])
+            self.assertGreater(c.cov[0, 1], -1)
+            self.assertLess(   c.cov[0, 1], +1)
+
+        # todo check for convergence
+        vb.update()
+        output2 = vb.get_result()
+        np.testing.assert_array_equal(output[0].mean, output2[0].mean)
+        np.testing.assert_array_equal(output[1].mean, output2[1].mean)
+
+        for c in output:
+            print(c.mean)
+            print(c.cov)
+        return
+        for i in range(5):
+            vb.update()
+            output = vb.get_result()
+            print('step %d' % (i + 1))
+            print(output.w)
+            for c in output:
+                print(c.cov)
+
+        self.assertEqual(len(output.comp), len(initial_guess.comp))
+        self.assertAlmostEqual(output.w[0], 0.5, places=5)
+
+    def test_large(self):
+        '''Compress large number of similar components into a single component.'''

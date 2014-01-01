@@ -4,6 +4,12 @@
 References
 ==========
 
+.. [BGP10] Bruneau, Pierrick and Gelgon, Marc and Picarougne, Fabien
+           *Parsimonious reduction of Gaussian mixture models with a
+           variational-Bayes approach*, 2010. Pattern Recognition
+           43 850 -- 858
+           http://dx.doi.org/10.1016/j.patcog.2009.08.006
+
 .. [Bis06] Bishop, Christopher M. *Pattern Recognition and Machine Learning*, Springer 2006.
            `ISBN:978-0-387-31073-2 <http://springer.com/978-0-387-31073-2>`_
 

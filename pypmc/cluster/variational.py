@@ -3,6 +3,8 @@
 """
 
 from __future__ import division as _div
+from .gaussian_mixture import GaussianMixture
+from math import log
 import numpy as _np
 from scipy.special.basic import digamma as _digamma
 from .._tools._doc import _inherit_docstring, _add_to_docstring
@@ -16,7 +18,7 @@ class _Inference(object):
     def __init__(self):
         raise NotImplementedError('Do not create instances from this class, use derived classes instead.')
 
-    def update(self, N = 1):
+    def update(self, N=1):
         '''Recalculates the parameters using the update equations
 
         :param N:
@@ -34,7 +36,7 @@ class _Inference(object):
         '''
         raise NotImplementedError()
 
-    def prune(self, threshold = 1.):
+    def prune(self, threshold=1.):
         '''Deletes components with small effective number of samples :math:`N_k`
 
         :param threshold:
@@ -50,6 +52,7 @@ class _Inference(object):
         raise NotImplementedError()
 
 class GaussianInference(_Inference):
+    # todo refer to set_variational_parameters for more kwargs
     '''Approximates a probability density by a Gaussian mixture according
     to chapter 10.2 in [Bis06]_
 
@@ -70,9 +73,10 @@ class GaussianInference(_Inference):
 
     '''
     def __init__(self, data, components, **kwargs):
+        # todo but data is not changed, so why a copy?
         self.data       = _np.array(data) #call array constructor to be sure to have a copy
         self.components = components
-        self.N,self.dim = self.data.shape
+        self.N, self.dim = self.data.shape
 
         self.set_variational_parameters(**kwargs)
 
@@ -102,25 +106,30 @@ class GaussianInference(_Inference):
 
         :param beta0:
 
-            Float; :math:`\beta_0` paramter for the probability distribution of
-            :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
+            Float; :math:`\beta_0` parameter of the probability distribution of
+            :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`. Should be
+            of the same order as ``alpha0`` for numerical stability.
 
         :param nu0:
 
-            Float; :math:`\nu_0` paramter for the probability distribution of
+            Float; :math:`\nu_0` parameter for the probability distribution of
             :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
 
         :param m0:
 
-            Matrix like array; :math:`m_0` paramter for the probability
+            Matrix like array; :math:`m_0` parameter for the probability
             distribution of
             :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
-            Provide an initial guess for the means here such that the
+            Provide an initial guess for the means such that the
             mean of component i can be accessed as m0[i].
+
+            @warning: If component means are identical initially, they
+                may remain identical. It is advisable to randomly initialize
+                them in order to avoid such singular behavior.
 
         :param W0:
 
-            Matrix like array; :math:`\boldsymbol{W_0}` paramter for the
+            Matrix like array; :math:`\boldsymbol{W_0}` parameter for the
             probability distribution of
             :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
 
@@ -144,100 +153,107 @@ class GaussianInference(_Inference):
     def set_variational_parameters(self, *args, **kwargs): # TODO: write default initial values into docstring
         if args != (): raise TypeError('keyword args only; try set_adapt_parameters(keyword = value)')
 
-        self.alpha0 = kwargs.pop('alpha0', 1.e-10)
+        self.alpha0 = kwargs.pop('alpha0', 1e-5)
 
         # in the limit beta --> 0: uniform prior
-        self.beta0  = kwargs.pop('beta0' , 1.e-20)
+        self.beta0  = kwargs.pop('beta0' , 1e-5)
 
         # smallest possible nu such that the Wishart pdf does not diverge at 0
         self.nu0    = kwargs.pop('nu0'   , self.dim + 1.)
 
-
-        # starting m0[k] all equal unables the algorithm to diverge into unequal components
-        # thus do not use: m0 = np.zeros
-        self.m0     = kwargs.pop('m0'    , _np.linspace(-1.,1., self.components*self.dim).\
-                                           reshape((self.components,self.dim)) )
+        self.m0     = kwargs.pop('m0'    , _np.zeros(self.dim))
+        self.m      = kwargs.pop('m'     , None)
+        if self.m is None:
+            # If the initial means are identical, the components remain identical in all updates.
+            self.m = _np.linspace(-1.,1., self.components*self.dim).reshape((self.components, self.dim))
 
         # covariance matrix; unit matrix <--> unknown correlation
         self.W0     = kwargs.pop('W0'    , None)
-        if self.W0 == None:
+        if self.W0 is None:
             self.W0     = _np.eye(self.dim)
             self.inv_W0 = self.W0
         else:
             self.inv_W0 = _np.linalg.inv(self.W0)
 
-        if not kwargs == {}: raise TypeError('unexpected keyword(s): ' + str(kwargs.keys()))
+        if kwargs: raise TypeError('unexpected keyword(s): ' + str(kwargs.keys()))
 
         self._initialize_output()
 
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
-        self.x_mean_comp = self.m0.copy()
-        self.nu = _np.zeros(self.components) + (self.nu0 + 1)
+        self.x_mean_comp = _np.zeros((self.components, self.dim))
+        self.nu = _np.zeros(self.components) + self.nu0 # todo was + 1 before. Why?
         self.W = _np.array([self.W0 for i in range(self.components)])
         self.expectation_gauss_exponent = _np.zeros((  self.N,self.components  ))
         self.N_comp = self.N / self.components * _np.ones(self.components)
-        self.beta = self.N_comp.copy() + self.beta0
+        self.alpha = self.alpha0 * _np.ones(self.components)
+        self.beta  = self.beta0  * _np.ones(self.components)
         self.S = _np.empty_like(self.W)
-        self.m = _np.empty((self.components,self.dim))
 
     # ------------------- below belongs to update ---------------------
     @_inherit_docstring(_Inference)
     def update(self, N=1):
         for i in range(N):
-            #E-like-step
+            # E-like step
             self._update_expectation_gauss_exponent() #eqn 10.64 in [Bis06]
             self._update_expectation_det_ln_lambda() #eqn 10.65 in [Bis06]
-            self.alpha = self.alpha0 + self.N_comp #eqn 10.58 in [Bis06]
-            self.expectation_ln_pi = _digamma(self.alpha) - _digamma(self.alpha.sum()) #eqn 10.66 in [Bis06]
+            self._update_expectation_ln_pi() #eqn 10.66 in [Bis06]
             self._update_r() #eqn 10.46 and 10.49 in [Bis06]
 
-            #M-like-step
+            # M-like step
             self.N_comp = self.r.sum(axis=0) #eqn 10.51 in [Bis06]
-            self.nu = self.nu0 + self.N_comp + 1. #eqn 10.63 in [Bis06]
+            self.nu = self.nu0 + self.N_comp #eqn 10.63 in [Bis06]
             self._update_x_mean_comp() #eqn 10.52 in [Bis06]
             self._update_S() #eqn 10.53 in [Bis06]
+            self.alpha = self.alpha0 + self.N_comp #eqn 10.58 in [Bis06]
             self.beta = self.beta0 + self.N_comp #eqn 10.60 in [Bis06]
             self._update_m() #eqn 10.61 in [Bis06]
             self._update_W() #eqn 10.62 in [Bis06]
 
-            # TODO: insert convergence criterion --> log-likelihood
+            # TODO: insert convergence criterion --> lower log-likelihood bound
             # TODO: implement support for weights
 
     def _update_m(self):
         for k in range(self.components):
             self.m[k] = 1./self.beta[k] * (self.beta0*self.m0[k] + self.N_comp[k]*self.x_mean_comp[k])
 
-    def _update_r(self):
-        log_rho = self.expectation_ln_pi + 0.5 * self.expectation_det_ln_lambda \
-                  - 0.5 * self.dim*_np.log(2. * _np.pi) - 0.5 * self.expectation_gauss_exponent
+    def _update_log_rho(self):
+        # todo check sum of vector and matrix
+        self.log_rho = self.expectation_ln_pi + 0.5 * self.expectation_det_ln_lambda \
+                  - 0.5 * self.dim * log(2. * _np.pi) - 0.5 * self.expectation_gauss_exponent
 
-        # rescale log avoid divide by zero:
+    def _update_r(self):
+        self._update_log_rho()
+
+        # rescale log to avoid division by zero:
         # find largest log for fixed comp. k
         # and subtract it s.t. largest value at 0 (or 1 on linear scale)
-        log_rho -= log_rho.max(axis=1).reshape((self.N,1))
-        rho = _np.exp(log_rho)
+        rho = self.log_rho - self.log_rho.max(axis=1).reshape((len(self.log_rho), 1))
+        rho = _np.exp(rho)
 
         # compute normalization for each comp. k
-        normalization_rho = rho.sum(axis=1).reshape((self.N,1))
+        normalization_rho = rho.sum(axis=1).reshape((len(rho), 1))
 
         # in the division, the extra scale factor drops out automagically
-        self.r          = rho / normalization_rho
+        self.r = rho / normalization_rho
 
     def _update_expectation_det_ln_lambda(self):
-        logdet_W = _np.array([_np.log(_np.linalg.det(self.W[k])) for k in range(self.components)])
+        logdet_W = _np.array([log(_np.linalg.det(self.W[k])) for k in range(self.components)])
 
-        tmp = 0
-        for i in range(1,self.dim+1):
-            tmp += _digamma(    .5*(self.nu + 1. - i )    )
+        tmp = 0.
+        for i in range(1, self.dim + 1):
+            tmp += _digamma(    0.5 * (self.nu + 1. - i)    )
 
-        self.expectation_det_ln_lambda = tmp + self.dim*_np.log(2.) + logdet_W
+        self.expectation_det_ln_lambda = tmp + self.dim * log(2.) + logdet_W
 
     def _update_expectation_gauss_exponent(self): #_expectation_gauss_exponent --> _expectation_gauss_exponent[n,k]
         for k in range(self.components):
             for n in range(self.N):
                 tmp                                  = self.data[n] - self.x_mean_comp[k]
                 self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.transpose().dot(self.W[k]).dot(tmp)
+
+    def _update_expectation_ln_pi(self):
+        self.expectation_ln_pi = _digamma(self.alpha) - _digamma(self.alpha.sum())
 
     def _update_x_mean_comp(self):
         # todo use np.average
@@ -246,22 +262,18 @@ class GaussianInference(_Inference):
                 self.x_mean_comp[k] = 1./self.N_comp[k] * (self.r[:,k] * self.data.T).T.sum(axis = 0)
 
     def _update_S(self):
-        # todo use .transpose()
         self.S = _np.zeros_like(self.S)
         for k in range(self.components):
             for n in range(self.N):
                 if not self.N_comp[k] == 0: # prevent errors and S for a dead component is unimportant
                     tmp        = _np.array([self.data[n] - self.x_mean_comp[k]])
-                    self.S[k] += 1./self.N_comp[k] * self.r[n,k] * _np.dot(tmp.T,tmp)
+                    self.S[k] += 1./self.N_comp[k] * self.r[n,k] * _np.outer(tmp, tmp)
 
     def _update_W(self):
-        # todo use .transpose()
-        # does _np.dot(tmp.T,tmp) yield a matrix?
         for k in range(self.components):
             tmp = _np.array([self.x_mean_comp[k] - self.m0[k]])
-            new_Wk = self.inv_W0 + self.N_comp[k]*self.S[k] +\
-                     (self.beta0*self.N_comp[k])/(self.beta0+self.N_comp[k]) * _np.dot(tmp.T,tmp)
-            self.W[k] = _np.linalg.inv(new_Wk)
+            cov = self.inv_W0 + self.N_comp[k] * self.S[k]
+            self.W[k] = _np.linalg.inv(cov)
 
     # ------------------- above belongs to update ---------------------
 
@@ -274,7 +286,7 @@ class GaussianInference(_Inference):
 
     @_inherit_docstring(_Inference)
     def prune(self, threshold = 1.):
-        components_to_survive = _np.where(self.N_comp>=threshold)[0]
+        components_to_survive = _np.where(self.N_comp >= threshold)[0]
         self.components = len(components_to_survive)
 
         k_new = 0
@@ -310,3 +322,160 @@ class GaussianInference(_Inference):
         self.beta                       = self.beta                        [:self.components]
         self.m                          = self.m                           [:self.components]
         self.W                          = self.W                           [:self.components]
+
+
+class VBMerge(GaussianInference):
+    # todo refer to set_variational_parameters for more kwargs
+    """Parsimonious reduction of Gaussian mixture models with a
+    variational-Bayes approach [BGP10]_
+
+    The idea is to reduce the number of components of an overly complex
+    Gaussian mixture while retaining an accurate description. The original
+    samples are not required, hence it much faster compared to standard
+    variational Bayes. The great advantage compared to hierarchical
+    clustering is that the number of output components is chosen
+    automatically. One starts with too many components and lets the
+    algorithm remove unnecessary components.
+
+    :param input_mixture:
+
+        A Gaussian mixture density, the input to be compressed.
+
+    :param initial_guess:
+
+        A Gaussian mixture density, the starting point for the optimization.
+        Its number of components defines the maximum possible.
+        todo refer to ``GaussianMixture``
+
+    :param N:
+
+        The number of (virtual) input samples that the ``input_mixture`` is
+        based on.
+
+    """
+
+    def __init__(self, input_mixture, N, components=None, initial_guess=None, **kwargs):
+        # make sure input has the correct inverse matrices available
+        self.input = input_mixture
+        for c in self.input:
+            c._inv()
+
+        # number of input components
+        self.L = len(input_mixture.comp)
+
+        # input means
+        self.mu = _np.array([c.mean for c in self.input])
+
+        if initial_guess is not None:
+            self.components = len(initial_guess.comp)
+        elif components is not None:
+            self.components = components
+        else:
+            raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
+        self.dim = len(input_mixture[0].mean)
+
+        self.N = N
+        # effective number of samples per input component
+        # in [BGP10], that's N \cdot \omega' (vector!)
+        self.Nin = self.input.w * N
+
+        self.set_variational_parameters(**kwargs)
+        # take mean and covariances from initial guess
+        if initial_guess is not None:
+            # precision matrix is inverse of covariance
+            for c in initial_guess:
+                c._inv()
+            self.W = _np.array([c.inv for c in initial_guess])
+
+            # copy over the means
+            self.m = _np.array([c.mean for c in initial_guess])
+
+    def _initialize_output(self):
+        GaussianInference._initialize_output(self)
+        self.expectation_gauss_exponent = _np.zeros((self.L, self.components))
+
+    def update(self, N=1):
+        for i in range(N):
+            # E-like step
+            self._update_expectation_det_ln_lambda() # (21)
+            self._update_expectation_ln_pi() # (22)
+            self._update_expectation_gauss_exponent() # after (40)
+            self._update_r() # after (40)
+
+            # synthetic statistics
+            _np.einsum('l,lk', self.Nin, self.r, out=self.N_comp) # (41)
+            self._update_x_mean_comp() # (42)
+            self._update_S() # (43) and (44)
+
+            # M-like step
+            self.alpha = self.alpha0 + self.N_comp # (45)
+            self.beta = self.beta0 + self.N_comp # (46)
+            self._update_m() # (47)
+            self._update_W() # (48)
+            self.nu = self.nu0 + self.N_comp # (49)
+
+    def _update_expectation_gauss_exponent(self):
+        for k in range(self.components):
+            for l in range(len(self.input.comp)):
+                tmp = self.input[l].mean - self.m[k]
+                chi_squared = tmp.dot(self.W[k]).dot(tmp)
+                self.expectation_gauss_exponent[l,k] = self.dim / self.beta[k] + self.nu[k] * \
+                                                       (_np.trace(self.W[k].dot(self.input[l].inv)) + chi_squared)
+
+    def _update_log_rho(self):
+        # eqn 40 in [BGP10]
+        # first line: compute k vector
+        tmp_k  = 2 * self.expectation_ln_pi
+        tmp_k += self.expectation_det_ln_lambda
+        tmp_k -= self.dim * _np.log(2 * _np.pi)
+
+        # turn into lk matrix
+        self.log_rho = _np.einsum('l,k->lk', self.Nin, tmp_k)
+
+        # add second line
+        self.log_rho -= _np.einsum('l,lk->lk', self.Nin, self.expectation_gauss_exponent)
+
+        self.log_rho /= 2.0
+
+    def _update_S(self):
+        # combine (43) and (44), since only ever need sum of S and C
+
+        for k in range(self.components):
+            self.S[k,:] = 0.0
+            if self.N_comp[k] > 0:
+                for l in range(self.L):
+                    tmp        = self.mu[l] - self.x_mean_comp[k]
+                    self.S[k] += self.Nin[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input[l].cov)
+                self.S[k] /= self.N_comp[k]
+
+    def _update_x_mean_comp(self):
+        _np.einsum('l,lk,li->ki', self.Nin, self.r, self.mu, out=self.x_mean_comp) # (42)
+        # handle dead components, apply 1/N_k
+        for k, nk in enumerate(self.N_comp):
+            if nk > 0:
+                self.x_mean_comp[k] /= nk
+
+    def get_result(self):
+        '''Return the variational mixture-density estimate'''
+
+        # find mode of Wishart distribution (of precision)
+        # and invert to find covariance
+        # todo this is *not* the mode of the joint q*(\mu_k, \Lambda_k),
+        # but only of W(\Lambda_k | ...), the Wishart distribution.
+        # Hopefully it is fairly close
+        #
+        # The most likely value of the means is m, the mean parameter
+        # of the Gaussian q(\mu_k)
+        components = []
+        weights = []
+        for k, W in enumerate(self.W):
+            if self.nu[k] >= self.dim + 1:
+                cov = _np.linalg.inv((self.nu[k] - self.dim - 1) * W)
+                components.append(GaussianMixture.Component(self.m[k], cov))
+                # copy over precision matrix
+                components[-1].inv = (self.nu[k] - self.dim - 1) * W
+                weights.append(self.N_comp[k] / self.N)
+            else:
+                print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
+
+        return GaussianMixture(components, weights)
