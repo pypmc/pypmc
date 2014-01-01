@@ -76,7 +76,7 @@ class MarkovChain(_Chain):
 
     def _merge_target_with_indicator(self, target, indicator):
         '''Private function. Prevents call to ``target`` if ``indicator(x) = False``'''
-        if indicator == None:
+        if indicator is None:
             self.target = target
         else:
             def merged_target(x):
@@ -169,7 +169,7 @@ class AdaptiveMarkovChain(MarkovChain):
 
         super(AdaptiveMarkovChain, self).__init__(*args, **kwargs)
 
-        if self.covar_scale_factor == None:
+        if self.covar_scale_factor is None:
             self.covar_scale_factor = 2.38**2/len(self.current)
 
         # initialize unscaled sigma

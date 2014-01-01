@@ -96,7 +96,7 @@ class _Hist(object):
 
     def __getitem__(self, item):
         if type(item) == slice:
-            if not item.step == None:
+            if item.step is not None:
                 raise NotImplementedError('strided slicing is not supported')
 
             # get accept count
