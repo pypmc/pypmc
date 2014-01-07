@@ -137,9 +137,9 @@ class MarkovChain(_Chain):
 
     def _get_log_rho_metropolis_hastings(self, proposed_point):
         """calculate log(metropolis ratio times hastings factor)"""
-        return self._get_log_rho_metropolis(proposed_point, self.points[-1])\
-             - self.proposal.evaluate      (proposed_point, self.points[-1])\
-             + self.proposal.evaluate      (self.points[-1], proposed_point)
+        return self._get_log_rho_metropolis(proposed_point)\
+             - self.proposal.evaluate      (proposed_point, self.current)\
+             + self.proposal.evaluate      (self.current, proposed_point)
 
 class AdaptiveMarkovChain(MarkovChain):
     # set the docstring --> inherit from Base class, but replace:
