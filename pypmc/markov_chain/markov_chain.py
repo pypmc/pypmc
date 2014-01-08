@@ -83,7 +83,7 @@ class MarkovChain(_Chain):
                 if indicator(x):
                     return target(x)
                 else:
-                    return 0.
+                    return -_np.inf
             self.target = merged_target
 
     @_inherit_docstring(_Chain)

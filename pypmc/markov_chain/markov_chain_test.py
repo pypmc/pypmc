@@ -15,6 +15,8 @@ rng_seed = 215135153
 NumberOfRandomSteps = 50000
 
 def raise_not_implemented(x):
+    if (x == np.array((0.,1.))).all():
+        return 1.
     raise NotImplementedError()
 
 class MultivariateNonEvaluable(proposal.MultivariateGaussian):
@@ -27,8 +29,8 @@ def unnormalized_log_pdf_gauss(x, mu, inv_sigma):
 class TestMarkovChain(unittest.TestCase):
     def test_indicator(self):
         prop = proposal.MultivariateGaussian(offdiagSigma)
-        indicator = lambda x: False
         start = np.array((0.,1.))
+        indicator = lambda x: (x == start).all()
 
         mc_with_ind = MarkovChain(raise_not_implemented, prop, start, indicator)
 
