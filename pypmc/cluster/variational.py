@@ -6,6 +6,8 @@ from __future__ import division as _div
 from .gaussian_mixture import GaussianMixture
 from math import log
 import numpy as _np
+from scipy.special import gamma as _gamma
+from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
 from .._tools._doc import _inherit_docstring, _add_to_docstring
 
@@ -18,20 +20,13 @@ class _Inference(object):
     def __init__(self):
         raise NotImplementedError('Do not create instances from this class, use derived classes instead.')
 
-    def update(self, N=1):
-        '''Recalculates the parameters using the update equations
-
-        :param N:
-
-            An int which defines the maximum number of steps to run the
-            iteration.
-
-        '''
+    def get_result(self):
+        '''Returns the parameters calculated by ``self.update``'''
         raise NotImplementedError()
 
-    def set_variational_parameters(self, *args, **kwargs):
-        '''Resets the parameters to the submitted values or default
-        Use this function to set initial values for the iteration.
+    def likelihood_bound(self):
+        '''Compute the lower bound on the true log marginal likelihood
+        :math:`L(Q)` given the current parameter estimates.
 
         '''
         raise NotImplementedError()
@@ -47,8 +42,22 @@ class _Inference(object):
         '''
         raise NotImplementedError()
 
-    def get_result(self):
-        '''Returns the parameters calculated by ``self.update``'''
+    def set_variational_parameters(self, *args, **kwargs):
+        '''Resets the parameters to the submitted values or default
+        Use this function to set initial values for the iteration.
+
+        '''
+        raise NotImplementedError()
+
+    def update(self, N=1):
+        '''Recalculates the parameters using the update equations
+
+        :param N:
+
+            An int which defines the maximum number of steps to run the
+            iteration.
+
+        '''
         raise NotImplementedError()
 
 class GaussianInference(_Inference):
@@ -323,6 +332,92 @@ class GaussianInference(_Inference):
         self.m                          = self.m                           [:self.components]
         self.W                          = self.W                           [:self.components]
 
+    def likelihood_bound(self):
+        # todo easy to parallize sum of independent terms
+        bound = 0
+        bound += self._expect_p_log_X() # (10.71)
+        bound += self._expect_p_Z() # (10.72)
+        C = Dirichlet_C(self.alpha)
+        bound += self._expect_log_P_pi(C) # (10.73)
+        bound += self._expect_log_P_mu_lambda() # (10.74)
+        bound += self._expect_log_q_Z() # (10.75)
+        bound += self._expect_log_q_pi(C) # (10.76)
+        bound += self._expect_log_q_mu_lambda() # (10.77)
+        return bound
+
+    def _expect_log_P_X(self):
+        # (10.71)
+
+        result = 0
+        for k in range(self.components):
+            tmp = self.x_mean_comp[k] - self.m[k]
+            result += self.N_comp[k] * \
+                      (self.expectation_det_ln_lambda[k] - self.dim / self.beta[k]
+                       -self.nu[k] * (_np.trace(self.S[k].dot(self.W[k]))
+                       + tmp.dot(self.W[k]).dot(tmp)) - self.dim * log(2 * _np.pi))
+
+        return 0.5 * result
+
+    def _expect_P_Z(self):
+        # (10.72)
+
+        # contract all indices, no broadcasting
+        return _np.einsum('nk,k->', self.r, self.expectation_ln_pi)
+
+    def _expect_log_P_pi(self, log_C=None):
+        # (10.73)
+
+        if log_C is None:
+            log_C = Dirichlet_log_C(self.alpha)
+
+        return log_C + (self.alpha0 - 1) * _np.einsum('k->', self.expectation_ln_pi)
+
+    def _expect_log_P_mu_lambda(self):
+        # (10.74)
+
+        result = 0
+        for k in self.components:
+            tmp = self.m[k] - self.m0
+            result +=  self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
+                      - self.beta0 * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
+
+        result *= 0.5
+        result += self.components * 0.5 * self.dim * log(self.beta0 / (2. * _np.pi))
+
+        # compute Wishart normalization
+        result += self.components * Wishart_log_B(self.W0, self.nu0)
+
+        # third part
+        result += 0.5 * (self.nu0 - self.dim - 1) * _np.einsum('k->', self.expectation_det_ln_lambda)
+
+        # final part
+        traces = 0
+        for nu_k, W_k in zip(self.nu, self.W):
+            traces += nu_k * _np.trace(self.inv_W0.dot(W_k))
+        result -= 0.5 * traces
+
+        return result
+
+    def _expect_log_q_Z(self):
+        # (10.75)
+
+        return _np.einsum('nk,nk', self.r, _np.log(self.r))
+
+    def _expect_log_q_pi(self, log_C=None):
+        # (10.76)
+
+        if log_C is None:
+            log_C = Dirichlet_log_C(self.alpha)
+
+        return _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + log_C
+
+    def _expect_log_q_mu_lambda(self):
+        result = 0
+        for k in self.components:
+            result += 0.5 * (self.expectation_det_ln_lambda + self.dim * (log(self.beta[k] / (2 * _np.pi) - 1)))
+            # Wishart entropy
+            result -= Wishart_H(self.lam, W, nu, B)
+
 
 class VBMerge(GaussianInference):
     # todo refer to set_variational_parameters for more kwargs
@@ -479,3 +574,64 @@ class VBMerge(GaussianInference):
                 print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
 
         return GaussianMixture(components, weights)
+
+    def likelihood_bound(self):
+        # todo use eqn labels from [BGP10]_ instead of 2001 paper
+        pass
+
+# todo move Wishart stuff to separate class, file?
+def Wishart_log_B(W, nu, det=None):
+    '''Compute first part of a Wishart distribution's normalization,
+    (B.79) of [BGP10]_, on the log scale.
+
+    :param W:
+
+        Covariance matrix of a Wishart distribution.
+
+    :param nu:
+
+        Degrees of freedom of a Wishart distribution.
+
+    :param det:
+
+        The determinant of ``W``, :math:`|W|`. If `None`, recompute it.
+
+    '''
+
+    if det is None:
+        det = _np.linalg.det(W)
+
+#     B =  det**(-0.5 * nu)
+#     B *= 2**(-0.5 * nu * len(W))
+#     B *= _np.pi**(-0.25 * len(W) * (len(W) - 1))
+#     for i in range(1, len(W) + 1):
+#         B /= _gamma(0.5 * (nu + 1 - i))
+
+    log_B = log(det**(-0.5 * nu))
+    log_B -= 0.5 * nu * len(W) * log(2)
+    log_B -= 0.25 * len(W) * (len(W) - 1) * log(_np.pi)
+    for i in range(1, len(W) + 1):
+        log_B -= _gammaln(0.5 * (nu + 1 - i))
+
+    return log_B, det
+
+def Wishart_H(Lambda, W, nu, log_B=None):
+    '''Entropy of the Wishart distribution, (B.82) of [BGP10]_ .'''
+
+    if log_B is None:
+        log_B = Wishart_log_B(W, nu, det)
+
+    conti
+
+def Dirichlet_log_C(alpha):
+    '''Compute normalization constant of Dirichlet distribution on
+    log scale, (B.23) of [BGP10]_ .
+
+    '''
+
+    # compute gamma functions on log scale to avoid overflows
+    log_C = _gammaln(_np.einsum('k->', alpha))
+    for alpha_k in alpha:
+        log_C -= _gammaln(alpha_k)
+
+    return log_C

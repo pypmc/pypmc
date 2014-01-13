@@ -197,15 +197,17 @@ class TestVBMerge(unittest.TestCase):
             self.assertLess(   c.cov[0, 1], +1)
 
         # todo check for convergence
+        old_bound = vb.likelihood_bound()
         vb.update()
         output2 = vb.get_result()
         np.testing.assert_array_equal(output[0].mean, output2[0].mean)
         np.testing.assert_array_equal(output[1].mean, output2[1].mean)
+        self.assertEqual(vb.likelihood_bound(), old_bound)
 
         for c in output:
             print(c.mean)
             print(c.cov)
-        return
+#         return
         for i in range(5):
             vb.update()
             output = vb.get_result()
@@ -219,3 +221,13 @@ class TestVBMerge(unittest.TestCase):
 
     def test_large(self):
         '''Compress large number of similar components into a single component.'''
+
+
+class TestWishart(unittest.TestCase):
+    def test_Wishart_B(self):
+        W = np.eye(3)
+        nu = 6
+
+        B, det = Wishart_B(W, nu)
+        self.assertAlmostEqual(B, np.log(0.00013192862453429398))
+        self.assertAlmostEqual(det, 1)
