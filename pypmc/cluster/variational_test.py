@@ -4,6 +4,8 @@
 
 from .variational import *
 from .gaussian_mixture import GaussianMixture
+
+import copy
 import numpy as np
 import unittest
 
@@ -25,7 +27,7 @@ delta_cov1 = .001
 
 
 rng_seed = 625135153
-@unittest.skip("skipping old Gaussian inference")
+
 class TestGaussianInference(unittest.TestCase):
     def test_update(self):
         np.random.mtrand.seed(rng_seed)
@@ -42,7 +44,7 @@ class TestGaussianInference(unittest.TestCase):
         np.random.shuffle(test_data)
 
         # provide hint for means to force convergence to a specific solution
-        infer = GaussianInference(test_data, 2, m0 = np.vstack((target_mean1-2.,target_mean2+2.)) )
+        infer = GaussianInference(test_data, 2, m = np.vstack((target_mean1-2.,target_mean2+2.)) )
         infer.update()
         inferred_abundances, inferred_means, inferred_covars = infer.get_result()
 
@@ -56,14 +58,11 @@ class TestGaussianInference(unittest.TestCase):
         self.assertTrue( (np.abs(target_cov2 - inferred_covars[1])<delta_cov1).all()  )
 
     def test_set_variational_parameters(self):
-        infer = GaussianInference(np.empty((20,20)), 5, nu0 = 0.)
-
-        self.assertEqual(infer.nu0, 0.)
+        infer = GaussianInference(np.empty((20,20)), 5)
 
         infer.set_variational_parameters(beta0 = 2., W0 = invertible_matrix)
 
         # set_variational_parameters shall reset not passed parameters to default
-        self.assertNotEqual(infer.nu0   , 0.)
         self.assertEqual   (infer.beta0 , 2.)
         self.assertTrue    ( (np.abs(infer.inv_W0-np.linalg.inv(invertible_matrix))<float64_acc).all() )
 
@@ -82,7 +81,7 @@ class TestGaussianInference(unittest.TestCase):
         np.random.shuffle(test_data)
 
         # provide hint for means to force convergence to a specific solution
-        infer = GaussianInference(test_data, 3, m0 = np.vstack((target_mean1+2.,target_mean2+2.,
+        infer = GaussianInference(test_data, 3, m = np.vstack((target_mean1+2.,target_mean2+2.,
                                                         np.zeros_like(target_mean1)              )) )
         infer.update()
         infer.prune()
@@ -136,26 +135,33 @@ class TestVBMerge(unittest.TestCase):
         for c in initial_guess:
             print(c.mean)
 
-        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, alpha0=1e-5, beta0=1e-5)
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess,
+                     alpha0=1e-5, beta0=1e-5, nu=np.zeros(2) + 3)
 
         # initial guess taken over?
         for i,c in enumerate(initial_guess):
             np.testing.assert_array_equal(vb.m[i], c.mean)
             np.testing.assert_array_equal(vb.W[i],  c.inv)
 
-        vb.update()
+        # all matrices are unit matrices, compute result by hand
+        self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], vb.expectation_det_ln_lambda[1])
+        self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], 0.84556867019693416)
+
         # each output comp. should get half of the virtual samples
         self.assertAlmostEqual(vb.N_comp[0], N / 2)
 
         # all components have same weight initially
         self.assertAlmostEqual(vb.expectation_ln_pi[0], vb.expectation_ln_pi[1])
 
-        # all matrices are unit matrices, compute result by hand
-        self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], vb.expectation_det_ln_lambda[1])
-        self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], 0.84556867019693416)
-
         # painful calculation by hand
         self.assertAlmostEqual(vb.log_rho[0,0], -18750628.396350645, delta=1e-5)
+
+        old_bound = vb.likelihood_bound()
+
+        vb.update()
+
+        # must improve on initial guess
+        self.assertGreater(vb.likelihood_bound(), old_bound)
 
         # first/second input mapped to first output
         self.assertAlmostEqual(vb.r[0,0], 1)
@@ -196,38 +202,103 @@ class TestVBMerge(unittest.TestCase):
             self.assertGreater(c.cov[0, 1], -1)
             self.assertLess(   c.cov[0, 1], +1)
 
-        # todo check for convergence
+        # converge after one step
         old_bound = vb.likelihood_bound()
+
         vb.update()
         output2 = vb.get_result()
+
+        # it's a discrete problem that converges exactly,
+        # so mean and bound are identical
         np.testing.assert_array_equal(output[0].mean, output2[0].mean)
         np.testing.assert_array_equal(output[1].mean, output2[1].mean)
+        self.assertAlmostEqual(output.w[0], 0.5, places=5)
         self.assertEqual(vb.likelihood_bound(), old_bound)
 
-        for c in output:
-            print(c.mean)
-            print(c.cov)
-#         return
-        for i in range(5):
-            vb.update()
-            output = vb.get_result()
-            print('step %d' % (i + 1))
-            print(output.w)
-            for c in output:
-                print(c.cov)
-
+        # expect nothing to die out
+        vb.prune()
         self.assertEqual(len(output.comp), len(initial_guess.comp))
-        self.assertAlmostEqual(output.w[0], 0.5, places=5)
 
-    def test_large(self):
+    def test_large_prune(self):
         '''Compress large number of similar components into a single component.'''
 
+        means = (np.array([5, 0]),)
+        cov = np.eye(2)
+        N = 500
+        N_input = 300
+        N_output_initial = 50
+        input_components = create_mixture(means, cov, N_input)
+        initial_guess = create_mixture(means, cov, N_output_initial)
+
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess)
+        vb_prune = copy.deepcopy(vb)
+        bound = vb.likelihood_bound()
+
+        print('Keep all components...\n')
+
+        for i in range(1, 20):
+            old_bound = bound
+            vb.update()
+            bound = vb.likelihood_bound()
+            # bound increases only if no component removed
+            self.assertGreaterEqual(bound, old_bound)
+            if bound == old_bound:
+                converged_exactly = True
+                break
+            print('%d: bound=%g, ncomp=%d' % (i, bound, vb.components))
+
+        self.assertTrue(converged_exactly)
+        self.assertEqual(vb.components, N_output_initial)
+
+        # now the same thing with pruning, should be faster
+        # as only one component remains
+        # but bound can decrease if component is removed
+        print('Pruning...\n')
+        old_K = vb_prune.components
+        bound = vb_prune.likelihood_bound()
+
+        for i in range(1, 20):
+            old_bound = bound
+            vb_prune.update()
+            bound = vb_prune.likelihood_bound()
+            print('%d: bound=%g, ncomp=%d, N_k=%s' % (i, bound, vb_prune.components, vb_prune.N_comp))
+
+            if bound == old_bound:
+                converged_exactly = True
+                break
+
+            self.assertLessEqual(vb_prune.components, old_K)
+            if vb_prune.components == old_K:
+                print('Comparing bounds')
+                self.assertGreaterEqual(bound, old_bound)
+
+            # save K *before* prune()
+            old_K = vb_prune.components
+            vb_prune.prune()
+
+        self.assertTrue(converged_exactly)
+        self.assertEqual(vb_prune.components, 1)
 
 class TestWishart(unittest.TestCase):
-    def test_Wishart_B(self):
+    # comparison done in mathematica
+    W = np.array([[1,    0.3],
+                  [0.3, 11.2]])
+    nu = 8.3
+
+    def test_Wishart_log_B(self):
         W = np.eye(3)
         nu = 6
 
-        B, det = Wishart_B(W, nu)
-        self.assertAlmostEqual(B, np.log(0.00013192862453429398))
-        self.assertAlmostEqual(det, 1)
+        log_B = Wishart_log_B(W, nu)
+        self.assertAlmostEqual(log_B, np.log(0.00013192862453429398))
+
+        log_B = Wishart_log_B(self.W, self.nu)
+        self.assertAlmostEqual(log_B, -19.6714760251454)
+
+    def test_Wishart_H(self):
+        # compare with Mathematica
+
+        self.assertAlmostEqual(Wishart_H(self.W, self.nu), 11.4262373965875)
+
+    def test_Wishart_expect_log_lambda(self):
+        self.assertAlmostEqual(Wishart_expect_log_lambda(self.W, self.nu), 6.24348627492751)

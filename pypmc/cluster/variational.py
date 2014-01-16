@@ -2,7 +2,7 @@
 
 """
 
-from __future__ import division as _div
+from __future__ import division
 from .gaussian_mixture import GaussianMixture
 from math import log
 import numpy as _np
@@ -32,73 +32,93 @@ class _Inference(object):
         raise NotImplementedError()
 
     def prune(self, threshold=1.):
-        '''Deletes components with small effective number of samples :math:`N_k`
+        '''Delete components with an effective number of samples
+        :math:`N_k` below the threshold.
 
         :param threshold:
 
-            Float; the minimum effective number of samples :math:`N_k`
-            a component must have to survive.
+            Float; the minimum effective number of samples a component must have
+            to survive.
 
         '''
         raise NotImplementedError()
 
     def set_variational_parameters(self, *args, **kwargs):
-        '''Resets the parameters to the submitted values or default
+        '''Reset the parameters to the submitted values or default
         Use this function to set initial values for the iteration.
 
         '''
         raise NotImplementedError()
 
-    def update(self, N=1):
-        '''Recalculates the parameters using the update equations
-
-        :param N:
-
-            An int which defines the maximum number of steps to run the
-            iteration.
+    def update(self):
+        '''Recalculate the parameters (M step) and expectation values (E step)
+        using the update equations.
 
         '''
         raise NotImplementedError()
 
 class GaussianInference(_Inference):
-    # todo refer to set_variational_parameters for more kwargs
-    '''Approximates a probability density by a Gaussian mixture according
-    to chapter 10.2 in [Bis06]_
+    '''Approximate a probability density by a Gaussian mixture with a variational
+    Bayes approach. The motivation, notation, and derivation is explained in
+    detail in chapter 10.2 in [Bis06]_.
 
     .. seealso ::
 
-        Another implementation can be found at https://github.com/jamesmcinerney/vbmm
+        Another implementation can be found at https://github.com/jamesmcinerney/vbmm.
 
 
     :param data:
 
-        Matrix like array; random points drawn from the probability density
-        to be approximated. One row represents one n-dim point.
+        Matrix like array; Each of the :math:`N` rows contains one
+        :math:`D`-dimensional sample from the probability density to be
+        approximated.
 
     :param components:
 
-        Integer, the number of Gaussian components in the approximating
-        multimodal Gaussian
+        Integer; :math:`K` is the number of Gaussian components in the
+        approximating Gaussian mixture.
+
+    All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
     '''
     def __init__(self, data, components, **kwargs):
-        # todo but data is not changed, so why a copy?
-        self.data       = _np.array(data) #call array constructor to be sure to have a copy
+        self.data = data
         self.components = components
         self.N, self.dim = self.data.shape
 
         self.set_variational_parameters(**kwargs)
 
+        # compute expectation values for the initial parameter values
+        # so a valid bound can be computed after object is initialized
+        self.E_step()
+
     @_add_to_docstring(
-        r'''.. warning ::
+        r'''
+
+        The prior (and posterior) probability distribution of :math:`\boldsymbol{\mu}` and
+        :math:`\boldsymbol{\Lambda}` is given by
+
+        .. math::
+
+            p(\boldsymbol{\mu}, \boldsymbol{\Lambda}) =
+            p(\boldsymbol{\mu}|\boldsymbol{\Lambda}) p(\boldsymbol{\Lambda}) =
+            \prod_{k=1}^K
+              \mathcal{N}(\boldsymbol{\mu}_k|\boldsymbol{m_k},(\beta_k\boldsymbol{\Lambda}_k)^{-1})
+              \mathcal{W}(\boldsymbol{\Lambda}_k|\boldsymbol{W_k}, \nu_k),
+
+        where :math:`\mathcal{N}` denotes a Gaussian and :math:`\mathcal{W}`
+        a Wishart distribution.
+
+        .. warning ::
 
             This function may delete results obtained by ``self.update``.
 
         .. note::
 
-            Before using other parameter values than default for initialization,
-            you are strongly recommended to read chapter 10 in [Bis06]_.
-
+            For good performance, it is strongly recommended to explicitly
+            initialize ``m`` to values close to the bulk of the target
+            distribution. For all other parameters, consult chapter 10
+            in [Bis06]_ when considering to modify the defaults.
 
         :param alpha0:
 
@@ -111,64 +131,90 @@ class GaussianInference(_Inference):
             where Dir denotes the Dirichlet distribution and
 
             .. math::
-                \boldsymbol{\alpha_0} = (\alpha_0,...,\alpha_0)
+                \boldsymbol{\alpha_0} = (\alpha_0,\dots,\alpha_0).
+
+            Default:
+
+            .. math::
+                \alpha_0 = 10^{-5}.
 
         :param beta0:
 
             Float; :math:`\beta_0` parameter of the probability distribution of
             :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`. Should be
-            of the same order as ``alpha0`` for numerical stability.
+            of the same order as ``alpha0`` for numerical stability. Default:
+
+            .. math::
+                \beta_0 = 10^{-5}.
 
         :param nu0:
 
-            Float; :math:`\nu_0` parameter for the probability distribution of
-            :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
+            Float; :math:`\nu_0` is the minimum value of the number of degrees of
+            freedom of the Wishart distribution of :math:`\boldsymbol{\Lambda}`.
+            It is `not` updated and common to all components. To avoid a
+            divergence at the origin, it is required that
+
+            .. math::
+                \nu_0 \geq D + 1 .
+
+            Default:
+
+            .. math::
+                \nu_0 = D+1.
+
+        :param nu:
+
+            :math:`K` vector; The number of degrees of freedom of the Wishart
+            distribution of the precision matrix of each output component. The
+            default initialization is
+
+            .. math::
+                \nu_k = \nu_0 + N / K
+            in anticipation of the updating rule for :math:`\nu_k`.
 
         :param m0:
 
-            Matrix like array; :math:`m_0` parameter for the probability
-            distribution of
-            :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
-            Provide an initial guess for the means such that the
-            mean of component i can be accessed as m0[i].
+            :math:`K` vector; regularization parameter for the Gausian means.
+            Default:
 
-            @warning: If component means are identical initially, they
-                may remain identical. It is advisable to randomly initialize
-                them in order to avoid such singular behavior.
+            .. math::
+                \boldsymbol{m_0} = (0,\dots,0)
+
+        :param m:
+
+            :math:`(K \times D)` matrix-like array; :math:`\boldsymbol{m}_k` is
+            the mean parameter of the Gaussian distribution of the :math:`k`-th
+            component mean :math:`\boldsymbol{\mu}_k`. Default: The sequence of
+            :math:`K \times D` equally spaced values in [-1,1] reshaped to
+            :math:`K \times D` dimensions.
+
+            .. warning:: If component means are identical initially, they
+                may remain identical. It is advisable to randomly scatter
+                them in order to avoid singular behavior.
 
         :param W0:
 
-            Matrix like array; :math:`\boldsymbol{W_0}` parameter for the
-            probability distribution of
-            :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`.
-
-
-        The prior probability distribution of :math:`\boldsymbol{\mu}` and
-        :math:`\boldsymbol{\Lambda}` is given by
-
-        .. math::
-
-            p(\boldsymbol{\mu}, \boldsymbol{\Lambda}) =
-            p(\boldsymbol{\mu}|\boldsymbol{\Lambda}) p(\boldsymbol{\Lambda}) =
-            \prod_{k=1}^K
-              \mathcal{N}(\boldsymbol{\mu}_k|\boldsymbol{m_0},(\beta_0\boldsymbol{\Lambda}_k)^{-1})
-              \mathcal{W}(\boldsymbol{\Lambda}_k|\boldsymbol{W_0}, \nu_0)
-
-        where :math:`\mathcal{N}` denotes a Gaussian and :math:`\mathcal{W}`
-        a Wishart distribution.
+            :math:`D \times D` matrix-like array; :math:`\boldsymbol{W_0}` is a
+            symmetric positive-definite matrix taken as the regularization
+            parameter `and` initial value for updates of the Wishart parameter
+            :math:`W_k`. Default: identity matrix.
 
         ''')
     @_inherit_docstring(_Inference)
-    def set_variational_parameters(self, *args, **kwargs): # TODO: write default initial values into docstring
-        if args != (): raise TypeError('keyword args only; try set_adapt_parameters(keyword = value)')
+    def set_variational_parameters(self, *args, **kwargs):
+        if args != (): raise TypeError('keyword args only)')
 
-        self.alpha0 = kwargs.pop('alpha0', 1e-5)
+        alpha0 = kwargs.pop('alpha0', 1e-5)
+        self.alpha0 = _np.ones(self.components) * alpha0
 
         # in the limit beta --> 0: uniform prior
         self.beta0  = kwargs.pop('beta0' , 1e-5)
 
         # smallest possible nu such that the Wishart pdf does not diverge at 0
         self.nu0    = kwargs.pop('nu0'   , self.dim + 1.)
+        if self.nu0 < self.dim + 1.:
+            raise ValueError('nu0 (%g) must exceed %g to avoid divergence at the origin.' % (self.nu0, self.dim + 1.))
+        self.nu     = kwargs.pop('nu'   , _np.zeros(self.components) + (self.nu0 + self.N / self.components))
 
         self.m0     = kwargs.pop('m0'    , _np.zeros(self.dim))
         self.m      = kwargs.pop('m'     , None)
@@ -191,45 +237,47 @@ class GaussianInference(_Inference):
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
         self.x_mean_comp = _np.zeros((self.components, self.dim))
-        self.nu = _np.zeros(self.components) + self.nu0 # todo was + 1 before. Why?
         self.W = _np.array([self.W0 for i in range(self.components)])
         self.expectation_gauss_exponent = _np.zeros((  self.N,self.components  ))
         self.N_comp = self.N / self.components * _np.ones(self.components)
-        self.alpha = self.alpha0 * _np.ones(self.components)
+        self.alpha = _np.array(self.alpha0)
         self.beta  = self.beta0  * _np.ones(self.components)
         self.S = _np.empty_like(self.W)
 
-    # ------------------- below belongs to update ---------------------
+    def E_step(self):
+        self._update_expectation_gauss_exponent() #eqn 10.64 in [Bis06]
+        self._update_expectation_det_ln_lambda() #eqn 10.65 in [Bis06]
+        self._update_expectation_ln_pi() #eqn 10.66 in [Bis06]
+        self._update_r() #eqn 10.46 and 10.49 in [Bis06]
+        self._update_N_comp() #eqn 10.51 in [Bis06]
+        self._update_x_mean_comp() #eqn 10.52 in [Bis06]
+        self._update_S() #eqn 10.53 in [Bis06]
+
+    def M_step(self):
+        self.nu = self.nu0 + self.N_comp #eqn 10.63 in [Bis06]
+        self.alpha = self.alpha0 + self.N_comp #eqn 10.58 in [Bis06]
+        self.beta = self.beta0 + self.N_comp #eqn 10.60 in [Bis06]
+        self._update_m() #eqn 10.61 in [Bis06]
+        self._update_W() #eqn 10.62 in [Bis06]
+
     @_inherit_docstring(_Inference)
-    def update(self, N=1):
-        for i in range(N):
-            # E-like step
-            self._update_expectation_gauss_exponent() #eqn 10.64 in [Bis06]
-            self._update_expectation_det_ln_lambda() #eqn 10.65 in [Bis06]
-            self._update_expectation_ln_pi() #eqn 10.66 in [Bis06]
-            self._update_r() #eqn 10.46 and 10.49 in [Bis06]
+    def update(self):
+        self.M_step()
+        self.E_step()
 
-            # M-like step
-            self.N_comp = self.r.sum(axis=0) #eqn 10.51 in [Bis06]
-            self.nu = self.nu0 + self.N_comp #eqn 10.63 in [Bis06]
-            self._update_x_mean_comp() #eqn 10.52 in [Bis06]
-            self._update_S() #eqn 10.53 in [Bis06]
-            self.alpha = self.alpha0 + self.N_comp #eqn 10.58 in [Bis06]
-            self.beta = self.beta0 + self.N_comp #eqn 10.60 in [Bis06]
-            self._update_m() #eqn 10.61 in [Bis06]
-            self._update_W() #eqn 10.62 in [Bis06]
-
-            # TODO: insert convergence criterion --> lower log-likelihood bound
-            # TODO: implement support for weights
-
-    def _update_m(self):
-        for k in range(self.components):
-            self.m[k] = 1./self.beta[k] * (self.beta0*self.m0[k] + self.N_comp[k]*self.x_mean_comp[k])
+        # TODO: implement support for weights
 
     def _update_log_rho(self):
         # todo check sum of vector and matrix
         self.log_rho = self.expectation_ln_pi + 0.5 * self.expectation_det_ln_lambda \
                   - 0.5 * self.dim * log(2. * _np.pi) - 0.5 * self.expectation_gauss_exponent
+
+    def _update_m(self):
+        for k in range(self.components):
+            self.m[k] = 1. / self.beta[k] * (self.beta0 * self.m0 + self.N_comp[k] * self.x_mean_comp[k])
+
+    def _update_N_comp(self):
+        self.N_comp = _np.einsum('nk->k', self.r)
 
     def _update_r(self):
         self._update_log_rho()
@@ -245,6 +293,9 @@ class GaussianInference(_Inference):
 
         # in the division, the extra scale factor drops out automagically
         self.r = rho / normalization_rho
+
+        # avoid overflows and nans when taking the log of 0
+        self.r[_np.where(self.r == 0)] = _np.finfo('d').tiny
 
     def _update_expectation_det_ln_lambda(self):
         logdet_W = _np.array([log(_np.linalg.det(self.W[k])) for k in range(self.components)])
@@ -280,72 +331,92 @@ class GaussianInference(_Inference):
 
     def _update_W(self):
         for k in range(self.components):
-            tmp = _np.array([self.x_mean_comp[k] - self.m0[k]])
-            cov = self.inv_W0 + self.N_comp[k] * self.S[k]
+            tmp = self.x_mean_comp[k] - self.m0
+            cov = self.inv_W0 + self.N_comp[k] * self.S[k] + \
+                  (self.beta0 * self.N_comp[k]) / (self.beta0 + self.N_comp[k]) *  _np.outer(tmp, tmp)
             self.W[k] = _np.linalg.inv(cov)
 
-    # ------------------- above belongs to update ---------------------
-
     def get_result(self):
-        '''Returns the parameters calculated by ``self.update`` as
-        tuple(abundances, means, covariances)
+        '''Return the mixture-density computed from the
+        mode of the variational-Bayes estimate.
 
         '''
-        return self.N_comp/self.N,self.m,self.S
+
+        # find mode of Gaussian-Wishart distribution
+        # and invert to find covariance. The result
+        # \Lambda_k = (\nu_k - D) W_k
+        # turns out to be independent of beta.
+
+        # The most likely value of the mean is m_k,
+        # the mean parameter of the Gaussian q(\mu_k).
+
+        # The mode of the Dirichlet exists only if \alpha_k > 1.
+        components = []
+        weights = []
+        for k, W in enumerate(self.W):
+            if self.nu[k] >= self.dim + 1:
+                W = (self.nu[k] - self.dim) * W
+                cov = _np.linalg.inv(W)
+                components.append(GaussianMixture.Component(self.m[k], cov))
+                # copy over precision matrix
+                components[-1].inv = W
+
+                # Dirichlet mode
+                pi = (self.alpha[k] - 1.) / (self.alpha.sum() - self.components)
+                assert pi >= 0, 'Mode of Dirichlet distribution requires alpha_k > 1 ' + \
+                                '(alpha_k=%g) and at least K > 2 (K=%g)' % (self.alpha[k], self.components)
+
+                # relative weight properly normalized
+                weights.append(pi)
+            else:
+                print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
+
+        return GaussianMixture(components, weights)
 
     @_inherit_docstring(_Inference)
     def prune(self, threshold = 1.):
+
         components_to_survive = _np.where(self.N_comp >= threshold)[0]
         self.components = len(components_to_survive)
 
+        # list all vector and matrix vmembers
+        vmembers = ('alpha0', 'alpha', 'beta', 'expectation_det_ln_lambda',
+                   'expectation_ln_pi', 'N_comp', 'nu', 'm', 'S', 'W', 'x_mean_comp')
+        mmembers = ('expectation_gauss_exponent', 'r')
+
+        # shift surviving across dead components
         k_new = 0
         for k_old in components_to_survive:
             # reindex surviving components
             if k_old != k_new:
-                self.expectation_gauss_exponent[:,k_new] = self.expectation_gauss_exponent[:,k_old]
-                self.expectation_det_ln_lambda   [k_new] = self.expectation_det_ln_lambda   [k_old]
-                self.alpha                       [k_new] = self.alpha                       [k_old]
-                self.expectation_ln_pi           [k_new] = self.expectation_ln_pi           [k_old]
-                self.r                         [:,k_new] = self.r                         [:,k_old]
+                for m in vmembers:
+                    m = getattr(self, m)
+                    m[k_new] = m[k_old]
+                for m in mmembers:
+                    m = getattr(self, m)
+                    m[:, k_new] = m[:, k_old]
 
-                self.N_comp                      [k_new] = self.N_comp                      [k_old]
-                self.nu                          [k_new] = self.nu                          [k_old]
-                self.x_mean_comp                 [k_new] = self.x_mean_comp                 [k_old]
-                self.S                           [k_new] = self.S                           [k_old]
-                self.beta                        [k_new] = self.beta                        [k_old]
-                self.m                           [k_new] = self.m                           [k_old]
-                self.W                           [k_new] = self.W                           [k_old]
             k_new += 1
 
         # cut the unneccessary part of the data
-        self.expectation_gauss_exponent = self.expectation_gauss_exponent[:,:self.components]
-        self.expectation_det_ln_lambda  = self.expectation_det_ln_lambda   [:self.components]
-        self.alpha                      = self.alpha                       [:self.components]
-        self.expectation_ln_pi          = self.expectation_ln_pi           [:self.components]
-        self.r                          = self.r                         [:,:self.components]
-
-        self.N_comp                     = self.N_comp                      [:self.components]
-        self.nu                         = self.nu                          [:self.components]
-        self.x_mean_comp                = self.x_mean_comp                 [:self.components]
-        self.S                          = self.S                           [:self.components]
-        self.beta                       = self.beta                        [:self.components]
-        self.m                          = self.m                           [:self.components]
-        self.W                          = self.W                           [:self.components]
+        for m in vmembers:
+            setattr(self, m, getattr(self, m)[:self.components])
+        for m in mmembers:
+            setattr(self, m, getattr(self, m)[:, :self.components])
 
     def likelihood_bound(self):
         # todo easy to parallize sum of independent terms
-        bound = 0
-        bound += self._expect_p_log_X() # (10.71)
-        bound += self._expect_p_Z() # (10.72)
-        C = Dirichlet_C(self.alpha)
-        bound += self._expect_log_P_pi(C) # (10.73)
-        bound += self._expect_log_P_mu_lambda() # (10.74)
-        bound += self._expect_log_q_Z() # (10.75)
-        bound += self._expect_log_q_pi(C) # (10.76)
-        bound += self._expect_log_q_mu_lambda() # (10.77)
+        bound  = self._expect_log_p_X() # (10.71)
+        bound += self._expect_log_p_Z() # (10.72)
+        bound += self._expect_log_p_pi() # (10.73)
+        bound += self._expect_log_p_mu_lambda() # (10.74)
+        bound -= self._expect_log_q_Z() # (10.75)
+        bound -= self._expect_log_q_pi() # (10.76)
+        bound -= self._expect_log_q_mu_lambda() # (10.77)
+
         return bound
 
-    def _expect_log_P_X(self):
+    def _expect_log_p_X(self):
         # (10.71)
 
         result = 0
@@ -358,25 +429,25 @@ class GaussianInference(_Inference):
 
         return 0.5 * result
 
-    def _expect_P_Z(self):
-        # (10.72)
+    def _expect_log_p_Z(self):
+        # simplify (10.72) to include sum over k
+        # N_k = sum_n r_{nk}
 
         # contract all indices, no broadcasting
-        return _np.einsum('nk,k->', self.r, self.expectation_ln_pi)
+        return _np.einsum('k,k', self.N_comp, self.expectation_ln_pi)
 
-    def _expect_log_P_pi(self, log_C=None):
+    def _expect_log_p_pi(self):
         # (10.73)
 
-        if log_C is None:
-            log_C = Dirichlet_log_C(self.alpha)
+        log_C = Dirichlet_log_C(self.alpha0)
 
-        return log_C + (self.alpha0 - 1) * _np.einsum('k->', self.expectation_ln_pi)
+        return log_C + _np.einsum('k,k', self.alpha0 - 1, self.expectation_ln_pi)
 
-    def _expect_log_P_mu_lambda(self):
+    def _expect_log_p_mu_lambda(self):
         # (10.74)
 
         result = 0
-        for k in self.components:
+        for k in range(self.components):
             tmp = self.m[k] - self.m0
             result +=  self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
                       - self.beta0 * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
@@ -403,34 +474,36 @@ class GaussianInference(_Inference):
 
         return _np.einsum('nk,nk', self.r, _np.log(self.r))
 
-    def _expect_log_q_pi(self, log_C=None):
+    def _expect_log_q_pi(self):
         # (10.76)
 
-        if log_C is None:
-            log_C = Dirichlet_log_C(self.alpha)
-
-        return _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + log_C
+        return _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + Dirichlet_log_C(self.alpha)
 
     def _expect_log_q_mu_lambda(self):
-        result = 0
-        for k in self.components:
-            result += 0.5 * (self.expectation_det_ln_lambda + self.dim * (log(self.beta[k] / (2 * _np.pi) - 1)))
-            # Wishart entropy
-            result -= Wishart_H(self.lam, W, nu, B)
+        # (10.77)
 
+        # pull constant out of loop
+        result = -0.5 * self.components * self.dim
+
+        for k in range(self.components):
+            result += 0.5 * (self.expectation_det_ln_lambda[k] + self.dim * log(self.beta[k] / (2 * _np.pi)))
+            # Wishart entropy
+            result -= Wishart_H(self.W[k], self.nu[k])
+
+        return result
 
 class VBMerge(GaussianInference):
     # todo refer to set_variational_parameters for more kwargs
-    """Parsimonious reduction of Gaussian mixture models with a
-    variational-Bayes approach [BGP10]_
+    '''Parsimonious reduction of Gaussian mixture models with a
+    variational-Bayes approach [BGP10]_.
 
-    The idea is to reduce the number of components of an overly complex
-    Gaussian mixture while retaining an accurate description. The original
-    samples are not required, hence it much faster compared to standard
-    variational Bayes. The great advantage compared to hierarchical
-    clustering is that the number of output components is chosen
-    automatically. One starts with too many components and lets the
-    algorithm remove unnecessary components.
+    The idea is to reduce the number of components of an overly complex Gaussian
+    mixture while retaining an accurate description. The original samples are
+    not required, hence it much faster compared to standard variational Bayes.
+    The great advantage compared to hierarchical clustering is that the number
+    of output components is chosen automatically. One starts with (too) many
+    components, updates, and removes those components with vanishing weight
+    using  ``prune()``.
 
     :param input_mixture:
 
@@ -440,14 +513,17 @@ class VBMerge(GaussianInference):
 
         A Gaussian mixture density, the starting point for the optimization.
         Its number of components defines the maximum possible.
-        todo refer to ``GaussianMixture``
 
     :param N:
 
         The number of (virtual) input samples that the ``input_mixture`` is
-        based on.
+        based on. For example, if ``input_mixture`` was fitted to 1000 samples,
+        set ``N`` to 1000.
 
-    """
+    .. seealso::
+        :py:class:`.gaussian_mixture.GaussianMixture`
+
+    '''
 
     def __init__(self, input_mixture, N, components=None, initial_guess=None, **kwargs):
         # make sure input has the correct inverse matrices available
@@ -467,9 +543,10 @@ class VBMerge(GaussianInference):
             self.components = components
         else:
             raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
-        self.dim = len(input_mixture[0].mean)
 
+        self.dim = len(input_mixture[0].mean)
         self.N = N
+
         # effective number of samples per input component
         # in [BGP10], that's N \cdot \omega' (vector!)
         self.Nin = self.input.w * N
@@ -485,29 +562,31 @@ class VBMerge(GaussianInference):
             # copy over the means
             self.m = _np.array([c.mean for c in initial_guess])
 
+        self.E_step()
+
     def _initialize_output(self):
         GaussianInference._initialize_output(self)
         self.expectation_gauss_exponent = _np.zeros((self.L, self.components))
 
-    def update(self, N=1):
-        for i in range(N):
-            # E-like step
-            self._update_expectation_det_ln_lambda() # (21)
-            self._update_expectation_ln_pi() # (22)
-            self._update_expectation_gauss_exponent() # after (40)
-            self._update_r() # after (40)
+    # E- and M step almost as in standard VB, differences implemented in
+    # overloaded functions, the equation numbers are:
 
-            # synthetic statistics
-            _np.einsum('l,lk', self.Nin, self.r, out=self.N_comp) # (41)
-            self._update_x_mean_comp() # (42)
-            self._update_S() # (43) and (44)
+#     def E_step(self):
+#         self._update_expectation_det_ln_lambda() # (21)
+#         self._update_expectation_ln_pi() # (22)
+#         self._update_expectation_gauss_exponent() # after (40)
+#         self._update_r() # after (40)
+#         self._update_N_comp() # (41)
+#         # synthetic statistics
+#         self._update_x_mean_comp() # (42)
+#         self._update_S() # (43) and (44)
 
-            # M-like step
-            self.alpha = self.alpha0 + self.N_comp # (45)
-            self.beta = self.beta0 + self.N_comp # (46)
-            self._update_m() # (47)
-            self._update_W() # (48)
-            self.nu = self.nu0 + self.N_comp # (49)
+#     def M_step(self):
+#         self.alpha = self.alpha0 + self.N_comp # (45)
+#         self.beta = self.beta0 + self.N_comp # (46)
+#         self._update_m() # (47)
+#         self._update_W() # (48)
+#         self.nu = self.nu0 + self.N_comp # (49)
 
     def _update_expectation_gauss_exponent(self):
         for k in range(self.components):
@@ -532,6 +611,10 @@ class VBMerge(GaussianInference):
 
         self.log_rho /= 2.0
 
+    def _update_N_comp(self):
+        # (41)
+        _np.einsum('l,lk', self.Nin, self.r, out=self.N_comp)
+
     def _update_S(self):
         # combine (43) and (44), since only ever need sum of S and C
 
@@ -544,45 +627,26 @@ class VBMerge(GaussianInference):
                 self.S[k] /= self.N_comp[k]
 
     def _update_x_mean_comp(self):
-        _np.einsum('l,lk,li->ki', self.Nin, self.r, self.mu, out=self.x_mean_comp) # (42)
+        # (42)
+        _np.einsum('l,lk,li->ki', self.Nin, self.r, self.mu, out=self.x_mean_comp)
         # handle dead components, apply 1/N_k
-        for k, nk in enumerate(self.N_comp):
+        for xk, nk in zip(self.x_mean_comp, self.N_comp):
             if nk > 0:
-                self.x_mean_comp[k] /= nk
+                xk /= nk
 
-    def get_result(self):
-        '''Return the variational mixture-density estimate'''
+    def _expect_log_q_Z(self):
+        # missing in [BGP10]
+        # simplify (10.75) of [Bis06] assuming that all samples from the
+        # l-th component have identical r_{nk}
+        # E[log(q(Z))] = N \omega'_l r_{lk} \log r_{lk}
 
-        # find mode of Wishart distribution (of precision)
-        # and invert to find covariance
-        # todo this is *not* the mode of the joint q*(\mu_k, \Lambda_k),
-        # but only of W(\Lambda_k | ...), the Wishart distribution.
-        # Hopefully it is fairly close
-        #
-        # The most likely value of the means is m, the mean parameter
-        # of the Gaussian q(\mu_k)
-        components = []
-        weights = []
-        for k, W in enumerate(self.W):
-            if self.nu[k] >= self.dim + 1:
-                cov = _np.linalg.inv((self.nu[k] - self.dim - 1) * W)
-                components.append(GaussianMixture.Component(self.m[k], cov))
-                # copy over precision matrix
-                components[-1].inv = (self.nu[k] - self.dim - 1) * W
-                weights.append(self.N_comp[k] / self.N)
-            else:
-                print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
-
-        return GaussianMixture(components, weights)
-
-    def likelihood_bound(self):
-        # todo use eqn labels from [BGP10]_ instead of 2001 paper
-        pass
+        return _np.einsum('l,lk,lk', self.Nin, self.r, _np.log(self.r))
 
 # todo move Wishart stuff to separate class, file?
+# todo doesn't check that nu > D - 1
 def Wishart_log_B(W, nu, det=None):
     '''Compute first part of a Wishart distribution's normalization,
-    (B.79) of [BGP10]_, on the log scale.
+    (B.79) of [Bis06]_, on the log scale.
 
     :param W:
 
@@ -601,31 +665,38 @@ def Wishart_log_B(W, nu, det=None):
     if det is None:
         det = _np.linalg.det(W)
 
-#     B =  det**(-0.5 * nu)
-#     B *= 2**(-0.5 * nu * len(W))
-#     B *= _np.pi**(-0.25 * len(W) * (len(W) - 1))
-#     for i in range(1, len(W) + 1):
-#         B /= _gamma(0.5 * (nu + 1 - i))
-
-    log_B = log(det**(-0.5 * nu))
+    log_B = -0.5 * nu * log(det)
     log_B -= 0.5 * nu * len(W) * log(2)
     log_B -= 0.25 * len(W) * (len(W) - 1) * log(_np.pi)
     for i in range(1, len(W) + 1):
         log_B -= _gammaln(0.5 * (nu + 1 - i))
 
-    return log_B, det
+    return log_B
 
-def Wishart_H(Lambda, W, nu, log_B=None):
-    '''Entropy of the Wishart distribution, (B.82) of [BGP10]_ .'''
+def Wishart_expect_log_lambda(W, nu):
+    ''' E[log |\Lambda|], (B.81) of [Bis06]_ .'''
+    result = 0
+    for i in range(1, len(W) + 1):
+        result += _digamma(0.5 * (nu + 1 - i))
+    result += len(W) * log(2.)
+    result += log(_np.linalg.det(W))
+    return result
 
-    if log_B is None:
-        log_B = Wishart_log_B(W, nu, det)
+def Wishart_H(W, nu):
+    '''Entropy of the Wishart distribution, (B.82) of [Bis06]_ .'''
 
-    conti
+    log_B = Wishart_log_B(W, nu)
+
+    expect_log_lambda = Wishart_expect_log_lambda(W, nu)
+
+    # dimension
+    D = len(W)
+
+    return -log_B - 0.5 * (nu - D - 1) * expect_log_lambda + 0.5 * nu * D
 
 def Dirichlet_log_C(alpha):
     '''Compute normalization constant of Dirichlet distribution on
-    log scale, (B.23) of [BGP10]_ .
+    log scale, (B.23) of [Bis06]_ .
 
     '''
 
