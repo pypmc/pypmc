@@ -11,6 +11,19 @@ from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
 from .._tools._doc import _inherit_docstring, _add_to_docstring
 
+def regularize(x):
+    '''Replace zeros by smallest positive float.
+
+    :param x:
+
+        Numpy-array
+
+    Return x
+
+    '''
+    x[_np.where(x == 0)] = _np.finfo('d').tiny
+    return x
+
 class _Inference(object):
     '''Abstract base class; approximates a probability density by a
     member of a specific class of probability densities
@@ -202,7 +215,7 @@ class GaussianInference(_Inference):
         ''')
     @_inherit_docstring(_Inference)
     def set_variational_parameters(self, *args, **kwargs):
-        if args != (): raise TypeError('keyword args only)')
+        if args: raise TypeError('keyword args only')
 
         alpha0 = kwargs.pop('alpha0', 1e-5)
         self.alpha0 = _np.ones(self.components) * alpha0
@@ -214,11 +227,12 @@ class GaussianInference(_Inference):
         self.nu0    = kwargs.pop('nu0'   , self.dim + 1.)
         if self.nu0 < self.dim + 1.:
             raise ValueError('nu0 (%g) must exceed %g to avoid divergence at the origin.' % (self.nu0, self.dim + 1.))
-        self.nu     = kwargs.pop('nu'   , _np.zeros(self.components) + (self.nu0 + self.N / self.components))
+        self.nu     = kwargs.pop('nu'   , _np.zeros(self.components) + self.nu0)
 
         self.m0     = kwargs.pop('m0'    , _np.zeros(self.dim))
         self.m      = kwargs.pop('m'     , None)
         if self.m is None:
+            # TODO: maybe remove standard value because this won't perform well on components far away from zero
             # If the initial means are identical, the components remain identical in all updates.
             self.m = _np.linspace(-1.,1., self.components*self.dim).reshape((self.components, self.dim))
 
@@ -243,6 +257,8 @@ class GaussianInference(_Inference):
         self.alpha = _np.array(self.alpha0)
         self.beta  = self.beta0  * _np.ones(self.components)
         self.S = _np.empty_like(self.W)
+
+    #TODO: move citation to function itself
 
     def E_step(self):
         self._update_expectation_gauss_exponent() #eqn 10.64 in [Bis06]
@@ -278,6 +294,7 @@ class GaussianInference(_Inference):
 
     def _update_N_comp(self):
         self.N_comp = _np.einsum('nk->k', self.r)
+        self.inv_N_comp = 1. / regularize(self.N_comp)
 
     def _update_r(self):
         self._update_log_rho()
@@ -295,7 +312,7 @@ class GaussianInference(_Inference):
         self.r = rho / normalization_rho
 
         # avoid overflows and nans when taking the log of 0
-        self.r[_np.where(self.r == 0)] = _np.finfo('d').tiny
+        regularize(self.r)
 
     def _update_expectation_det_ln_lambda(self):
         logdet_W = _np.array([log(_np.linalg.det(self.W[k])) for k in range(self.components)])
@@ -309,25 +326,25 @@ class GaussianInference(_Inference):
     def _update_expectation_gauss_exponent(self): #_expectation_gauss_exponent --> _expectation_gauss_exponent[n,k]
         for k in range(self.components):
             for n in range(self.N):
-                tmp                                  = self.data[n] - self.x_mean_comp[k]
-                self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.transpose().dot(self.W[k]).dot(tmp)
+                tmp                                  = self.data[n] - self.m[k]
+                self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
     def _update_expectation_ln_pi(self):
         self.expectation_ln_pi = _digamma(self.alpha) - _digamma(self.alpha.sum())
 
     def _update_x_mean_comp(self):
-        # todo use np.average
-        for k in range(self.components):
-            if not self.N_comp[k] == 0: # prevent errors and x_mean is unimportant for a dead component
-                self.x_mean_comp[k] = 1./self.N_comp[k] * (self.r[:,k] * self.data.T).T.sum(axis = 0)
+        _np.einsum('k,nk,ni->ki', self.inv_N_comp, self.r, self.data, out=self.x_mean_comp)
 
     def _update_S(self):
-        self.S = _np.zeros_like(self.S)
+        # eqn (10.53) in [Bis06]
+        # expand outer product
         for k in range(self.components):
-            for n in range(self.N):
-                if not self.N_comp[k] == 0: # prevent errors and S for a dead component is unimportant
-                    tmp        = _np.array([self.data[n] - self.x_mean_comp[k]])
-                    self.S[k] += 1./self.N_comp[k] * self.r[n,k] * _np.outer(tmp, tmp)
+            _np.einsum('n,ni,nj->ij', self.r[:,k], self.data, self.data, out=self.S[k])
+            self.S[k] -= _np.einsum('n,ni,j->ij', self.r[:,k], self.data, self.x_mean_comp[k])
+            self.S[k] -= _np.einsum('n,i,nj->ij', self.r[:,k], self.x_mean_comp[k], self.data)
+            self.S[k] += _np.einsum('n,i,j->ij', self.r[:,k], self.x_mean_comp[k], self.x_mean_comp[k])
+
+            self.S[k] *= self.inv_N_comp[k]
 
     def _update_W(self):
         for k in range(self.components):
@@ -449,7 +466,7 @@ class GaussianInference(_Inference):
         result = 0
         for k in range(self.components):
             tmp = self.m[k] - self.m0
-            result +=  self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
+            result += self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
                       - self.beta0 * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
         result *= 0.5
@@ -549,7 +566,7 @@ class VBMerge(GaussianInference):
 
         # effective number of samples per input component
         # in [BGP10], that's N \cdot \omega' (vector!)
-        self.Nin = self.input.w * N
+        self.Nomega = self.input.w * N
 
         self.set_variational_parameters(**kwargs)
         # take mean and covariances from initial guess
@@ -561,6 +578,7 @@ class VBMerge(GaussianInference):
 
             # copy over the means
             self.m = _np.array([c.mean for c in initial_guess])
+            #TODO: copy weights
 
         self.E_step()
 
@@ -589,12 +607,11 @@ class VBMerge(GaussianInference):
 #         self.nu = self.nu0 + self.N_comp # (49)
 
     def _update_expectation_gauss_exponent(self):
-        for k in range(self.components):
-            for l in range(len(self.input.comp)):
-                tmp = self.input[l].mean - self.m[k]
-                chi_squared = tmp.dot(self.W[k]).dot(tmp)
+        for k, W in enumerate(self.W):
+            for l, comp in enumerate(self.input):
+                tmp = comp.mean - self.m[k]
                 self.expectation_gauss_exponent[l,k] = self.dim / self.beta[k] + self.nu[k] * \
-                                                       (_np.trace(self.W[k].dot(self.input[l].inv)) + chi_squared)
+                                                       (_np.trace(W.dot(comp.inv)) + tmp.dot(W).dot(tmp))
 
     def _update_log_rho(self):
         # eqn 40 in [BGP10]
@@ -604,35 +621,32 @@ class VBMerge(GaussianInference):
         tmp_k -= self.dim * _np.log(2 * _np.pi)
 
         # turn into lk matrix
-        self.log_rho = _np.einsum('l,k->lk', self.Nin, tmp_k)
+        self.log_rho = _np.einsum('l,k->lk', self.Nomega, tmp_k)
 
         # add second line
-        self.log_rho -= _np.einsum('l,lk->lk', self.Nin, self.expectation_gauss_exponent)
+        self.log_rho -= _np.einsum('l,lk->lk', self.Nomega, self.expectation_gauss_exponent)
 
         self.log_rho /= 2.0
 
     def _update_N_comp(self):
         # (41)
-        _np.einsum('l,lk', self.Nin, self.r, out=self.N_comp)
+        _np.einsum('l,lk', self.Nomega, self.r, out=self.N_comp)
+        regularize(self.N_comp)
+        self.inv_N_comp = 1. / self.N_comp
+
+    def _update_x_mean_comp(self):
+        # (42)
+        _np.einsum('k,l,lk,li->ki', self.inv_N_comp, self.Nomega, self.r, self.mu, out=self.x_mean_comp)
 
     def _update_S(self):
         # combine (43) and (44), since only ever need sum of S and C
 
         for k in range(self.components):
             self.S[k,:] = 0.0
-            if self.N_comp[k] > 0:
-                for l in range(self.L):
-                    tmp        = self.mu[l] - self.x_mean_comp[k]
-                    self.S[k] += self.Nin[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input[l].cov)
-                self.S[k] /= self.N_comp[k]
-
-    def _update_x_mean_comp(self):
-        # (42)
-        _np.einsum('l,lk,li->ki', self.Nin, self.r, self.mu, out=self.x_mean_comp)
-        # handle dead components, apply 1/N_k
-        for xk, nk in zip(self.x_mean_comp, self.N_comp):
-            if nk > 0:
-                xk /= nk
+            for l in range(self.L):
+                tmp        = self.mu[l] - self.x_mean_comp[k]
+                self.S[k] += self.Nomega[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input[l].cov)
+            self.S[k] *= self.inv_N_comp[k]
 
     def _expect_log_q_Z(self):
         # missing in [BGP10]
@@ -640,7 +654,7 @@ class VBMerge(GaussianInference):
         # l-th component have identical r_{nk}
         # E[log(q(Z))] = N \omega'_l r_{lk} \log r_{lk}
 
-        return _np.einsum('l,lk,lk', self.Nin, self.r, _np.log(self.r))
+        return _np.einsum('l,lk,lk', self.Nomega, self.r, _np.log(self.r))
 
 # todo move Wishart stuff to separate class, file?
 # todo doesn't check that nu > D - 1

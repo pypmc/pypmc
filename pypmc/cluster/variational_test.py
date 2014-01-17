@@ -7,9 +7,33 @@ from .gaussian_mixture import GaussianMixture
 
 import copy
 import numpy as np
+from scipy.special import digamma
 import unittest
 
-invertible_matrix = np.array([[2.   , 3.    ],
+def check_bound(test_case, variational, n=20, prune=True):
+    bound = variational.likelihood_bound()
+    old_K = variational.components
+    for i in range(n):
+        old_bound = bound
+        variational.update()
+        bound = variational.likelihood_bound()
+        print('%d: bound=%g, ncomp=%d, N_k=%s' % (i, bound, variational.components, variational.N_comp))
+
+        if bound == old_bound:
+            return True
+
+        test_case.assertLessEqual(variational.components, old_K)
+        if variational.components == old_K:
+            test_case.assertGreaterEqual(bound, old_bound)
+
+        # save K *before* prune()
+        old_K = variational.components
+        if prune:
+            variational.prune()
+
+    return False
+
+invertible_matrix = np.array([[2.   , 3.   ],
                               [2.   , 2.   ]])
 
 covariance1       = np.array([[0.01 , 0.003 ],
@@ -29,46 +53,114 @@ delta_cov1 = .001
 rng_seed = 625135153
 
 class TestGaussianInference(unittest.TestCase):
-    def test_update(self):
-        np.random.mtrand.seed(rng_seed)
+    def setUp(self):
+        np.random.seed(rng_seed)
 
-        # generate test data from two independent gaussians
-        target_abundances = .5
-        target_mean1 = np.array((+5. , 0.))
-        target_mean2 = np.array((-5. , 0.))
-        target_cov1  = covariance1
-        target_cov2  = covariance2
-        data1 = np.random.mtrand.multivariate_normal(target_mean1, target_cov1, size = 10**4)
-        data2 = np.random.mtrand.multivariate_normal(target_mean2, target_cov2, size = 10**4)
-        test_data = np.vstack((data1,data2))
-        np.random.shuffle(test_data)
+    def test_update(self):
+        demo_data = np.array([
+                              # first component at [0,5]
+                              [-2.,  3.],
+                              [ 2.,  5.],
+                              [-1.,  7.],
+                              [ 0.,  4.],
+                              [ 1.,  6.],
+                              # second component at [0,-5]
+                              [ 2., -3.],
+                              [-1., -6.],
+                              [ 1., -4.],
+                              [-2., -7.]])
+
+        target_means   = [np.array([0.,5.]), np.array([0., -5.])]
+        target_covars  = [np.array([[2.5,0.75],[0.75,2.5]]), 2.5*np.ones((2,2))]
+        target_weights = np.array([0.5,0.5])
 
         # provide hint for means to force convergence to a specific solution
-        infer = GaussianInference(test_data, 2, m = np.vstack((target_mean1-2.,target_mean2+2.)) )
-        infer.update()
-        inferred_abundances, inferred_means, inferred_covars = infer.get_result()
+        alpha0, beta0, nu0 = 1e-5, 1e-5, 3
+        infer = GaussianInference(demo_data, 2, m = np.vstack((target_means[0]-2.,target_means[1]+2.)),
+                                  alpha0=alpha0, beta0=beta0, nu0=nu0)
 
-        self.assertAlmostEqual(target_abundances, inferred_abundances[0], delta_abun)
-        self.assertAlmostEqual(target_abundances, inferred_abundances[1], delta_abun)
+        # check W0 and inv_W0
+        W0 = inv_W0 = np.eye(2)
+        np.testing.assert_allclose(infer.W0, W0)
+        np.testing.assert_allclose(infer.inv_W0, inv_W0)
+        np.testing.assert_allclose(infer.W[0], W0)
+        np.testing.assert_allclose(infer.W[1], W0)
 
-        self.assertTrue( (np.abs(target_mean1 - inferred_means[0])<delta_mean).all()  )
-        self.assertTrue( (np.abs(target_mean2 - inferred_means[1])<delta_mean).all()  )
 
-        self.assertTrue( (np.abs(target_cov1 - inferred_covars[0])<delta_cov0).all()  )
-        self.assertTrue( (np.abs(target_cov2 - inferred_covars[1])<delta_cov1).all()  )
 
-    def test_set_variational_parameters(self):
-        infer = GaussianInference(np.empty((20,20)), 5)
+        # check for correctness of first E-step (called from constructor) --> compare with calculation by hand
+        # (only for first data_point if for all points)
 
-        infer.set_variational_parameters(beta0 = 2., W0 = invertible_matrix)
+        # check self._update_expectation_gauss_exponent()
+        exp_gauss_expo = 2.*10**5 + 3.*52
+        self.assertAlmostEqual(infer.expectation_gauss_exponent[0,1], exp_gauss_expo, delta = float64_acc*exp_gauss_expo)
 
-        # set_variational_parameters shall reset not passed parameters to default
-        self.assertEqual   (infer.beta0 , 2.)
-        self.assertTrue    ( (np.abs(infer.inv_W0-np.linalg.inv(invertible_matrix))<float64_acc).all() )
+        exp_gauss_expo = 2.*10**5 + 3.*20
+        self.assertAlmostEqual(infer.expectation_gauss_exponent[1,0], exp_gauss_expo, delta = float64_acc*exp_gauss_expo)
+
+        exp_gauss_expo = 2.*10**5 + 0
+        self.assertAlmostEqual(infer.expectation_gauss_exponent[0,0], exp_gauss_expo, delta = float64_acc*exp_gauss_expo)
+
+
+        # check self._update_expectation_det_ln_lambda()
+        exp_det_ln_lambda = digamma(3./2.) + digamma(1.) + 2.*np.log(2)
+        self.assertAlmostEqual(infer.expectation_det_ln_lambda[0], exp_det_ln_lambda, delta = float64_acc*exp_det_ln_lambda)
+
+        # check self._update_expectation_ln_pi()
+        exp_ln_pi = digamma(1e-5) - digamma(2e-5)
+        self.assertAlmostEqual(infer.expectation_ln_pi[0], exp_ln_pi, delta = float64_acc*exp_ln_pi)
+
+        # check self._update_r()
+        # log_rho
+        log_rho = exp_ln_pi + .5*exp_det_ln_lambda - np.log(2*np.pi) - .5*exp_gauss_expo
+        self.assertAlmostEqual(infer.log_rho[0,0], log_rho)
+
+        # check r
+        r = 1.3336148155022614e-34
+        self.assertAlmostEqual(infer.r[0,1], r)
+        self.assertAlmostEqual(infer.r[0,0], 1)
+
+        # check N_comp
+        N_comp = np.array([5.,4.])
+        np.testing.assert_allclose(infer.N_comp, N_comp)
+
+        # check inv_N_comp
+        self.assertEqual(infer.inv_N_comp[0], 1./5.)
+
+        # check x_mean_comp
+        x_mean_comp = np.einsum('k,nk,ni->ki', 1./N_comp, infer.r, demo_data)
+        np.testing.assert_allclose(infer.x_mean_comp, x_mean_comp)
+
+        # check S
+        S = np.zeros((2,2))
+        for n in range(9):
+            tmp = demo_data[n] - x_mean_comp[0]
+            S += infer.r[n,0]*np.outer(tmp,tmp)
+        S /= 5.
+        np.testing.assert_allclose(infer.S[0], S)
+
+
+        # check M-step
+        infer.M_step()
+
+        nu = nu0 + N_comp
+        np.testing.assert_allclose(infer.nu, nu)
+
+        # check beta
+        beta = N_comp + beta0
+        np.testing.assert_allclose(infer.beta, beta)
+
+        # check m
+        m = np.einsum('k,k,ki->ki',1./beta, N_comp, x_mean_comp)
+        np.testing.assert_allclose(infer.m, m)
+
+        # check W
+        inv_W = inv_W0 + N_comp[0]*S + (infer.beta0*N_comp[0]) / (infer.beta0 + N_comp[0]) *\
+                np.outer(x_mean_comp[0], x_mean_comp[0])
+        W     = np.linalg.inv(inv_W)
+        np.testing.assert_allclose(infer.W[0], W)
 
     def test_prune(self):
-        np.random.mtrand.seed(rng_seed)
-
         # generate test data from two independent gaussians
         target_abundances = np.array((.1, .9))
         target_mean1 = np.array((+1. , -4.))
@@ -81,24 +173,12 @@ class TestGaussianInference(unittest.TestCase):
         np.random.shuffle(test_data)
 
         # provide hint for means to force convergence to a specific solution
-        infer = GaussianInference(test_data, 3, m = np.vstack((target_mean1+2.,target_mean2+2.,
-                                                        np.zeros_like(target_mean1)              )) )
-        infer.update()
-        infer.prune()
-        infer.update()
-        inferred_abundances, inferred_means, inferred_covars = infer.get_result()
+        infer = GaussianInference(test_data, 3, m = np.vstack((target_mean1+2. , target_mean2+2.,
+                                                               target_mean1+10., target_mean2+1    )) )
 
-        # the additional component should have been pruned out
-        self.assertEqual(len(inferred_abundances),2)
-
-        self.assertAlmostEqual(target_abundances[0], inferred_abundances[0], delta_abun)
-        self.assertAlmostEqual(target_abundances[1], inferred_abundances[1], delta_abun)
-
-        self.assertTrue( (np.abs(target_mean1 - inferred_means[0])<delta_mean).all()  )
-        self.assertTrue( (np.abs(target_mean2 - inferred_means[1])<delta_mean).all()  )
-
-        self.assertTrue( (np.abs(target_cov1 - inferred_covars[0])<delta_cov0).all()  )
-        self.assertTrue( (np.abs(target_cov2 - inferred_covars[1])<delta_cov1).all()  )
+        self.assertTrue(check_bound(self, infer, 20))
+        resulting_mixture = infer.get_result()
+        self.assertEqual(len(resulting_mixture.w), 2)
 
 def create_mixture(means, cov, ncomp):
     '''Create mixture density with different means but common covariance.
@@ -115,12 +195,11 @@ def create_mixture(means, cov, ncomp):
     return GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers])
 
 class TestVBMerge(unittest.TestCase):
-
     def setUp(self):
-        np.random.mtrand.seed(rng_seed)
+        np.random.seed(rng_seed)
 
     def test_bimodal(self):
-        '''Compress bimodal distribution with four components to two components.'''
+        #Compress bimodal distribution with four components to two components.
 
         means = (np.array([5, 0]), np.array([-5,0]))
         cov = np.eye(2)
@@ -220,7 +299,7 @@ class TestVBMerge(unittest.TestCase):
         self.assertEqual(len(output.comp), len(initial_guess.comp))
 
     def test_large_prune(self):
-        '''Compress large number of similar components into a single component.'''
+        #Compress large number of similar components into a single component.
 
         means = (np.array([5, 0]),)
         cov = np.eye(2)
@@ -236,47 +315,15 @@ class TestVBMerge(unittest.TestCase):
 
         print('Keep all components...\n')
 
-        for i in range(1, 20):
-            old_bound = bound
-            vb.update()
-            bound = vb.likelihood_bound()
-            # bound increases only if no component removed
-            self.assertGreaterEqual(bound, old_bound)
-            if bound == old_bound:
-                converged_exactly = True
-                break
-            print('%d: bound=%g, ncomp=%d' % (i, bound, vb.components))
-
-        self.assertTrue(converged_exactly)
+        self.assertTrue(check_bound(self, vb, prune=False))
         self.assertEqual(vb.components, N_output_initial)
 
         # now the same thing with pruning, should be faster
         # as only one component remains
         # but bound can decrease if component is removed
         print('Pruning...\n')
-        old_K = vb_prune.components
-        bound = vb_prune.likelihood_bound()
 
-        for i in range(1, 20):
-            old_bound = bound
-            vb_prune.update()
-            bound = vb_prune.likelihood_bound()
-            print('%d: bound=%g, ncomp=%d, N_k=%s' % (i, bound, vb_prune.components, vb_prune.N_comp))
-
-            if bound == old_bound:
-                converged_exactly = True
-                break
-
-            self.assertLessEqual(vb_prune.components, old_K)
-            if vb_prune.components == old_K:
-                print('Comparing bounds')
-                self.assertGreaterEqual(bound, old_bound)
-
-            # save K *before* prune()
-            old_K = vb_prune.components
-            vb_prune.prune()
-
-        self.assertTrue(converged_exactly)
+        self.assertTrue(check_bound(self, vb_prune, 20))
         self.assertEqual(vb_prune.components, 1)
 
 class TestWishart(unittest.TestCase):
