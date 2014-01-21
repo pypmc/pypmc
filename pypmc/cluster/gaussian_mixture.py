@@ -60,10 +60,6 @@ class GaussianMixture(object):
 
         return removed_indices
 
-    def __iter(self):
-        for c in self.comp:
-            yield c
-
     class Component(object):
         """Minimal description of a Gaussian component in a mixture density.
 

@@ -1,5 +1,5 @@
 Clustering
-=======
+==========
 
 .. automodule:: pypmc.cluster.gaussian_mixture
 
