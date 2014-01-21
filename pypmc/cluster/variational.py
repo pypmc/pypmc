@@ -240,7 +240,7 @@ class GaussianInference(_Inference):
         self.W0     = kwargs.pop('W0'    , None)
         if self.W0 is None:
             self.W0     = _np.eye(self.dim)
-            self.inv_W0 = self.W0
+            self.inv_W0 = self.W0.copy()
         else:
             self.inv_W0 = _np.linalg.inv(self.W0)
 
@@ -315,13 +315,24 @@ class GaussianInference(_Inference):
         regularize(self.r)
 
     def _update_expectation_det_ln_lambda(self):
-        logdet_W = _np.array([log(_np.linalg.det(self.W[k])) for k in range(self.components)])
+        # negative determinants from improper matrices trigger ValueError on some machines only;
+        # so test explicitly
+        dets = _np.array([_np.linalg.det(W) for W in self.W])
+        assert (dets > 0).all(), 'Some precision matrix is not positive definite in %s' % self.W
 
-        tmp = 0.
+        res = _np.zeros_like(self.nu)
+        tmp = _np.zeros_like(self.nu)
         for i in range(1, self.dim + 1):
-            tmp += _digamma(    0.5 * (self.nu + 1. - i)    )
+            tmp[:] = self.nu
+            tmp += 1. - i
+            tmp *= 0.5
+            # digamma aware of vector input
+            res += _digamma(tmp)
 
-        self.expectation_det_ln_lambda = tmp + self.dim * log(2.) + logdet_W
+        res += self.dim * log(2.)
+        res += _np.log(dets)
+
+        self.expectation_det_ln_lambda = res
 
     def _update_expectation_gauss_exponent(self): #_expectation_gauss_exponent --> _expectation_gauss_exponent[n,k]
         for k in range(self.components):
@@ -337,20 +348,25 @@ class GaussianInference(_Inference):
 
     def _update_S(self):
         # eqn (10.53) in [Bis06]
-        # expand outer product
+        # use outer product to guarantee a positive definite symmetric S
+        # expanding it into four terms, then using einsum failed numerically for large N
         for k in range(self.components):
-            _np.einsum('n,ni,nj->ij', self.r[:,k], self.data, self.data, out=self.S[k])
-            self.S[k] -= _np.einsum('n,ni,j->ij', self.r[:,k], self.data, self.x_mean_comp[k])
-            self.S[k] -= _np.einsum('n,i,nj->ij', self.r[:,k], self.x_mean_comp[k], self.data)
-            self.S[k] += _np.einsum('n,i,j->ij', self.r[:,k], self.x_mean_comp[k], self.x_mean_comp[k])
-
+            self.S[k,:,:] = 0
+            for n, x in enumerate(self.data):
+                tmp = x - self.x_mean_comp[k]
+                self.S[k] += self.r[n,k] * _np.outer(tmp, tmp)
             self.S[k] *= self.inv_N_comp[k]
 
     def _update_W(self):
+        # (10.62)
+        # change order of operations to minimize copying
         for k in range(self.components):
             tmp = self.x_mean_comp[k] - self.m0
-            cov = self.inv_W0 + self.N_comp[k] * self.S[k] + \
-                  (self.beta0 * self.N_comp[k]) / (self.beta0 + self.N_comp[k]) *  _np.outer(tmp, tmp)
+            cov = _np.outer(tmp, tmp)
+            cov *= self.beta0 / (self.beta0 + self.N_comp[k])
+            cov += self.S[k]
+            cov *= self.N_comp[k]
+            cov += self.inv_W0
             self.W[k] = _np.linalg.inv(cov)
 
     def get_result(self):
@@ -646,6 +662,7 @@ class VBMerge(GaussianInference):
             for l in range(self.L):
                 tmp        = self.mu[l] - self.x_mean_comp[k]
                 self.S[k] += self.Nomega[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input[l].cov)
+
             self.S[k] *= self.inv_N_comp[k]
 
     def _expect_log_q_Z(self):

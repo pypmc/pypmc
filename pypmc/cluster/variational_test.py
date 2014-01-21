@@ -6,6 +6,7 @@ from .variational import *
 from .gaussian_mixture import GaussianMixture
 
 import copy
+from nose.plugins.attrib import attr
 import numpy as np
 from scipy.special import digamma
 import unittest
@@ -298,6 +299,7 @@ class TestVBMerge(unittest.TestCase):
         vb.prune()
         self.assertEqual(len(output.comp), len(initial_guess.comp))
 
+    @attr('slow')
     def test_large_prune(self):
         #Compress large number of similar components into a single component.
 
