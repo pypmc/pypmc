@@ -311,7 +311,7 @@ class TestVBMerge(unittest.TestCase):
         input_components = create_mixture(means, cov, N_input)
         initial_guess = create_mixture(means, cov, N_output_initial)
 
-        vb = VBMerge(input_components, N=N, initial_guess=initial_guess)
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, nu=np.zeros(N_output_initial) + 3. + 10.)
         vb_prune = copy.deepcopy(vb)
         bound = vb.likelihood_bound()
 

@@ -18,15 +18,15 @@ def regularize(x):
 
         Numpy-array
 
-    Return x
+    Return regularized ``x``.
 
     '''
     x[_np.where(x == 0)] = _np.finfo('d').tiny
     return x
 
 class _Inference(object):
-    '''Abstract base class; approximates a probability density by a
-    member of a specific class of probability densities
+    '''Abstract base class; approximate an unknown probability density by a
+    member of a specific class of probability densities.
 
     '''
 
@@ -34,7 +34,7 @@ class _Inference(object):
         raise NotImplementedError('Do not create instances from this class, use derived classes instead.')
 
     def get_result(self):
-        '''Returns the parameters calculated by ``self.update``'''
+        '''Return the parameters calculated by ``self.update``'''
         raise NotImplementedError()
 
     def likelihood_bound(self):
@@ -182,8 +182,7 @@ class GaussianInference(_Inference):
             default initialization is
 
             .. math::
-                \nu_k = \nu_0 + N / K
-            in anticipation of the updating rule for :math:`\nu_k`.
+                \nu_k = \nu_0 .
 
         :param m0:
 
@@ -258,45 +257,127 @@ class GaussianInference(_Inference):
         self.beta  = self.beta0  * _np.ones(self.components)
         self.S = _np.empty_like(self.W)
 
-    #TODO: move citation to function itself
-
     def E_step(self):
-        self._update_expectation_gauss_exponent() #eqn 10.64 in [Bis06]
-        self._update_expectation_det_ln_lambda() #eqn 10.65 in [Bis06]
-        self._update_expectation_ln_pi() #eqn 10.66 in [Bis06]
-        self._update_r() #eqn 10.46 and 10.49 in [Bis06]
-        self._update_N_comp() #eqn 10.51 in [Bis06]
-        self._update_x_mean_comp() #eqn 10.52 in [Bis06]
-        self._update_S() #eqn 10.53 in [Bis06]
+        '''Compute expectation values and summary statistics.'''
+
+        self._update_expectation_gauss_exponent()
+        self._update_expectation_det_ln_lambda()
+        self._update_expectation_ln_pi()
+        self._update_r()
+        self._update_N_comp()
+        self._update_x_mean_comp()
+        self._update_S()
 
     def M_step(self):
-        self.nu = self.nu0 + self.N_comp #eqn 10.63 in [Bis06]
-        self.alpha = self.alpha0 + self.N_comp #eqn 10.58 in [Bis06]
-        self.beta = self.beta0 + self.N_comp #eqn 10.60 in [Bis06]
-        self._update_m() #eqn 10.61 in [Bis06]
-        self._update_W() #eqn 10.62 in [Bis06]
+        '''Update parameters of the Gaussian-Wishart distribution.'''
+
+        self.nu = self.nu0 + self.N_comp
+        self.alpha = self.alpha0 + self.N_comp
+        self.beta = self.beta0 + self.N_comp
+        self._update_m()
+        self._update_W()
 
     @_inherit_docstring(_Inference)
     def update(self):
+        '''Perform an M step, then an E step.'''
         self.M_step()
         self.E_step()
 
         # TODO: implement support for weights
 
+    def run(self, iterations=25, prune=1, rel_tol=1e-5, abs_tol=1e-3, verbose=False):
+        r'''Run variational-Bayes parameter updates and check for convergence using
+        the change of the log likelihood bound of the current and the last step. Convergence is not declared if
+
+        :param iterations:
+            Maximum number of updates.
+
+        :param prune:
+            Call :py:meth:`prune` after each update; i.e., remove components whose associated
+            effective number of samples is below the threshold. Set `prune=0` to deactivate. Default: 1 (effective samples).
+
+        :param rel_tol:
+            Relative tolerance :math:`\epsilon`. If two consecutive values of
+            the log likelihood bound, :math:`L_t, L_{t-1}`, are close, declare
+            convergence. More precisely, check that
+
+            .. math::
+                \left\| \frac{L_t - L_{t-1}}{L_t} \right\| < \epsilon .
+
+        :param abs_tol:
+            Absolute tolerance :math:`\epsilon_{a}`. If the current bound
+            :math:`L_t` is close to zero, (:math:`L_t < \epsilon_{a}`), declare
+            convergence if
+
+            .. math::
+                \| L_t - L_{t-1} \| < \epsilon_a .
+
+        :param verbose:
+            Output status information after each update.
+
+        '''
+        bound = self.likelihood_bound()
+        old_K = self.components
+        for i in range(iterations):
+            old_bound = bound
+            self.update()
+            bound = self.likelihood_bound()
+            if verbose:
+                print('iteration %d: bound=%.15f, K=%d, N_k=%s' % (i, bound, self.components, self.N_comp))
+
+            # declare convergence only if number of components didn't change
+            if self.components == old_K:
+                # bound must not decrease if implementation correct
+                # but tiny difference may accumulate due to summing over many samples
+                # or the fact that N_k changes in the 13th decimal place
+                assert bound + 1e-10 >= old_bound
+
+                 # exact convergence
+                if bound == old_bound:
+                    return True
+                # approximate convergence
+                # handle case when bound is close to 0
+                if abs(bound) < abs_tol:
+                    if (bound - old_bound) < abs_tol:
+                        return True
+                else:
+                    if abs((bound - old_bound) / bound) < rel_tol:
+                        return True
+
+            # save K *before* prune()
+            old_K = self.components
+            self.prune(prune)
+        # not converged
+        return False
+
     def _update_log_rho(self):
-        # todo check sum of vector and matrix
-        self.log_rho = self.expectation_ln_pi + 0.5 * self.expectation_det_ln_lambda \
-                  - 0.5 * self.dim * log(2. * _np.pi) - 0.5 * self.expectation_gauss_exponent
+        # (10.46)
+
+        # writing it out improves numerical precision from 1e-13 to machine precision
+
+        # (NxK) matrix
+        self.log_rho  = -0.5 * self.expectation_gauss_exponent
+        # adding a K vector to (NxK) matrix adds to every row. That's what we want.
+        self.log_rho += self.expectation_ln_pi
+        self.log_rho += 0.5 * self.expectation_det_ln_lambda
+        # adding a scalar to every element
+        self.log_rho -= 0.5 * self.dim * log(2. * _np.pi)
 
     def _update_m(self):
+        # (10.61)
+
         for k in range(self.components):
             self.m[k] = 1. / self.beta[k] * (self.beta0 * self.m0 + self.N_comp[k] * self.x_mean_comp[k])
 
     def _update_N_comp(self):
-        self.N_comp = _np.einsum('nk->k', self.r)
+        # (10.51)
+
+        _np.einsum('nk->k', self.r, out=self.N_comp)
         self.inv_N_comp = 1. / regularize(self.N_comp)
 
     def _update_r(self):
+        # (10.49)
+
         self._update_log_rho()
 
         # rescale log to avoid division by zero:
@@ -315,6 +396,8 @@ class GaussianInference(_Inference):
         regularize(self.r)
 
     def _update_expectation_det_ln_lambda(self):
+        # (10.65)
+
         # negative determinants from improper matrices trigger ValueError on some machines only;
         # so test explicitly
         dets = _np.array([_np.linalg.det(W) for W in self.W])
@@ -334,20 +417,27 @@ class GaussianInference(_Inference):
 
         self.expectation_det_ln_lambda = res
 
-    def _update_expectation_gauss_exponent(self): #_expectation_gauss_exponent --> _expectation_gauss_exponent[n,k]
+    def _update_expectation_gauss_exponent(self):
+        # (10.64)
+
         for k in range(self.components):
             for n in range(self.N):
                 tmp                                  = self.data[n] - self.m[k]
                 self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
     def _update_expectation_ln_pi(self):
+        # (10.66)
+
         self.expectation_ln_pi = _digamma(self.alpha) - _digamma(self.alpha.sum())
 
     def _update_x_mean_comp(self):
+        # (10.52)
+
         _np.einsum('k,nk,ni->ki', self.inv_N_comp, self.r, self.data, out=self.x_mean_comp)
 
     def _update_S(self):
-        # eqn (10.53) in [Bis06]
+        # (10.53)
+
         # use outer product to guarantee a positive definite symmetric S
         # expanding it into four terms, then using einsum failed numerically for large N
         for k in range(self.components):
@@ -359,6 +449,7 @@ class GaussianInference(_Inference):
 
     def _update_W(self):
         # (10.62)
+
         # change order of operations to minimize copying
         for k in range(self.components):
             tmp = self.x_mean_comp[k] - self.m0
@@ -407,7 +498,10 @@ class GaussianInference(_Inference):
         return GaussianMixture(components, weights)
 
     @_inherit_docstring(_Inference)
-    def prune(self, threshold = 1.):
+    def prune(self, threshold=1.):
+        # nothing to do for a zero threshold
+        if not threshold:
+            return
 
         components_to_survive = _np.where(self.N_comp >= threshold)[0]
         self.components = len(components_to_survive)
@@ -437,16 +531,18 @@ class GaussianInference(_Inference):
         for m in mmembers:
             setattr(self, m, getattr(self, m)[:, :self.components])
 
+        # recreate consistent expectation values
+        self.E_step()
+
     def likelihood_bound(self):
         # todo easy to parallize sum of independent terms
-        bound  = self._expect_log_p_X() # (10.71)
-        bound += self._expect_log_p_Z() # (10.72)
-        bound += self._expect_log_p_pi() # (10.73)
-        bound += self._expect_log_p_mu_lambda() # (10.74)
-        bound -= self._expect_log_q_Z() # (10.75)
-        bound -= self._expect_log_q_pi() # (10.76)
-        bound -= self._expect_log_q_mu_lambda() # (10.77)
-
+        bound  = self._expect_log_p_X()
+        bound += self._expect_log_p_Z()
+        bound += self._expect_log_p_pi()
+        bound += self._expect_log_p_mu_lambda()
+        bound -= self._expect_log_q_Z()
+        bound -= self._expect_log_q_pi()
+        bound -= self._expect_log_q_mu_lambda()
         return bound
 
     def _expect_log_p_X(self):
@@ -463,8 +559,9 @@ class GaussianInference(_Inference):
         return 0.5 * result
 
     def _expect_log_p_Z(self):
-        # simplify (10.72) to include sum over k
-        # N_k = sum_n r_{nk}
+        #  (10.72)
+
+        # simplify to include sum over k: N_k = sum_n r_{nk}
 
         # contract all indices, no broadcasting
         return _np.einsum('k,k', self.N_comp, self.expectation_ln_pi)
@@ -526,7 +623,7 @@ class GaussianInference(_Inference):
         return result
 
 class VBMerge(GaussianInference):
-    # todo refer to set_variational_parameters for more kwargs
+
     '''Parsimonious reduction of Gaussian mixture models with a
     variational-Bayes approach [BGP10]_.
 
@@ -536,7 +633,8 @@ class VBMerge(GaussianInference):
     The great advantage compared to hierarchical clustering is that the number
     of output components is chosen automatically. One starts with (too) many
     components, updates, and removes those components with vanishing weight
-    using  ``prune()``.
+    using  ``prune()``. All the methods the typical user wants to call are taken
+    over from and documented in :py:class:`GaussianInference`.
 
     :param input_mixture:
 
@@ -552,6 +650,9 @@ class VBMerge(GaussianInference):
         The number of (virtual) input samples that the ``input_mixture`` is
         based on. For example, if ``input_mixture`` was fitted to 1000 samples,
         set ``N`` to 1000.
+
+    All other keyword arguments are documented in
+    :py:meth:`GaussianInference.set_variational_parameters`.
 
     .. seealso::
         :py:class:`.gaussian_mixture.GaussianMixture`
@@ -582,7 +683,7 @@ class VBMerge(GaussianInference):
 
         # effective number of samples per input component
         # in [BGP10], that's N \cdot \omega' (vector!)
-        self.Nomega = self.input.w * N
+        self.Nomega = N * self.input.w
 
         self.set_variational_parameters(**kwargs)
         # take mean and covariances from initial guess
@@ -594,7 +695,9 @@ class VBMerge(GaussianInference):
 
             # copy over the means
             self.m = _np.array([c.mean for c in initial_guess])
-            #TODO: copy weights
+
+            # copy weights
+            self.alpha = N * initial_guess.w
 
         self.E_step()
 
@@ -705,7 +808,7 @@ def Wishart_log_B(W, nu, det=None):
     return log_B
 
 def Wishart_expect_log_lambda(W, nu):
-    ''' E[log |\Lambda|], (B.81) of [Bis06]_ .'''
+    ''' :math:`E[\log |\Lambda|]`, (B.81) of [Bis06]_ .'''
     result = 0
     for i in range(1, len(W) + 1):
         result += _digamma(0.5 * (nu + 1 - i))
