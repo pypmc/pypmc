@@ -216,6 +216,8 @@ class GaussianInference(_Inference):
     def set_variational_parameters(self, *args, **kwargs):
         if args: raise TypeError('keyword args only')
 
+        # todo check all user input for shape and values
+
         alpha0 = kwargs.pop('alpha0', 1e-5)
         self.alpha0 = _np.ones(self.components) * alpha0
 
@@ -227,6 +229,8 @@ class GaussianInference(_Inference):
         if self.nu0 < self.dim + 1.:
             raise ValueError('nu0 (%g) must exceed %g to avoid divergence at the origin.' % (self.nu0, self.dim + 1.))
         self.nu     = kwargs.pop('nu'   , _np.zeros(self.components) + self.nu0)
+        assert len(self.nu) == self.components
+        assert (self.nu >= self.dim + 1).all(), 'Require nu >= %d: %s' % (self.dim + 1, self.nu)
 
         self.m0     = kwargs.pop('m0'    , _np.zeros(self.dim))
         self.m      = kwargs.pop('m'     , None)
@@ -252,7 +256,7 @@ class GaussianInference(_Inference):
         self.x_mean_comp = _np.zeros((self.components, self.dim))
         self.W = _np.array([self.W0 for i in range(self.components)])
         self.expectation_gauss_exponent = _np.zeros((  self.N,self.components  ))
-        self.N_comp = self.N / self.components * _np.ones(self.components)
+        self.N_comp = self.N / self.components * _np.ones(self.components) # todo zeros to start with?
         self.alpha = _np.array(self.alpha0)
         self.beta  = self.beta0  * _np.ones(self.components)
         self.S = _np.empty_like(self.W)
@@ -536,91 +540,98 @@ class GaussianInference(_Inference):
 
     def likelihood_bound(self):
         # todo easy to parallize sum of independent terms
-        bound  = self._expect_log_p_X()
-        bound += self._expect_log_p_Z()
-        bound += self._expect_log_p_pi()
-        bound += self._expect_log_p_mu_lambda()
-        bound -= self._expect_log_q_Z()
-        bound -= self._expect_log_q_pi()
-        bound -= self._expect_log_q_mu_lambda()
+        bound  = self._update_expect_log_p_X()
+        bound += self._update_expect_log_p_Z()
+        bound += self._update_expect_log_p_pi()
+        bound += self._update_expect_log_p_mu_lambda()
+        bound -= self._update_expect_log_q_Z()
+        bound -= self._update_expect_log_q_pi()
+        bound -= self._update_expect_log_q_mu_lambda()
+
         return bound
 
-    def _expect_log_p_X(self):
+    def _update_expect_log_p_X(self):
         # (10.71)
 
-        result = 0
+        res = 0
         for k in range(self.components):
             tmp = self.x_mean_comp[k] - self.m[k]
-            result += self.N_comp[k] * \
+            res += self.N_comp[k] * \
                       (self.expectation_det_ln_lambda[k] - self.dim / self.beta[k]
                        -self.nu[k] * (_np.trace(self.S[k].dot(self.W[k]))
                        + tmp.dot(self.W[k]).dot(tmp)) - self.dim * log(2 * _np.pi))
 
-        return 0.5 * result
+        self._expect_log_p_X = 0.5 * res
+        return self._expect_log_p_X
 
-    def _expect_log_p_Z(self):
+    def _update_expect_log_p_Z(self):
         #  (10.72)
 
         # simplify to include sum over k: N_k = sum_n r_{nk}
 
         # contract all indices, no broadcasting
-        return _np.einsum('k,k', self.N_comp, self.expectation_ln_pi)
+        self._expect_log_p_Z = _np.einsum('k,k', self.N_comp, self.expectation_ln_pi)
+        return self._expect_log_p_Z
 
-    def _expect_log_p_pi(self):
+    def _update_expect_log_p_pi(self):
         # (10.73)
 
-        log_C = Dirichlet_log_C(self.alpha0)
+        self._expect_log_p_pi = Dirichlet_log_C(self.alpha0)
+        self._expect_log_p_pi += _np.einsum('k,k', self.alpha0 - 1, self.expectation_ln_pi)
+        return self._expect_log_p_pi
 
-        return log_C + _np.einsum('k,k', self.alpha0 - 1, self.expectation_ln_pi)
-
-    def _expect_log_p_mu_lambda(self):
+    def _update_expect_log_p_mu_lambda(self):
         # (10.74)
 
-        result = 0
+        res = 0
         for k in range(self.components):
             tmp = self.m[k] - self.m0
-            result += self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
+            res += self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
                       - self.beta0 * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
-        result *= 0.5
-        result += self.components * 0.5 * self.dim * log(self.beta0 / (2. * _np.pi))
+        res *= 0.5
+        res += self.components * 0.5 * self.dim * log(self.beta0 / (2. * _np.pi))
 
         # compute Wishart normalization
-        result += self.components * Wishart_log_B(self.W0, self.nu0)
+        res += self.components * Wishart_log_B(self.W0, self.nu0)
 
         # third part
-        result += 0.5 * (self.nu0 - self.dim - 1) * _np.einsum('k->', self.expectation_det_ln_lambda)
+        res += 0.5 * (self.nu0 - self.dim - 1) * _np.einsum('k->', self.expectation_det_ln_lambda)
 
         # final part
         traces = 0
         for nu_k, W_k in zip(self.nu, self.W):
             traces += nu_k * _np.trace(self.inv_W0.dot(W_k))
-        result -= 0.5 * traces
+        res -= 0.5 * traces
 
-        return result
+        self._expect_log_p_mu_lambda = res
+        return self._expect_log_p_mu_lambda
 
-    def _expect_log_q_Z(self):
+    def _update_expect_log_q_Z(self):
         # (10.75)
 
-        return _np.einsum('nk,nk', self.r, _np.log(self.r))
+        self._expect_log_q_Z = _np.einsum('nk,nk', self.r, _np.log(self.r))
+        return self._expect_log_q_Z
 
-    def _expect_log_q_pi(self):
+    def _update_expect_log_q_pi(self):
         # (10.76)
 
-        return _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + Dirichlet_log_C(self.alpha)
+        self._expect_log_q_pi = _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + Dirichlet_log_C(self.alpha)
+        return self._expect_log_q_pi
 
-    def _expect_log_q_mu_lambda(self):
+    def _update_expect_log_q_mu_lambda(self):
         # (10.77)
 
         # pull constant out of loop
-        result = -0.5 * self.components * self.dim
+        res = -0.5 * self.components * self.dim
 
         for k in range(self.components):
-            result += 0.5 * (self.expectation_det_ln_lambda[k] + self.dim * log(self.beta[k] / (2 * _np.pi)))
+            res += 0.5 * (self.expectation_det_ln_lambda[k] + self.dim * log(self.beta[k] / (2 * _np.pi)))
             # Wishart entropy
-            result -= Wishart_H(self.W[k], self.nu[k])
+            res -= Wishart_H(self.W[k], self.nu[k])
 
-        return result
+        self._expect_log_q_mu_lambda = res
+        return self._expect_log_q_mu_lambda
 
 class VBMerge(GaussianInference):
 
@@ -651,6 +662,12 @@ class VBMerge(GaussianInference):
         based on. For example, if ``input_mixture`` was fitted to 1000 samples,
         set ``N`` to 1000.
 
+    :param copy_weights:
+
+        Initialize the vector ``alpha`` from the weights of ``initial guess`` as
+        :math:`N w`.
+
+
     All other keyword arguments are documented in
     :py:meth:`GaussianInference.set_variational_parameters`.
 
@@ -659,7 +676,7 @@ class VBMerge(GaussianInference):
 
     '''
 
-    def __init__(self, input_mixture, N, components=None, initial_guess=None, **kwargs):
+    def __init__(self, input_mixture, N, components=None, initial_guess=None, copy_weights=True, **kwargs):
         # make sure input has the correct inverse matrices available
         self.input = input_mixture
         for c in self.input:
@@ -696,8 +713,8 @@ class VBMerge(GaussianInference):
             # copy over the means
             self.m = _np.array([c.mean for c in initial_guess])
 
-            # copy weights
-            self.alpha = N * initial_guess.w
+            if copy_weights:
+                self.alpha = N * initial_guess.w
 
         self.E_step()
 
@@ -768,13 +785,14 @@ class VBMerge(GaussianInference):
 
             self.S[k] *= self.inv_N_comp[k]
 
-    def _expect_log_q_Z(self):
+    def _update_expect_log_q_Z(self):
         # missing in [BGP10]
         # simplify (10.75) of [Bis06] assuming that all samples from the
         # l-th component have identical r_{nk}
-        # E[log(q(Z))] = N \omega'_l r_{lk} \log r_{lk}
+        # E[log(q(Z))] = r_{lk} \log r_{lk}
 
-        return _np.einsum('l,lk,lk', self.Nomega, self.r, _np.log(self.r))
+        self._expect_log_q_Z = _np.einsum('lk,lk', self.r, _np.log(self.r))
+        return self._expect_log_q_Z
 
 # todo move Wishart stuff to separate class, file?
 # todo doesn't check that nu > D - 1

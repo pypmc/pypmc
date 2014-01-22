@@ -18,7 +18,7 @@ def check_bound(test_case, variational, n=20, prune=True):
         old_bound = bound
         variational.update()
         bound = variational.likelihood_bound()
-        print('%d: bound=%g, ncomp=%d, N_k=%s' % (i, bound, variational.components, variational.N_comp))
+        print('%d: bound=%.16f, ncomp=%d, N_k=%s' % (i, bound, variational.components, variational.N_comp))
 
         if bound == old_bound:
             return True
@@ -215,7 +215,7 @@ class TestVBMerge(unittest.TestCase):
         for c in initial_guess:
             print(c.mean)
 
-        vb = VBMerge(input_components, N=N, initial_guess=initial_guess,
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, copy_weights=False,
                      alpha0=1e-5, beta0=1e-5, nu=np.zeros(2) + 3)
 
         # initial guess taken over?
@@ -307,14 +307,28 @@ class TestVBMerge(unittest.TestCase):
         cov = np.eye(2)
         N = 500
         N_input = 300
-        N_output_initial = 50
         input_components = create_mixture(means, cov, N_input)
+
+        # first test with only two components to check calculation by hand
+        vb_check = VBMerge(input_components, N=N, initial_guess=create_mixture(means, cov, 2), nu=np.zeros(2) + 13.)
+
+        vb_check.likelihood_bound()
+        self.assertAlmostEqual(vb_check._expect_log_p_X, -50014387.38992466, 3)
+        self.assertAlmostEqual(vb_check._expect_log_p_Z, -347.07409, 3)
+        self.assertAlmostEqual(vb_check._expect_log_p_pi, -10.817790168329283)
+        self.assertAlmostEqual(vb_check._expect_log_p_mu_lambda, -54.880566461489643)
+        # todo _expect_log_q_Z unchecked
+        self.assertAlmostEqual(vb_check._expect_log_q_pi, 2.3825149757523718, 6)
+        self.assertAlmostEqual(vb_check._expect_log_q_mu_lambda, -41.029712289)
+
+        # now let lots of components die out
+        N_output_initial = 50
         initial_guess = create_mixture(means, cov, N_output_initial)
 
-        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, nu=np.zeros(N_output_initial) + 3. + 10.)
-        vb_prune = copy.deepcopy(vb)
-        bound = vb.likelihood_bound()
+        nu = np.zeros(N_output_initial) + 3. + 10.
 
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, nu=nu)
+        vb_prune = copy.deepcopy(vb)
         print('Keep all components...\n')
 
         self.assertTrue(check_bound(self, vb, prune=False))
