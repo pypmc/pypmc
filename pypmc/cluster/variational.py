@@ -105,6 +105,178 @@ class GaussianInference(_Inference):
         # so a valid bound can be computed after object is initialized
         self.E_step()
 
+    def E_step(self):
+        '''Compute expectation values and summary statistics.'''
+
+        self._update_expectation_gauss_exponent()
+        self._update_expectation_det_ln_lambda()
+        self._update_expectation_ln_pi()
+        self._update_r()
+        self._update_N_comp()
+        self._update_x_mean_comp()
+        self._update_S()
+
+    def M_step(self):
+        '''Update parameters of the Gaussian-Wishart distribution.'''
+
+        self.nu = self.nu0 + self.N_comp
+        self.alpha = self.alpha0 + self.N_comp
+        self.beta = self.beta0 + self.N_comp
+        self._update_m()
+        self._update_W()
+
+    def get_result(self):
+        '''Return the mixture-density computed from the
+        mode of the variational-Bayes estimate.
+
+        '''
+
+        # find mode of Gaussian-Wishart distribution
+        # and invert to find covariance. The result
+        # \Lambda_k = (\nu_k - D) W_k
+        # turns out to be independent of beta.
+
+        # The most likely value of the mean is m_k,
+        # the mean parameter of the Gaussian q(\mu_k).
+
+        # The mode of the Dirichlet exists only if \alpha_k > 1.
+        components = []
+        weights = []
+        for k, W in enumerate(self.W):
+            if self.nu[k] >= self.dim + 1:
+                W = (self.nu[k] - self.dim) * W
+                cov = _np.linalg.inv(W)
+                components.append(GaussianMixture.Component(self.m[k], cov))
+                # copy over precision matrix
+                components[-1].inv = W
+
+                # Dirichlet mode
+                pi = (self.alpha[k] - 1.) / (self.alpha.sum() - self.components)
+                assert pi >= 0, 'Mode of Dirichlet distribution requires alpha_k > 1 ' + \
+                                '(alpha_k=%g) and at least K > 2 (K=%g)' % (self.alpha[k], self.components)
+
+                # relative weight properly normalized
+                weights.append(pi)
+            else:
+                print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
+
+        return GaussianMixture(components, weights)
+
+    def likelihood_bound(self):
+        # todo easy to parallize sum of independent terms
+        bound  = self._update_expectation_log_p_X()
+        bound += self._update_expectation_log_p_Z()
+        bound += self._update_expectation_log_p_pi()
+        bound += self._update_expectation_log_p_mu_lambda()
+        bound -= self._update_expectation_log_q_Z()
+        bound -= self._update_expectation_log_q_pi()
+        bound -= self._update_expectation_log_q_mu_lambda()
+
+        return bound
+
+    @_inherit_docstring(_Inference)
+    def prune(self, threshold=1.):
+        # nothing to do for a zero threshold
+        if not threshold:
+            return
+
+        components_to_survive = _np.where(self.N_comp >= threshold)[0]
+        self.components = len(components_to_survive)
+
+        # list all vector and matrix vmembers
+        vmembers = ('alpha0', 'alpha', 'beta', 'expectation_det_ln_lambda',
+                   'expectation_ln_pi', 'N_comp', 'nu', 'm', 'S', 'W', 'x_mean_comp')
+        mmembers = ('expectation_gauss_exponent', 'r')
+
+        # shift surviving across dead components
+        k_new = 0
+        for k_old in components_to_survive:
+            # reindex surviving components
+            if k_old != k_new:
+                for m in vmembers:
+                    m = getattr(self, m)
+                    m[k_new] = m[k_old]
+                for m in mmembers:
+                    m = getattr(self, m)
+                    m[:, k_new] = m[:, k_old]
+
+            k_new += 1
+
+        # cut the unneccessary part of the data
+        for m in vmembers:
+            setattr(self, m, getattr(self, m)[:self.components])
+        for m in mmembers:
+            setattr(self, m, getattr(self, m)[:, :self.components])
+
+        # recreate consistent expectation values
+        self.E_step()
+
+    def run(self, iterations=25, prune=1, rel_tol=1e-5, abs_tol=1e-3, verbose=False):
+        r'''Run variational-Bayes parameter updates and check for convergence using
+        the change of the log likelihood bound of the current and the last step. Convergence is not declared if
+
+        :param iterations:
+            Maximum number of updates.
+
+        :param prune:
+            Call :py:meth:`prune` after each update; i.e., remove components whose associated
+            effective number of samples is below the threshold. Set `prune=0` to deactivate. Default: 1 (effective samples).
+
+        :param rel_tol:
+            Relative tolerance :math:`\epsilon`. If two consecutive values of
+            the log likelihood bound, :math:`L_t, L_{t-1}`, are close, declare
+            convergence. More precisely, check that
+
+            .. math::
+                \left\| \frac{L_t - L_{t-1}}{L_t} \right\| < \epsilon .
+
+        :param abs_tol:
+            Absolute tolerance :math:`\epsilon_{a}`. If the current bound
+            :math:`L_t` is close to zero, (:math:`L_t < \epsilon_{a}`), declare
+            convergence if
+
+            .. math::
+                \| L_t - L_{t-1} \| < \epsilon_a .
+
+        :param verbose:
+            Output status information after each update.
+
+        '''
+        bound = self.likelihood_bound()
+        old_K = self.components
+        for i in range(iterations):
+            old_bound = bound
+            self.update()
+            bound = self.likelihood_bound()
+            if verbose:
+                print('After update %d: bound=%g, K=%d, N_k=%s' % (i+1, bound, self.components, self.N_comp))
+
+            # declare convergence only if number of components didn't change
+            if self.components == old_K:
+                # bound must not decrease if implementation correct
+                # but tiny difference may accumulate due to summing over many samples
+                # or the fact that N_k changes in the 13th decimal place
+                assert bound + 1e-10 >= old_bound, \
+                       'Log likelihood bound decreased from %g to %g' % (old_bound, bound)
+
+                 # exact convergence
+                if bound == old_bound:
+                    return True
+                # approximate convergence
+                # handle case when bound is close to 0
+                if abs(bound) < abs_tol:
+                    if (bound - old_bound) < abs_tol:
+                        return True
+                else:
+                    if abs((bound - old_bound) / bound) < rel_tol:
+                        return True
+
+            # save K *before* pruning
+            old_K = self.components
+            self.prune(prune)
+        # not converged
+        return False
+
     @_add_to_docstring(
         r'''
 
@@ -251,6 +423,13 @@ class GaussianInference(_Inference):
 
         self._initialize_output()
 
+    @_inherit_docstring(_Inference)
+    def update(self):
+        self.M_step()
+        self.E_step()
+
+        # TODO: implement support for weights
+
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
         self.x_mean_comp = _np.zeros((self.components, self.dim))
@@ -260,99 +439,6 @@ class GaussianInference(_Inference):
         self.alpha = _np.array(self.alpha0)
         self.beta  = self.beta0  * _np.ones(self.components)
         self.S = _np.empty_like(self.W)
-
-    def E_step(self):
-        '''Compute expectation values and summary statistics.'''
-
-        self._update_expectation_gauss_exponent()
-        self._update_expectation_det_ln_lambda()
-        self._update_expectation_ln_pi()
-        self._update_r()
-        self._update_N_comp()
-        self._update_x_mean_comp()
-        self._update_S()
-
-    def M_step(self):
-        '''Update parameters of the Gaussian-Wishart distribution.'''
-
-        self.nu = self.nu0 + self.N_comp
-        self.alpha = self.alpha0 + self.N_comp
-        self.beta = self.beta0 + self.N_comp
-        self._update_m()
-        self._update_W()
-
-    @_inherit_docstring(_Inference)
-    def update(self):
-        '''Perform an M step, then an E step.'''
-        self.M_step()
-        self.E_step()
-
-        # TODO: implement support for weights
-
-    def run(self, iterations=25, prune=1, rel_tol=1e-5, abs_tol=1e-3, verbose=False):
-        r'''Run variational-Bayes parameter updates and check for convergence using
-        the change of the log likelihood bound of the current and the last step. Convergence is not declared if
-
-        :param iterations:
-            Maximum number of updates.
-
-        :param prune:
-            Call :py:meth:`prune` after each update; i.e., remove components whose associated
-            effective number of samples is below the threshold. Set `prune=0` to deactivate. Default: 1 (effective samples).
-
-        :param rel_tol:
-            Relative tolerance :math:`\epsilon`. If two consecutive values of
-            the log likelihood bound, :math:`L_t, L_{t-1}`, are close, declare
-            convergence. More precisely, check that
-
-            .. math::
-                \left\| \frac{L_t - L_{t-1}}{L_t} \right\| < \epsilon .
-
-        :param abs_tol:
-            Absolute tolerance :math:`\epsilon_{a}`. If the current bound
-            :math:`L_t` is close to zero, (:math:`L_t < \epsilon_{a}`), declare
-            convergence if
-
-            .. math::
-                \| L_t - L_{t-1} \| < \epsilon_a .
-
-        :param verbose:
-            Output status information after each update.
-
-        '''
-        bound = self.likelihood_bound()
-        old_K = self.components
-        for i in range(iterations):
-            old_bound = bound
-            self.update()
-            bound = self.likelihood_bound()
-            if verbose:
-                print('iteration %d: bound=%.15f, K=%d, N_k=%s' % (i, bound, self.components, self.N_comp))
-
-            # declare convergence only if number of components didn't change
-            if self.components == old_K:
-                # bound must not decrease if implementation correct
-                # but tiny difference may accumulate due to summing over many samples
-                # or the fact that N_k changes in the 13th decimal place
-                assert bound + 1e-10 >= old_bound
-
-                 # exact convergence
-                if bound == old_bound:
-                    return True
-                # approximate convergence
-                # handle case when bound is close to 0
-                if abs(bound) < abs_tol:
-                    if (bound - old_bound) < abs_tol:
-                        return True
-                else:
-                    if abs((bound - old_bound) / bound) < rel_tol:
-                        return True
-
-            # save K *before* prune()
-            old_K = self.components
-            self.prune(prune)
-        # not converged
-        return False
 
     def _update_log_rho(self):
         # (10.46)
@@ -464,93 +550,7 @@ class GaussianInference(_Inference):
             cov += self.inv_W0
             self.W[k] = _np.linalg.inv(cov)
 
-    def get_result(self):
-        '''Return the mixture-density computed from the
-        mode of the variational-Bayes estimate.
-
-        '''
-
-        # find mode of Gaussian-Wishart distribution
-        # and invert to find covariance. The result
-        # \Lambda_k = (\nu_k - D) W_k
-        # turns out to be independent of beta.
-
-        # The most likely value of the mean is m_k,
-        # the mean parameter of the Gaussian q(\mu_k).
-
-        # The mode of the Dirichlet exists only if \alpha_k > 1.
-        components = []
-        weights = []
-        for k, W in enumerate(self.W):
-            if self.nu[k] >= self.dim + 1:
-                W = (self.nu[k] - self.dim) * W
-                cov = _np.linalg.inv(W)
-                components.append(GaussianMixture.Component(self.m[k], cov))
-                # copy over precision matrix
-                components[-1].inv = W
-
-                # Dirichlet mode
-                pi = (self.alpha[k] - 1.) / (self.alpha.sum() - self.components)
-                assert pi >= 0, 'Mode of Dirichlet distribution requires alpha_k > 1 ' + \
-                                '(alpha_k=%g) and at least K > 2 (K=%g)' % (self.alpha[k], self.components)
-
-                # relative weight properly normalized
-                weights.append(pi)
-            else:
-                print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
-
-        return GaussianMixture(components, weights)
-
-    @_inherit_docstring(_Inference)
-    def prune(self, threshold=1.):
-        # nothing to do for a zero threshold
-        if not threshold:
-            return
-
-        components_to_survive = _np.where(self.N_comp >= threshold)[0]
-        self.components = len(components_to_survive)
-
-        # list all vector and matrix vmembers
-        vmembers = ('alpha0', 'alpha', 'beta', 'expectation_det_ln_lambda',
-                   'expectation_ln_pi', 'N_comp', 'nu', 'm', 'S', 'W', 'x_mean_comp')
-        mmembers = ('expectation_gauss_exponent', 'r')
-
-        # shift surviving across dead components
-        k_new = 0
-        for k_old in components_to_survive:
-            # reindex surviving components
-            if k_old != k_new:
-                for m in vmembers:
-                    m = getattr(self, m)
-                    m[k_new] = m[k_old]
-                for m in mmembers:
-                    m = getattr(self, m)
-                    m[:, k_new] = m[:, k_old]
-
-            k_new += 1
-
-        # cut the unneccessary part of the data
-        for m in vmembers:
-            setattr(self, m, getattr(self, m)[:self.components])
-        for m in mmembers:
-            setattr(self, m, getattr(self, m)[:, :self.components])
-
-        # recreate consistent expectation values
-        self.E_step()
-
-    def likelihood_bound(self):
-        # todo easy to parallize sum of independent terms
-        bound  = self._update_expect_log_p_X()
-        bound += self._update_expect_log_p_Z()
-        bound += self._update_expect_log_p_pi()
-        bound += self._update_expect_log_p_mu_lambda()
-        bound -= self._update_expect_log_q_Z()
-        bound -= self._update_expect_log_q_pi()
-        bound -= self._update_expect_log_q_mu_lambda()
-
-        return bound
-
-    def _update_expect_log_p_X(self):
+    def _update_expectation_log_p_X(self):
         # (10.71)
 
         res = 0
@@ -561,26 +561,26 @@ class GaussianInference(_Inference):
                        -self.nu[k] * (_np.trace(self.S[k].dot(self.W[k]))
                        + tmp.dot(self.W[k]).dot(tmp)) - self.dim * log(2 * _np.pi))
 
-        self._expect_log_p_X = 0.5 * res
-        return self._expect_log_p_X
+        self._expectation_log_p_X = 0.5 * res
+        return self._expectation_log_p_X
 
-    def _update_expect_log_p_Z(self):
-        #  (10.72)
+    def _update_expectation_log_p_Z(self):
+        # (10.72)
 
         # simplify to include sum over k: N_k = sum_n r_{nk}
 
         # contract all indices, no broadcasting
-        self._expect_log_p_Z = _np.einsum('k,k', self.N_comp, self.expectation_ln_pi)
-        return self._expect_log_p_Z
+        self._expectation_log_p_Z = _np.einsum('k,k', self.N_comp, self.expectation_ln_pi)
+        return self._expectation_log_p_Z
 
-    def _update_expect_log_p_pi(self):
+    def _update_expectation_log_p_pi(self):
         # (10.73)
 
-        self._expect_log_p_pi = Dirichlet_log_C(self.alpha0)
-        self._expect_log_p_pi += _np.einsum('k,k', self.alpha0 - 1, self.expectation_ln_pi)
-        return self._expect_log_p_pi
+        self._expectation_log_p_pi = Dirichlet_log_C(self.alpha0)
+        self._expectation_log_p_pi += _np.einsum('k,k', self.alpha0 - 1, self.expectation_ln_pi)
+        return self._expectation_log_p_pi
 
-    def _update_expect_log_p_mu_lambda(self):
+    def _update_expectation_log_p_mu_lambda(self):
         # (10.74)
 
         res = 0
@@ -604,22 +604,22 @@ class GaussianInference(_Inference):
             traces += nu_k * _np.trace(self.inv_W0.dot(W_k))
         res -= 0.5 * traces
 
-        self._expect_log_p_mu_lambda = res
-        return self._expect_log_p_mu_lambda
+        self._expectation_log_p_mu_lambda = res
+        return self._expectation_log_p_mu_lambda
 
-    def _update_expect_log_q_Z(self):
+    def _update_expectation_log_q_Z(self):
         # (10.75)
 
-        self._expect_log_q_Z = _np.einsum('nk,nk', self.r, _np.log(self.r))
-        return self._expect_log_q_Z
+        self._expectation_log_q_Z = _np.einsum('nk,nk', self.r, _np.log(self.r))
+        return self._expectation_log_q_Z
 
-    def _update_expect_log_q_pi(self):
+    def _update_expectation_log_q_pi(self):
         # (10.76)
 
-        self._expect_log_q_pi = _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + Dirichlet_log_C(self.alpha)
-        return self._expect_log_q_pi
+        self._expectation_log_q_pi = _np.einsum('k,k', self.alpha - 1, self.expectation_ln_pi) + Dirichlet_log_C(self.alpha)
+        return self._expectation_log_q_pi
 
-    def _update_expect_log_q_mu_lambda(self):
+    def _update_expectation_log_q_mu_lambda(self):
         # (10.77)
 
         # pull constant out of loop
@@ -630,8 +630,8 @@ class GaussianInference(_Inference):
             # Wishart entropy
             res -= Wishart_H(self.W[k], self.nu[k])
 
-        self._expect_log_q_mu_lambda = res
-        return self._expect_log_q_mu_lambda
+        self._expectation_log_q_mu_lambda = res
+        return self._expectation_log_q_mu_lambda
 
 class VBMerge(GaussianInference):
 
@@ -722,26 +722,6 @@ class VBMerge(GaussianInference):
         GaussianInference._initialize_output(self)
         self.expectation_gauss_exponent = _np.zeros((self.L, self.components))
 
-    # E- and M step almost as in standard VB, differences implemented in
-    # overloaded functions, the equation numbers are:
-
-#     def E_step(self):
-#         self._update_expectation_det_ln_lambda() # (21)
-#         self._update_expectation_ln_pi() # (22)
-#         self._update_expectation_gauss_exponent() # after (40)
-#         self._update_r() # after (40)
-#         self._update_N_comp() # (41)
-#         # synthetic statistics
-#         self._update_x_mean_comp() # (42)
-#         self._update_S() # (43) and (44)
-
-#     def M_step(self):
-#         self.alpha = self.alpha0 + self.N_comp # (45)
-#         self.beta = self.beta0 + self.N_comp # (46)
-#         self._update_m() # (47)
-#         self._update_W() # (48)
-#         self.nu = self.nu0 + self.N_comp # (49)
-
     def _update_expectation_gauss_exponent(self):
         for k, W in enumerate(self.W):
             for l, comp in enumerate(self.input):
@@ -750,7 +730,7 @@ class VBMerge(GaussianInference):
                                                        (_np.trace(W.dot(comp.inv)) + tmp.dot(W).dot(tmp))
 
     def _update_log_rho(self):
-        # eqn 40 in [BGP10]
+        # (40) in [BGP10]
         # first line: compute k vector
         tmp_k  = 2 * self.expectation_ln_pi
         tmp_k += self.expectation_det_ln_lambda
@@ -784,15 +764,6 @@ class VBMerge(GaussianInference):
                 self.S[k] += self.Nomega[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input[l].cov)
 
             self.S[k] *= self.inv_N_comp[k]
-
-    def _update_expect_log_q_Z(self):
-        # missing in [BGP10]
-        # simplify (10.75) of [Bis06] assuming that all samples from the
-        # l-th component have identical r_{nk}
-        # E[log(q(Z))] = r_{lk} \log r_{lk}
-
-        self._expect_log_q_Z = _np.einsum('lk,lk', self.r, _np.log(self.r))
-        return self._expect_log_q_Z
 
 # todo move Wishart stuff to separate class, file?
 # todo doesn't check that nu > D - 1

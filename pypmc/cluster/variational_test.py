@@ -161,6 +161,7 @@ class TestGaussianInference(unittest.TestCase):
         W     = np.linalg.inv(inv_W)
         np.testing.assert_allclose(infer.W[0], W)
 
+    @attr('slow')
     def test_prune(self):
         # generate test data from two independent gaussians
         target_abundances = np.array((.1, .9))
@@ -313,13 +314,13 @@ class TestVBMerge(unittest.TestCase):
         vb_check = VBMerge(input_components, N=N, initial_guess=create_mixture(means, cov, 2), nu=np.zeros(2) + 13.)
 
         vb_check.likelihood_bound()
-        self.assertAlmostEqual(vb_check._expect_log_p_X, -50014387.38992466, 3)
-        self.assertAlmostEqual(vb_check._expect_log_p_Z, -347.07409, 3)
-        self.assertAlmostEqual(vb_check._expect_log_p_pi, -10.817790168329283)
-        self.assertAlmostEqual(vb_check._expect_log_p_mu_lambda, -54.880566461489643)
-        # todo _expect_log_q_Z unchecked
-        self.assertAlmostEqual(vb_check._expect_log_q_pi, 2.3825149757523718, 6)
-        self.assertAlmostEqual(vb_check._expect_log_q_mu_lambda, -41.029712289)
+        self.assertAlmostEqual(vb_check._expectation_log_p_X, -50014387.38992466, 3)
+        self.assertAlmostEqual(vb_check._expectation_log_p_Z, -347.07409, 3)
+        self.assertAlmostEqual(vb_check._expectation_log_p_pi, -10.817790168329283)
+        self.assertAlmostEqual(vb_check._expectation_log_p_mu_lambda, -54.880566461489643)
+        # todo _expectation_log_q_Z unchecked
+        self.assertAlmostEqual(vb_check._expectation_log_q_pi, 2.3825149757523718, 6)
+        self.assertAlmostEqual(vb_check._expectation_log_q_mu_lambda, -41.029712289)
 
         # now let lots of components die out
         N_output_initial = 50
