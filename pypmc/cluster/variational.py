@@ -510,9 +510,12 @@ class GaussianInference(_Inference):
     def _update_expectation_gauss_exponent(self):
         # (10.64)
 
+        tmp = _np.zeros_like(self.data[0])
+
         for k in range(self.components):
             for n in range(self.N):
-                tmp                                  = self.data[n] - self.m[k]
+                tmp[:] = self.data[n]
+                tmp   -= self.m[k]
                 self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
     def _update_expectation_ln_pi(self):
@@ -528,13 +531,20 @@ class GaussianInference(_Inference):
     def _update_S(self):
         # (10.53)
 
+        # temp vector and matrix to store outer product
+        tmpv = _np.empty_like(self.data[0])
+        outer = _np.empty_like(self.S[0])
+
         # use outer product to guarantee a positive definite symmetric S
         # expanding it into four terms, then using einsum failed numerically for large N
         for k in range(self.components):
             self.S[k,:,:] = 0
             for n, x in enumerate(self.data):
-                tmp = x - self.x_mean_comp[k]
-                self.S[k] += self.r[n,k] * _np.outer(tmp, tmp)
+                tmpv[:] = x
+                tmpv -= self.x_mean_comp[k]
+                _np.einsum('i,j', tmpv, tmpv, out=outer)
+                outer *= self.r[n,k]
+                self.S[k] += outer
             self.S[k] *= self.inv_N_comp[k]
 
     def _update_W(self):
