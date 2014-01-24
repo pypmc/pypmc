@@ -2,7 +2,7 @@
 
 """
 
-from .indicator_factory import *
+from . import *
 import numpy as np
 import unittest
 

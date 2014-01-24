@@ -10,6 +10,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   indicator_factory
    markov_chain
    cluster
    references
