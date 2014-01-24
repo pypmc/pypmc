@@ -107,7 +107,7 @@ class _Hist(object):
             self._points         = _np.empty((prealloc + 1, len(initial_point)))
             self._points[0:1]    = initial_point
         self._slice_for_run_nr   = [(0,1)]
-        self._accept_counts      = [0]
+        self._accept_counts      = [1]
 
     def clear(self):
         """Deletes the history"""
@@ -118,7 +118,7 @@ class _Hist(object):
         self._points[0:1]    = new_first_point
 
         self._slice_for_run_nr   = [(0,1)]
-        self._accept_counts      = [0]
+        self._accept_counts      = [1]
 
     def __getitem__(self, item):
         if type(item) == slice:
