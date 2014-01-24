@@ -2,6 +2,7 @@
 
 import numpy as _np
 from copy import deepcopy as _deepcopy
+from math import exp, log
 from ..markov_chain import proposal as _mc_proposal
 from .._tools._doc import _inherit_docstring, _add_to_docstring
 
@@ -127,8 +128,8 @@ class MixtureProposal(PmcProposal):
     def evaluate(self, x):
         out = 0.
         for i,weight in enumerate(self.weights):
-            out += weight * self.components[i].evaluate(x)
-        return out
+            out += weight * exp(self.components[i].evaluate(x))
+        return log(out)
 
     @_add_to_docstring("""    .. warning::\n
             The returned samples are ordered by components. When disordered

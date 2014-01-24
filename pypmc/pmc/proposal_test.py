@@ -90,7 +90,9 @@ class TestMixtureProposal(unittest.TestCase):
 
         target = 0.
         for i in range(len(weights)):
-            target += weights[i] * proposals[i].evaluate(evaluate_at)
+            target += weights[i] * np.exp(proposals[i].evaluate(evaluate_at))
+        # .evaluate shall return the log of the proposal
+        target = np.log(target)
 
         mix = MixtureProposal(proposals, weights)
 
