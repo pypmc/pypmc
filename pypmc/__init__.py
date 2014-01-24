@@ -6,4 +6,4 @@
 from ._version import __version__
 
 # import these submodules by default
-from . import indicator_factory, markov_chain, cluster
+from . import indicator_factory, markov_chain, cluster, pmc

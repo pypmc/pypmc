@@ -13,6 +13,7 @@ Contents:
    indicator_factory
    markov_chain
    cluster
+   pmc
    references
 
 Indices and tables
