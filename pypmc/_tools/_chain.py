@@ -5,6 +5,32 @@
 import numpy as _np
 from ._doc import _add_to_docstring
 
+def _merge_function_with_indicator(function, indicator, alternative):
+    '''Private function. Prevents call to ``function`` if ``indicator(x) = False``
+
+    :param function:
+
+        The function to be called when indicator returns True.
+
+    :param indicator:
+
+        Bool-returning function; the indicator
+
+    :param alternative:
+
+        The object to be returned when indicator returns False
+
+    '''
+    if indicator is None:
+        return function
+    else:
+        def merged_function(x):
+            if indicator(x):
+                return function(x)
+            else:
+                return alternative
+        return merged_function
+
 class _Chain(object):
     """Abstract base class implementing a sequence of points
 

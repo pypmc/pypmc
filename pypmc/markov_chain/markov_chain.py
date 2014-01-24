@@ -3,10 +3,10 @@
 from __future__ import division as _div
 import numpy as _np
 from .._tools._doc import _inherit_docstring
-from .._tools._chain import _Chain
+from .._tools._chain import _Chain, _merge_function_with_indicator
 
 class MarkovChain(_Chain):
-    r"""MarkovChain(target, proposal, start, indicator = None,
+    r"""MarkovChain(target, proposal, start, indicator = None, prealloc = 0,
     rng = numpy.random.mtrand)
 
     A Markov chain to generate samples from the target density.
@@ -72,19 +72,7 @@ class MarkovChain(_Chain):
         super(MarkovChain, self).__init__(start = start, prealloc = prealloc)
         self.proposal  = proposal
         self.rng       = rng
-        self._merge_target_with_indicator(target, indicator)
-
-    def _merge_target_with_indicator(self, target, indicator):
-        '''Private function. Prevents call to ``target`` if ``indicator(x) = False``'''
-        if indicator is None:
-            self.target = target
-        else:
-            def merged_target(x):
-                if indicator(x):
-                    return target(x)
-                else:
-                    return -_np.inf
-            self.target = merged_target
+        self.target    = _merge_function_with_indicator(target, indicator, -_np.inf)
 
     @_inherit_docstring(_Chain)
     def run(self, N = 1):
@@ -94,7 +82,7 @@ class MarkovChain(_Chain):
         else:
             get_log_rho = self._get_log_rho_metropolis_hastings
 
-        # allocate an empty numpy array to temporary store this run
+        # allocate an empty numpy array to store the run
         this_run     = self.hist._alloc(N)
         accept_count = 0
 
@@ -128,7 +116,7 @@ class MarkovChain(_Chain):
                 #self.current = self.current
         # ---------------------- end for --------------------------------
 
-        # store the run in history
+        # store accept_count in history
         self.hist._append_accept_count(accept_count)
 
     def _get_log_rho_metropolis(self, proposed_point):
