@@ -130,7 +130,24 @@ class ImportanceSampler(_Chain):
         del self.current
 
     @_inherit_docstring(_Chain)
-    def run(self, N = 1):
+    def run(self, N=1):
+        this_run = self._get_samples(N)
+        self._calculate_weights(this_run, N)
+
+    def _calculate_weights(self, this_run, N):
+        """Calculates and saves the weights of a run."""
+        for i in range(N):
+            tmp = this_run[i, 1:]
+            tmp = self.target(tmp) - self.proposal.evaluate(tmp)
+            this_run[i,0] = exp(tmp)
+
+    def _get_samples(self, N):
+        """Saves N samples from ``self.proposal`` to ``self.hist``
+        Does NOT calculate the weights.
+
+        Returns a reference to the samples in ``self.hist``.
+
+        """
         # allocate an empty numpy array to store the run and append accept count
         # (importance sampling accepts all points)
         this_run = self.hist._alloc(N)
@@ -139,8 +156,4 @@ class ImportanceSampler(_Chain):
         # store the proposed points (weights are still to be calculated)
         this_run[:,1:] = self.proposal.propose(N, self.rng)
 
-        # calculate and save the weights
-        for i in range(N):
-            tmp = this_run[i, 1:]
-            tmp = self.target(tmp) - self.proposal.evaluate(tmp)
-            this_run[i,0] = exp(tmp)
+        return this_run
