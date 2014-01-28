@@ -100,7 +100,7 @@ class _Hist(object):
         if prealloc <= 0:
             self._prealloc       = 0
             self._memleft        = 0
-            self._points         = initial_point.copy()
+            self._points         = _np.array( (initial_point,) )
         else:
             self._prealloc       = prealloc
             self._memleft        = prealloc
