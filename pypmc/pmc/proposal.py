@@ -129,7 +129,10 @@ class MixtureProposal(PmcProposal):
         out = 0.
         for i,weight in enumerate(self.weights):
             out += weight * exp(self.components[i].evaluate(x))
-        return log(out)
+        if out == 0.:
+            return -_np.inf
+        else:
+            return log(out)
 
     @_add_to_docstring("""    .. warning::\n
             The returned samples are ordered by components. When disordered
