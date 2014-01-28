@@ -10,19 +10,7 @@ from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
 from .._tools._doc import _inherit_docstring, _add_to_docstring
-
-def regularize(x):
-    '''Replace zeros by smallest positive float.
-
-    :param x:
-
-        Numpy-array
-
-    Return regularized ``x``.
-
-    '''
-    x[_np.where(x == 0)] = _np.finfo('d').tiny
-    return x
+from .._tools._regularize import regularize
 
 class _Inference(object):
     '''Abstract base class; approximate an unknown probability density by a
