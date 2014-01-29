@@ -3,4 +3,4 @@
 '''
 
 # import these submodules by default
-from . import proposal, importance_sampling
+from . import proposal, importance_sampling, pmc
