@@ -4,6 +4,7 @@
 
 from .importance_sampling import *
 from . import proposal
+from .._tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 import numpy as np
 import unittest
 from math import exp, log
@@ -15,12 +16,6 @@ def raise_not_implemented(x):
     if (x == np.ones(5)).all():
         return 1.
     raise NotImplementedError()
-
-def unnormalized_log_pdf_gauss(x, mu, inv_sigma):
-    return - .5 * (x-mu).dot(inv_sigma).dot(x-mu)
-
-def normalized_pdf_gauss(x, mu, inv_sigma):
-    return exp( unnormalized_log_pdf_gauss(x, mu, inv_sigma) - .5 * len(mu) * log(2.*np.pi) + .5 * log(np.linalg.det(inv_sigma)) )
 
 class TestCalculateExpextaction(unittest.TestCase):
     def test_calculate(self):
@@ -104,8 +99,8 @@ class TestImportanceSampler(unittest.TestCase):
 
     def test_bimodal_sampling(self):
         # test weighted sampling from a bimodal Gaussian mixture using a Student-t mixture proposal
-        delta_abun                 = .005
-        minus_log_ten_delta_mean   = 2
+        delta_abun = .005
+        minus_log_ten_delta_mean = 2
         delta_sigma1 = .0005
         delta_sigma2 = .005
 

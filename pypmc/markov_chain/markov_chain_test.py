@@ -4,6 +4,7 @@
 
 from .markov_chain import *
 from . import proposal
+from .._tools._probability_densities import unnormalized_log_pdf_gauss
 import numpy as np
 import unittest
 
@@ -22,9 +23,6 @@ def raise_not_implemented(x):
 class MultivariateNonEvaluable(proposal.MultivariateGaussian):
     def evaluate(self, x, y):
         raise NotImplementedError()
-
-def unnormalized_log_pdf_gauss(x, mu, inv_sigma):
-    return - .5 * np.dot(np.dot(x-mu, inv_sigma), x-mu)
 
 class TestMarkovChain(unittest.TestCase):
     def test_indicator(self):

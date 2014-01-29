@@ -4,6 +4,7 @@
 
 from .pmc import *
 from . import proposal
+from .._tools._probability_densities import unnormalized_log_pdf_gauss
 from math import exp
 import numpy as np
 import unittest
@@ -19,9 +20,6 @@ cov = np.array([[11.5   ,  2.875],
                 [2.875  ,  0.75 ]])
 
 inv_cov = np.linalg.inv(cov)
-
-def unnormalized_log_pdf_gauss(x, mu, inv_sigma):
-    return - .5 * (x-mu).dot(inv_sigma).dot(x-mu)
 
 class TestPMC(unittest.TestCase):
     def setUp(self):
