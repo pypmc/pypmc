@@ -127,7 +127,7 @@ class GaussianPMC(_ImportanceSampler):
                 # avoid division by zero
                 rho[n, k] /= exp(self.proposal.evaluate(sample)) + _np.finfo('d').tiny
 
-        # update equations according to (14) in [Cap+12]
+        # update equations according to (14) in [Cap+08]
         # ----------------------------------------------
 
         # new component weights

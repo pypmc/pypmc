@@ -98,9 +98,9 @@ class ImportanceSampler(_Chain):
 
     :param prealloc:
 
-        An integer, defines the number of Markov chain points for
-        which memory in ``hist`` is allocated. If more memory is
-        needed, it will be allocated on demand.
+        An integer, defines the number of Points for which memory in
+        ``hist`` is allocated. If more memory is needed, it will be
+        allocated on demand.
 
         .. hint::
             Preallocating memory can speed up the calculation, in
