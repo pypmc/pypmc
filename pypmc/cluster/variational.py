@@ -79,13 +79,25 @@ class GaussianInference(_Inference):
         Integer; :math:`K` is the number of Gaussian components in the
         approximating Gaussian mixture.
 
+    :param weights:
+
+        Vector-like array; The i-th of the :math:`N` entries contains the
+        weight of the i-th sample in ``data``.
+
     All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
     '''
-    def __init__(self, data, components, **kwargs):
+    def __init__(self, data, components, weights=None, **kwargs):
         self.data = data
         self.components = components
         self.N, self.dim = self.data.shape
+        if weights is None:
+            self.weights = _np.ones(self.N)
+        else:
+            assert weights.shape == (self.N,), \
+                    "The number of samples (%s) does not match the number of weights (%s)" %(self.N, weights.shape[0])
+            # normalize weights to N (not one)
+            self.weights = self.N * weights / weights.sum()
 
         self.set_variational_parameters(**kwargs)
 
@@ -150,6 +162,7 @@ class GaussianInference(_Inference):
 
         return GaussianMixture(components, weights)
 
+    @_inherit_docstring(_Inference)
     def likelihood_bound(self):
         # todo easy to parallize sum of independent terms
         bound  = self._update_expectation_log_p_X()
@@ -199,7 +212,7 @@ class GaussianInference(_Inference):
         # recreate consistent expectation values
         self.E_step()
 
-    def run(self, iterations=25, prune=1, rel_tol=1e-5, abs_tol=1e-3, verbose=False):
+    def run(self, iterations=25, prune=1., rel_tol=1e-5, abs_tol=1e-3, verbose=False):
         r'''Run variational-Bayes parameter updates and check for convergence using
         the change of the log likelihood bound of the current and the last step. Convergence is not declared if
 
@@ -416,8 +429,6 @@ class GaussianInference(_Inference):
         self.M_step()
         self.E_step()
 
-        # TODO: implement support for weights
-
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
         self.x_mean_comp = _np.zeros((self.components, self.dim))
@@ -450,7 +461,7 @@ class GaussianInference(_Inference):
     def _update_N_comp(self):
         # (10.51)
 
-        _np.einsum('nk->k', self.r, out=self.N_comp)
+        _np.einsum('n,nk->k', self.weights, self.r, out=self.N_comp)
         self.inv_N_comp = 1. / regularize(self.N_comp)
 
     def _update_r(self):
@@ -514,7 +525,7 @@ class GaussianInference(_Inference):
     def _update_x_mean_comp(self):
         # (10.52)
 
-        _np.einsum('k,nk,ni->ki', self.inv_N_comp, self.r, self.data, out=self.x_mean_comp)
+        _np.einsum('k,n,nk,ni->ki', self.inv_N_comp, self.weights, self.r, self.data, out=self.x_mean_comp)
 
     def _update_S(self):
         # (10.53)
@@ -531,7 +542,7 @@ class GaussianInference(_Inference):
                 tmpv[:] = x
                 tmpv -= self.x_mean_comp[k]
                 _np.einsum('i,j', tmpv, tmpv, out=outer)
-                outer *= self.r[n,k]
+                outer *= self.r[n,k] * self.weights[n]
                 self.S[k] += outer
             self.S[k] *= self.inv_N_comp[k]
 

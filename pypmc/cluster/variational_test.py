@@ -4,6 +4,8 @@
 
 from .variational import *
 from .gaussian_mixture import GaussianMixture
+from .. import pmc
+from .._tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
 import copy
 from nose.plugins.attrib import attr
@@ -160,6 +162,78 @@ class TestGaussianInference(unittest.TestCase):
                 np.outer(x_mean_comp[0], x_mean_comp[0])
         W     = np.linalg.inv(inv_W)
         np.testing.assert_allclose(infer.W[0], W)
+
+    def test_weighted(self):
+        # this test uses pypmc.pmc.importance_sampling --> before debugging here,
+        # first make sure that importance_sampling works
+
+        # -------------------------------- generate weighted test data ----------------------------------
+        # target
+        target_abundancies = np.array((.7, .3))
+
+        mean1  = np.array( [-5.   , 0.    ])
+        sigma1 = np.array([[ 0.01 , 0.003 ],
+                           [ 0.003, 0.0025]])
+        inv_sigma1 = np.linalg.inv(sigma1)
+
+        mean2  = np.array( [+5. , 0.   ])
+        sigma2 = np.array([[ 0.1, 0.0  ],
+                           [ 0.0, 0.5  ]])
+        inv_sigma2 = np.linalg.inv(sigma2)
+
+        log_target = lambda x: log( target_abundancies[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
+                                    target_abundancies[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) )
+
+        # proposal
+        prop_abundancies = np.array((.5, .5))
+
+        prop_dof1   = 5.
+        prop_mean1  = np.array( [-4.9  , 0.01  ])
+        prop_sigma1 = np.array([[ 0.007, 0.0   ],
+                                [ 0.0  , 0.0023]])
+        prop1       = pmc.proposal.StudentTComponent(prop_mean1, prop_sigma1, prop_dof1)
+
+        prop_dof2   = 5.
+        prop_mean2  = np.array( [+5.08, 0.01])
+        prop_sigma2 = np.array([[ 0.14, 0.01],
+                                [ 0.01, 0.6 ]])
+        prop2       = pmc.proposal.StudentTComponent(prop_mean2, prop_sigma2, prop_dof2)
+
+        prop = pmc.proposal.MixtureProposal((prop1, prop2), prop_abundancies)
+
+
+        sam = pmc.importance_sampling.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
+        sam.run(10**4)
+
+        num_samples, weighted_samples = sam.hist[:]
+        # -----------------------------------------------------------------------------------------------
+
+        rtol = .05
+        atol = .01
+        rtol_sigma = .12
+
+        weights = weighted_samples[:,0 ]
+        samples = weighted_samples[:,1:]
+
+        clust = GaussianInference(samples, 2, weights=weights, m=np.vstack((prop_mean1,prop_mean2)))
+        converged = clust.run(verbose=True)
+        self.assertTrue(converged)
+
+        resulting_mixture = clust.get_result()
+
+        sampled_abundancies = resulting_mixture.w
+        sampled_mean1       = resulting_mixture.comp[0].mean
+        sampled_mean2       = resulting_mixture.comp[1].mean
+        sampled_sigma1      = resulting_mixture.comp[0].cov
+        sampled_sigma2      = resulting_mixture.comp[1].cov
+
+        np.testing.assert_allclose(sampled_abundancies, target_abundancies, rtol=rtol)
+        np.testing.assert_allclose(sampled_mean1[0]   , mean1[0]          , rtol=rtol)
+        np.testing.assert_allclose(sampled_mean1[1]   , mean1[1]          , atol=atol) #atol here because target is 0.
+        np.testing.assert_allclose(sampled_mean2[0]   , mean2[0]          , rtol=rtol)
+        np.testing.assert_allclose(sampled_mean2[1]   , mean2[1]          , atol=atol) #atol here because target is 0.
+        np.testing.assert_allclose(sampled_sigma1     , sigma1            , rtol=rtol_sigma)
+        np.testing.assert_allclose(sampled_sigma2     , sigma2            , rtol=rtol_sigma, atol=atol) #target is 0. -> atol
 
     @attr('slow')
     def test_prune(self):
