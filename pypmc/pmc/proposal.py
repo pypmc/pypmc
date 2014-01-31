@@ -168,7 +168,7 @@ class MixtureProposal(PmcProposal):
             samples  -= weight
             total     = (samples < 0.).sum()
             to_get[i] = total - previous
-            previous += total
+            previous += total - previous
 
         assert total == N, 'Are the weights normalized?'
 
