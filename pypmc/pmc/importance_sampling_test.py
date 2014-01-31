@@ -4,6 +4,7 @@
 
 from .importance_sampling import *
 from . import proposal
+from .proposal_test import DummyComponent
 from .._tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 import numpy as np
 import unittest
@@ -179,6 +180,20 @@ class TestCalculateExpextaction(unittest.TestCase):
 class TestImportanceSampler(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
+
+    def test_tracing(self):
+        dummy_target = lambda x: 0.
+        components = []
+        for i in range(5):
+            components.append( DummyComponent(propose=[float(i)]) )
+        prop = proposal.MixtureProposal(components)
+        sam  = ImportanceSampler(dummy_target, prop)
+
+        origins = sam.run(50, trace=True)
+        samples = sam.hist[-1][1]
+
+        for i in range(50):
+            self.assertAlmostEqual(samples[i][1], origins[i], delta=1.e-15)
 
     def test_indicator(self):
         prop = proposal.GaussianComponent(np.ones(5), np.eye(5))

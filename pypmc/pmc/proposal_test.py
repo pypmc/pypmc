@@ -120,6 +120,16 @@ class TestMixtureProposal(unittest.TestCase):
         self.assertAlmostEqual(abundances[0], weights[0], delta = delta)
         self.assertAlmostEqual(abundances[1], weights[1], delta = delta)
 
+    def test_tracing_propose(self):
+        # test if the mixture proposal correctly traces the responsible component
+        components = []
+        for i in range(5):
+            components.append( DummyComponent(propose=[float(i)]) )
+        prop = MixtureProposal(components)
+        samples, origins = prop.propose(50, trace=True)
+        for i in range(50):
+            self.assertAlmostEqual(samples[i], origins[i], delta=1.e-15)
+
 class TestGaussianComponent(unittest.TestCase):
     def setUp(self):
         print('"GaussianComponent" is a wrapper of ..markov_chain.proposal.MultivariateGaussian.')

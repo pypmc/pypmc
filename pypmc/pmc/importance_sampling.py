@@ -5,7 +5,7 @@
 import numpy as _np
 from math import exp as _exp
 from copy import deepcopy as _cp
-from .._tools._doc import _inherit_docstring
+from .._tools._doc import _inherit_docstring, _add_to_docstring
 from .._tools._chain import _Chain, _Hist, _merge_function_with_indicator
 
 def calculate_expectation(samples, f):
@@ -111,14 +111,14 @@ _docstring_params_importance_sampler = """:param target:
     """
 
 class ImportanceSampler(_Chain):
-    __doc__ = r"""ImportanceSampler(target, proposal, indicator = None, prealloc = 0,
-    rng = numpy.random.mtrand)
+    __doc__ = r"""ImportanceSampler(target, proposal, indicator=None, prealloc=0,
+    rng=numpy.random.mtrand)
 
     An importance sampler object; generates weighted samples from
     ``target`` using ``proposal``.
 
     """ + _docstring_params_importance_sampler
-    def __init__(self, target, proposal, indicator = None, prealloc = 0, rng = _np.random.mtrand):
+    def __init__(self, target, proposal, indicator=None, prealloc=0, rng=_np.random.mtrand):
         self.proposal  = _cp(proposal)
         self.rng       = rng
         self.target    = _merge_function_with_indicator(target, indicator, -_np.inf)
@@ -128,13 +128,30 @@ class ImportanceSampler(_Chain):
         weight = _exp(self.target(point) - proposal.evaluate(point))
         start  = _np.hstack( (weight, point) )
 
-        super(ImportanceSampler, self).__init__(start = start, prealloc = prealloc)
+        super(ImportanceSampler, self).__init__(start=start, prealloc=prealloc)
         del self.current
 
+    @_add_to_docstring(""":param trace:
+
+            Bool; if True, return an array containing the responsible
+            component of ``self.proposal`` for each sample generated
+            during this run.
+
+            .. note::
+
+                This option only works for proposals of type
+                :py:class:`pypmc.pmc.proposal.MixtureProposal`
+
+        """)
     @_inherit_docstring(_Chain)
-    def run(self, N=1):
-        this_run = self._get_samples(N)
-        self._calculate_weights(this_run, N)
+    def run(self, N=1, trace=False):
+        if trace:
+            this_run, origin = self._get_samples(N, trace=True)
+            self._calculate_weights(this_run, N)
+            return origin
+        else:
+            this_run = self._get_samples(N, trace=False)
+            self._calculate_weights(this_run, N)
 
     def _calculate_weights(self, this_run, N):
         """Calculates and saves the weights of a run."""
@@ -143,11 +160,13 @@ class ImportanceSampler(_Chain):
             tmp = self.target(tmp) - self.proposal.evaluate(tmp)
             this_run[i,0] = _exp(tmp)
 
-    def _get_samples(self, N):
+    def _get_samples(self, N, trace):
         """Saves N samples from ``self.proposal`` to ``self.hist``
         Does NOT calculate the weights.
 
         Returns a reference to the samples in ``self.hist``.
+        If trace is True, additionally returns an array indicating
+        the responsible component. (MixtureProposal only)
 
         """
         # allocate an empty numpy array to store the run and append accept count
@@ -156,9 +175,12 @@ class ImportanceSampler(_Chain):
         self.hist._append_accept_count(N)
 
         # store the proposed points (weights are still to be calculated)
-        this_run[:,1:] = self.proposal.propose(N, self.rng)
-
-        return this_run
+        if trace:
+            this_run[:,1:], origin = self.proposal.propose(N, self.rng, trace=True)
+            return this_run, origin
+        else:
+            this_run[:,1:] = self.proposal.propose(N, self.rng)
+            return this_run
 
 class DeterministicIS(ImportanceSampler):
     __doc__ = r"""DeterministicIS(target, proposal, indicator = None, prealloc = 0,

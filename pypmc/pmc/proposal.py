@@ -26,8 +26,8 @@ class PmcProposal(object):
         """
         raise NotImplementedError()
 
-    def propose(self, N=1, rng = _np.random.mtrand):
-        """propose(self, N=1, rng = numpy.random.mtrand)
+    def propose(self, N=1, rng=_np.random.mtrand):
+        """propose(self, N=1, rng=numpy.random.mtrand)
 
         Propose N points using the random number generator ``rng``.
 
@@ -96,7 +96,7 @@ class MixtureProposal(PmcProposal):
         return _np.allclose(self.weights.sum(), 1.0)
 
     def prune(self,threshold=0.0):
-        """Remove components with weight less than ``threshold``.
+        """Remove components with weight less or equal ``threshold``.
         Return list of removed components and weights.
 
             :param threshold:
@@ -138,11 +138,16 @@ class MixtureProposal(PmcProposal):
             The returned samples are ordered by components. When disordered
             samples are needed use ``numpy.random.shuffle``\n\n""")
     @_add_to_docstring(_msg_expect_normalized_weights)
+    @_add_to_docstring(""":param trace:\n
+            bool; if True, return the proposed samples and an array containing
+            the number of the component responsible for each sample, otherwise
+            just return the samples.\n\n        """)
     @_add_to_docstring("""    .. important::\n
                 ``rng`` must return a numpy array of N samples from the
                 uniform distribution over [0,1) when calling ``rng.rand(N)``.\n\n\n        """)
-    @_inherit_docstring(PmcProposal)
-    def propose(self, N=1, rng=_np.random.mtrand):
+    @_add_to_docstring(PmcProposal.propose.__doc__.replace('.mtrand)', '.mtrand, trace=False)', 1))
+    def propose(self, N=1, rng=_np.random.mtrand, trace=False):
+        ""
         # The Algorithm:
         # 1. Draw N samples from standard uniform distribution
         # 2. The first weight is the probability to get a sample from
@@ -173,15 +178,23 @@ class MixtureProposal(PmcProposal):
         assert total == N, 'Are the weights normalized?'
 
         current_write_start = 0
-        output = _np.empty((N,self.dim))
+        output_samples = _np.empty((N,self.dim))
 
         #TODO: parallelize the sampling from components
         for i, comp in enumerate(self.components):
             if to_get[i] != 0:
-                output[current_write_start:current_write_start + to_get[i]] = comp.propose(to_get[i])
+                output_samples[current_write_start:current_write_start + to_get[i]] = comp.propose(to_get[i])
             current_write_start += to_get[i]
 
-        return output
+        if trace:
+            current_write_start = 0
+            output_origin = _np.empty(N, dtype=int)
+            for i in range(len(self.components)):
+                output_origin[current_write_start:current_write_start + to_get[i]] = i
+                current_write_start += to_get[i]
+            return output_samples, output_origin
+        else: # if not trace
+            return output_samples
 
     def __getitem__(self, i):
         return self.components[i] , self.weights[i]
