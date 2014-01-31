@@ -3,10 +3,10 @@
 """
 
 import numpy as _np
-from math import exp
+from math import exp as _exp
 from copy import deepcopy as _cp
 from .._tools._doc import _inherit_docstring
-from .._tools._chain import _Chain, _merge_function_with_indicator
+from .._tools._chain import _Chain, _Hist, _merge_function_with_indicator
 
 def calculate_expectation(samples, f):
     r'''Calculates the expectation value of function ``f`` using weighted
@@ -67,14 +67,7 @@ def calculate_covariance(samples):
     return sum_weights_sq / (sum_weights_sq - sum_sq_weights)  *\
            calculate_expectation(samples, lambda x: _np.einsum('i,j', x - mean, x - mean))
 
-class ImportanceSampler(_Chain):
-    r"""ImportanceSampler(target, proposal, indicator = None, prealloc = 0,
-    rng = numpy.random.mtrand)
-
-    An importance sampler object; generates weighted samples from
-    ``target`` using ``proposal``.
-
-    :param target:
+_docstring_params_importance_sampler = """:param target:
 
         The target density. Must be a function accepting a 1d numpy
         array and returning a float, namely :math:`\log(P(x))`,
@@ -116,6 +109,15 @@ class ImportanceSampler(_Chain):
             :py:meth:`pypmc.pmc.proposal.PmcProposal.propose`
 
     """
+
+class ImportanceSampler(_Chain):
+    __doc__ = r"""ImportanceSampler(target, proposal, indicator = None, prealloc = 0,
+    rng = numpy.random.mtrand)
+
+    An importance sampler object; generates weighted samples from
+    ``target`` using ``proposal``.
+
+    """ + _docstring_params_importance_sampler
     def __init__(self, target, proposal, indicator = None, prealloc = 0, rng = _np.random.mtrand):
         self.proposal  = _cp(proposal)
         self.rng       = rng
@@ -123,7 +125,7 @@ class ImportanceSampler(_Chain):
 
         # need to draw one weighted sample to initialize the history
         point  = proposal.propose()[0]
-        weight = exp(self.target(point) - proposal.evaluate(point))
+        weight = _exp(self.target(point) - proposal.evaluate(point))
         start  = _np.hstack( (weight, point) )
 
         super(ImportanceSampler, self).__init__(start = start, prealloc = prealloc)
@@ -139,7 +141,7 @@ class ImportanceSampler(_Chain):
         for i in range(N):
             tmp = this_run[i, 1:]
             tmp = self.target(tmp) - self.proposal.evaluate(tmp)
-            this_run[i,0] = exp(tmp)
+            this_run[i,0] = _exp(tmp)
 
     def _get_samples(self, N):
         """Saves N samples from ``self.proposal`` to ``self.hist``
@@ -157,3 +159,88 @@ class ImportanceSampler(_Chain):
         this_run[:,1:] = self.proposal.propose(N, self.rng)
 
         return this_run
+
+class DeterministicIS(ImportanceSampler):
+    __doc__ = r"""DeterministicIS(target, proposal, indicator = None, prealloc = 0,
+    rng = numpy.random.mtrand)
+
+    An importance sampler object; generates weighted samples from
+    ``target`` using ``proposal``. Calculates `deterministic mixture
+    weights` according to [Cor+12]_
+
+    """ + _docstring_params_importance_sampler
+    def __init__(self, *args, **kwargs):
+        super(DeterministicIS, self).__init__(*args, **kwargs)
+
+        # need to save all past proposals
+        self.proposal_hist = [_cp(self.proposal)]
+
+        # save all evaluated target and proposal values
+        self._deltas_targets_evaluated = \
+                    _Hist( _np.array([
+                    _exp(self.proposal.evaluate(self.hist[0][1][0][1:])), # initial delta
+                    _exp(self.target(self.hist[0][1][0][1:])) # initial target
+                    ]), self.hist._prealloc )
+
+    def clear(self):
+        """Deletes the history"""
+        self.hist.clear()
+        self._deltas_targets_evaluated.clear()
+        self.proposal_hist = [self.proposal_hist[-1]]
+
+    @_inherit_docstring(ImportanceSampler)
+    def _calculate_weights(self, this_weights_samples, this_N):
+        inconsistency_message = 'Inconsistent state encountered. If you used ' + \
+                                '``self.hist.clear()`` try ``self.clear()`` instead.'
+
+        # append proposal for this run to history
+        self.proposal_hist.append(_cp(self.proposal))
+
+        # allocate memory for new target and proposal evaluations
+        this_deltas_targets = self._deltas_targets_evaluated._alloc(this_N)
+        self._deltas_targets_evaluated._append_accept_count(this_N)
+
+        # create references
+        this_weights = this_weights_samples[:,0 ]
+        this_samples = this_weights_samples[:,1:]
+        this_deltas  = this_deltas_targets [:,0 ]
+        this_targets = this_deltas_targets [:,1 ]
+
+        num_old_samples1, old_weights_samples = self.hist[:-1]
+        num_old_samples2, old_deltas_targets  = self._deltas_targets_evaluated[:-1]
+        assert num_old_samples1 == num_old_samples2, inconsistency_message
+
+        old_weights = old_weights_samples[:,0 ]
+        old_samples = old_weights_samples[:,1:]
+        old_deltas  = old_deltas_targets [:,0 ]
+        old_targets = old_deltas_targets [:,1 ]
+
+        num_all_samples1, all_weights_samples = self.hist[:]
+        num_all_samples2, all_deltas_targets  = self._deltas_targets_evaluated[:]
+        assert num_all_samples1 == num_all_samples2, inconsistency_message
+
+        all_weights = all_weights_samples[:,0 ]
+        all_samples = all_weights_samples[:,1:]
+        all_deltas  = all_deltas_targets [:,0 ]
+        all_targets = all_deltas_targets [:,1 ]
+
+
+        # evaluate the target at the new samples
+        for i, sample in enumerate(this_samples):
+            # exp because the self.target returns the log of the target
+            this_targets[i] = _exp(self.target(sample))
+
+        # calculate the deltas for the new samples
+        this_deltas[:] = 0.
+        for i_sample, sample in enumerate(this_samples):
+            for i_run, (num_samples, dummy) in enumerate(self.hist):
+                this_deltas[i_sample] += num_samples * _exp( self.proposal_hist[i_run].evaluate(sample) )
+
+        assert i_run + 1 == len(self.proposal_hist), inconsistency_message
+
+        # calculate the deltas for the old samples
+        for i_sample, sample in enumerate(old_samples):
+            old_deltas[i_sample] += this_N * _exp( self.proposal_hist[-1].evaluate(sample) )
+
+        # calculate the weights (Algorithm1 in [Cor+12])
+        all_weights[:] = all_targets / (all_deltas / num_all_samples1)
