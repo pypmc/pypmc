@@ -71,6 +71,9 @@ class Multivariate(ProposalDensity):
         store it in the object instance
 
         """
+        # first check if matrix is symmetric
+        if not _np.allclose(self.sigma, self.sigma.transpose()):
+            raise _np.linalg.LinAlgError('Matrix is not symmetric')
         self.cholesky_sigma = _np.linalg.cholesky(self.sigma)
         self.inv_sigma      = _np.linalg.inv(self.sigma)
         self._compute_norm()

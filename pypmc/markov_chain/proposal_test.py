@@ -7,22 +7,26 @@ import numpy as np
 import unittest
 
 rng_seed = 128501257
-NumberOfRandomSteps = 50000
+rng_steps = 50000
 
-singularSigma = np.array([[0.0, 0.0   , 0.0]
-                         ,[0.0, 0.0025, 0.0]
-                         ,[0.0, 0.0   , 0.6]])
+singular_sigma = np.array([[0.0, 0.0   , 0.0]
+                          ,[0.0, 0.0025, 0.0]
+                          ,[0.0, 0.0   , 0.6]])
 
-offdiagSigma  = np.array([[0.01 , 0.003 ]
-                         ,[0.003, 0.0025]])
+asymmetric_sigma  = np.array([[0.01 , 0.003 ]
+                             ,[0.001, 0.0025]])
+
+offdiag_sigma  = np.array([[0.01 , 0.003 ]
+                          ,[0.003, 0.0025]])
 
 class TestGaussian(unittest.TestCase):
     def test_badCovarianceInput(self):
-        sigma = singularSigma
-        self.assertRaises(np.linalg.LinAlgError, MultivariateGaussian, (sigma))
+        sigma = singular_sigma
+        self.assertRaises(np.linalg.LinAlgError, MultivariateGaussian, (singular_sigma))
+        self.assertRaises(np.linalg.LinAlgError, MultivariateGaussian, (asymmetric_sigma))
 
     def test_evaluate(self):
-        sigma = offdiagSigma
+        sigma = offdiag_sigma
         delta = 1e-8
 
         t = MultivariateGaussian(sigma=sigma)
@@ -36,7 +40,7 @@ class TestGaussian(unittest.TestCase):
         self.assertAlmostEqual(t.evaluate(y, x), target, delta=delta)
 
     def test_propose(self):
-        sigma = offdiagSigma
+        sigma = offdiag_sigma
         delta_chisq = .005
         delta_mean  = .001
         delta_var0  = .0001
@@ -47,9 +51,9 @@ class TestGaussian(unittest.TestCase):
         np.random.seed(rng_seed)
         current = np.array([4.3, 1.1])
         target_mean0 = current[0]
-        target_var0  = offdiagSigma[0,0]
+        target_var0  = offdiag_sigma[0,0]
         target_mean1 = current[1]
-        target_var1  = offdiagSigma[1,1]
+        target_var1  = offdiag_sigma[1,1]
         target_chisq = 2.0
         log_normalization = -np.log(2. * np.pi) - 0.5 * np.log(1.6e-5)
 
@@ -57,7 +61,7 @@ class TestGaussian(unittest.TestCase):
         values1 = []
         chisq = 0.
 
-        for i in range(NumberOfRandomSteps-1):
+        for i in range(rng_steps-1):
             proposal = t.propose(current, np.random)
             values0 += [proposal[0]]
             values1 += [proposal[1]]
@@ -69,7 +73,7 @@ class TestGaussian(unittest.TestCase):
         values1 += [proposal[1]]
         chisq += -2.0 * (t.evaluate(proposal, current) - log_normalization)
 
-        chisq /= NumberOfRandomSteps
+        chisq /= rng_steps
 
         values0 = np.array(values0)
         values1 = np.array(values1)
@@ -90,8 +94,8 @@ class TestGaussian(unittest.TestCase):
 
 class TestStudentT(unittest.TestCase):
     def test_badCovarianceInput(self):
-        sigma = singularSigma
-        self.assertRaises(np.linalg.LinAlgError, MultivariateGaussian, (sigma))
+        self.assertRaises(np.linalg.LinAlgError, lambda: MultivariateStudentT(singular_sigma, 10) )
+        self.assertRaises(np.linalg.LinAlgError, lambda: MultivariateStudentT(asymmetric_sigma,10) )
 
     def test_evaluate(self):
         sigma = np.array([[0.0049, 0.  ]
@@ -129,7 +133,7 @@ class TestStudentT(unittest.TestCase):
         mean = 0.
         var  = 0.
 
-        for i in range(NumberOfRandomSteps-1):
+        for i in range(rng_steps-1):
             proposal = t.propose(current, np.random)
             mean += proposal[0]
             var  += proposal[0]**2
@@ -139,15 +143,15 @@ class TestStudentT(unittest.TestCase):
         mean += proposal[0]
         var  += proposal[0]**2
 
-        mean /= NumberOfRandomSteps
-        var  /= NumberOfRandomSteps
+        mean /= rng_steps
+        var  /= rng_steps
         var  -= mean**2
 
         self.assertAlmostEqual(mean, target_mean, delta=delta)
         self.assertAlmostEqual(var , target_var , delta=delta)
 
     def test_propose_2D(self):
-        sigma      = offdiagSigma
+        sigma      = offdiag_sigma
         dof        = 5.
         delta_mean = .001
         delta_var0 = .0001
@@ -158,14 +162,14 @@ class TestStudentT(unittest.TestCase):
         np.random.seed(rng_seed)
         current = np.array([4.3, 1.1])
         target_mean0 = current[0]
-        target_var0  = offdiagSigma[0,0] * dof/(dof-2)
+        target_var0  = offdiag_sigma[0,0] * dof/(dof-2)
         target_mean1 = current[1]
-        target_var1  = offdiagSigma[1,1] * dof/(dof-2)
+        target_var1  = offdiag_sigma[1,1] * dof/(dof-2)
 
         values0 = []
         values1 = []
 
-        for i in range(NumberOfRandomSteps-1):
+        for i in range(rng_steps-1):
             proposal = t.propose(current, np.random)
             values0 += [proposal[0]]
             values1 += [proposal[1]]
