@@ -10,7 +10,7 @@ import numpy as np
 import unittest
 from math import exp, log
 
-rng_seed   = 215135183
+rng_seed   = 215135183 # do not change!
 rng_steps  = 10000
 less_steps = 5
 
