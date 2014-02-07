@@ -9,5 +9,3 @@ pmc
 .. autoclass::  pypmc.pmc.importance_sampling.DeterministicIS(target, proposal, indicator=None, prealloc=0, rng=numpy.random.mtrand)
 
 .. automodule:: pypmc.pmc.pmc
-
-.. autoclass:: pypmc._tools._chain._Hist()

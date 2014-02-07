@@ -6,8 +6,13 @@ from .proposal import MixtureProposal, GaussianComponent
 import numpy as _np
 from math import exp as _exp
 from copy import deepcopy as _cp
-from .._tools._regularize import regularize
+from ..tools._regularize import regularize
 
+#TODO: avoid unneccessary calculations:
+#     - make origin NOT optional
+#     - set up extra Argument for Rao Blackwell or not
+#     - count number of samples from ``origin`` --> omit calculations if less than ~20
+#     - set alpha to zero for those components
 def gaussian_pmc(samples, proposal, origin=None, copy=True):
     '''Adapts a ``proposal`` using the (M-)PMC algorithm according to
     [Cap+08]_.

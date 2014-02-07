@@ -37,15 +37,17 @@ mc = pypmc.markov_chain.markov_chain.AdaptiveMarkovChain(log_target, prop, start
 mc.run(10**4)
 
 # delete burn-in from history
-mc.hist.clear()
+mc.history.clear()
 
 # run 100,000 steps adapting the proposal every 500 steps
+# hereby save the accept count which is returned by mc.run
+accept_count = 0
 for i in range(200):
-    mc.run(500)
+    accept_count += mc.run(500)
     mc.adapt()
 
 # extract a reference to the history of all visited points
-accept_count, values = mc.hist[:]
+values = mc.history[:]
 accept_rate = float(accept_count) / len(values)
 print("The chain accepted %4.2f%% of the proposed points" % (accept_rate * 100) )
 

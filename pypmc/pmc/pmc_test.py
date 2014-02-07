@@ -4,7 +4,7 @@
 
 from .pmc import *
 from . import proposal, importance_sampling
-from .._tools._probability_densities import normalized_pdf_gauss
+from ..tools._probability_densities import normalized_pdf_gauss
 from math import log
 import numpy as np
 import unittest
@@ -70,14 +70,11 @@ samples = np.array([[  9.7070033 ,  -1.14093259,   7.79492513],
                     [-10.4898097 ,   7.48668861,  -2.41443733]])
 weighted_samples = np.hstack( (weights.reshape(len(weights),1),samples) )
 
-# ``origins``, ``weights`` and ``samples`` have been obtained using the following code:
-np.random.mtrand.seed(rng_seed)
-sampler = importance_sampling.ImportanceSampler(log_target, prop, rng=np.random.mtrand)
-new_origins = sampler.run(rng_steps, trace=True)
-new_weighted_samples = sampler.hist[-1][1]
-
-np.testing.assert_array_equal(new_origins         , origins         )
-np.testing.assert_allclose   (new_weighted_samples, weighted_samples)
+## ``origins``, ``weights`` and ``samples`` have been obtained using the following code:
+#np.random.mtrand.seed(rng_seed)
+#sampler = importance_sampling.ImportanceSampler(log_target, prop, rng=np.random.mtrand)
+#new_origins = sampler.run(rng_steps, trace=True)
+#new_weighted_samples = sampler.history[-1]
 
 class TestPMC(unittest.TestCase):
     def test_gaussian_pmc_with_origin(self):

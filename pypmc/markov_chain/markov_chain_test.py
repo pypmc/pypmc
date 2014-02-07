@@ -4,7 +4,7 @@
 
 from .markov_chain import *
 from . import proposal
-from .._tools._probability_densities import unnormalized_log_pdf_gauss
+from ..tools._probability_densities import unnormalized_log_pdf_gauss
 import numpy as np
 import unittest
 
@@ -25,6 +25,9 @@ class MultivariateNonEvaluable(proposal.MultivariateGaussian):
         raise NotImplementedError()
 
 class TestMarkovChain(unittest.TestCase):
+    def setUp(self):
+        np.random.mtrand.seed(rng_seed)
+
     def test_indicator(self):
         prop = proposal.MultivariateGaussian(offdiagSigma)
         start = np.array((0.,1.))
@@ -45,8 +48,6 @@ class TestMarkovChain(unittest.TestCase):
         # proposal.evaluate should never be called if proposal.symmetric == True
         prop = MultivariateNonEvaluable(offdiagSigma)
         start = np.array((0.,1.))
-
-        np.random.mtrand.seed(rng_seed)
 
         mc = MarkovChain(lambda x: 1., prop, start)
 
@@ -72,19 +73,17 @@ class TestMarkovChain(unittest.TestCase):
         #extremely bad starting values
         start = np.array([-3.7, 10.6])
 
-        np.random.mtrand.seed(rng_seed)
-
         mc = MarkovChain(log_target, prop, start, prealloc = NumberOfRandomSteps)
 
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
-        self.assertEqual(len(mc.hist[-1][1]), int(NumberOfRandomSteps/10))
-        mc.hist.clear()
-        self.assertEqual(len(mc.hist[-1][1]), 1)
+        self.assertEqual(len(mc.history[-1]), NumberOfRandomSteps//10)
+        mc.history.clear()
+        self.assertEqual(len(mc.history[-1]), 0)
 
         mc.run(NumberOfRandomSteps)
 
-        values = mc.hist[:][1]
+        values = mc.history[:]
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -107,7 +106,7 @@ class TestMarkovChain(unittest.TestCase):
 
         self.assertRaisesRegexp(ValueError, 'encountered NaN', mc.run)
 
-    def test_hist(self):
+    def test_history(self):
         # dummy; not a real proposal
         class ProposalPlusOne(proposal.ProposalDensity):
             symmetric = True
@@ -135,21 +134,22 @@ class TestMarkovChain(unittest.TestCase):
 
         float_acc = 1e-15
 
-        # check initial point
-        self.assertAlmostEqual(0., mc.hist[0][1])
-
-        # check all runs
-        for run in range(1,11):
-            this_run        = mc.hist[run][1]
-            this_run_target = np.arange(1.,11.)+(run-1)*10
+        # check runs
+        for run in range(10):
+            this_run        = mc.history[run]
+            self.assertEqual(len(this_run), 10)
+            this_run_target = np.arange(1.,11.)+(run)*10
             for i in range(10):
                 self.assertAlmostEqual(this_run[i][0], this_run_target[i], float_acc)
 
         # check slicing
         for i in range(50):
-            self.assertAlmostEqual(mc.hist[:6][1][i], np.arange(50)[i], float_acc)
+            self.assertAlmostEqual(mc.history[:6][i], np.arange(1,51)[i], float_acc)
 
 class TestAdaptiveMarkovChain(unittest.TestCase):
+    def setUp(self):
+        np.random.mtrand.seed(rng_seed)
+
     def test_adapt(self):
         delta_mean   = .005
 
@@ -168,8 +168,6 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
         #good starting values; prerun is already tested in TestMarkovChain
         start = np.array([4.2, 1.])
 
-        np.random.mtrand.seed(rng_seed)
-
         mc = AdaptiveMarkovChain(log_target, prop, start, prealloc = NumberOfRandomSteps)
 
         scale_up_visited   = False
@@ -178,7 +176,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
         mc.set_adapt_params(covar_scale_factor = covar_scale_factor)
 
         for i in range(10):
-            mc.run(int(NumberOfRandomSteps/10))
+            mc.run(NumberOfRandomSteps//10)
             mc.adapt()
 
             if   mc.covar_scale_factor > covar_scale_factor:
@@ -188,7 +186,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
             covar_scale_factor = mc.covar_scale_factor
 
-        values = mc.hist[:][1]
+        values = mc.history[:]
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()

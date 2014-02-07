@@ -4,7 +4,7 @@ import numpy as _np
 from copy import deepcopy as _deepcopy
 from math import exp, log
 from ..markov_chain import proposal as _mc_proposal
-from .._tools._doc import _inherit_docstring, _add_to_docstring
+from ..tools._doc import _inherit_docstring, _add_to_docstring
 
 class PmcProposal(object):
     """Abstract Base class for a proposal density for the Population

@@ -9,8 +9,8 @@ import numpy as _np
 from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
-from .._tools._doc import _inherit_docstring, _add_to_docstring
-from .._tools._regularize import regularize
+from ..tools._doc import _inherit_docstring, _add_to_docstring
+from ..tools._regularize import regularize
 
 class GaussianInference(object):
     '''Approximate a probability density by a Gaussian mixture with a variational

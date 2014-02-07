@@ -5,7 +5,7 @@
 from .importance_sampling import *
 from . import proposal
 from .proposal_test import DummyComponent
-from .._tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
+from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 import numpy as np
 import unittest
 from math import exp, log
@@ -32,6 +32,19 @@ target_samples = np.array([[-5.44709992, -2.75569806],
                            [-3.48395737, -2.29824693],
                            [-4.53006187, -2.26075246],
                            [ 8.2430438 ,  0.74320662]])
+
+class FixProposal(proposal.MixtureProposal):
+    def __init__(self, *args, **kwargs):
+        super(FixProposal, self).__init__(*args, **kwargs)
+        self.i = 0
+
+    def propose(self, N=1, rng=None):
+        i = self.i
+        self.i += N
+        return target_samples[i:self.i]
+
+perturbed_prop = FixProposal((proposal.GaussianComponent(mu+.1, cov+.1),))
+perfect_prop   = FixProposal((proposal.GaussianComponent(mu, cov),))
 
 def raise_not_implemented(x):
     if (x == np.ones(5)).all():
@@ -61,12 +74,13 @@ def unimodal_sampling(instance, ImportanceSamplerClass):
     sam = ImportanceSamplerClass(log_target, prop, prealloc = rng_steps, indicator = None, rng = np.random.mtrand)
     for i in range(10):
         sam.run(rng_steps//10)
-    num_samples, weighted_points = sam.hist[:]
+    weighted_points = sam.history[:]
+    num_samples = len(weighted_points)
 
     sampled_mean = calculate_mean      (weighted_points)
     sampled_cov  = calculate_covariance(weighted_points)
 
-    instance.assertEqual(num_samples, rng_steps + 1)
+    instance.assertEqual(num_samples, rng_steps)
     np.testing.assert_almost_equal(sampled_mean, mean , decimal = minus_log_ten_delta_mean)
     np.testing.assert_almost_equal(sampled_cov , sigma, decimal = minus_log_ten_delta_cov )
 
@@ -79,7 +93,7 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
     delta_abun   = .02
     delta_mean   = .02
     delta_sigma1 = .0005
-    delta_sigma2 = .005
+    delta_sigma2 = .0051
 
     # target
     target_abundancies = np.array((.6, .4))
@@ -120,15 +134,16 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
     for i in range(5):
         sam.run(rng_steps//5)
 
-    num_samples, weighted_points = sam.hist[:]
-    instance.assertEqual(num_samples, rng_steps + 1)
+    weighted_points = sam.history[:]
+    num_samples = len(weighted_points)
+    instance.assertEqual(num_samples, rng_steps)
 
 
     # separate samples from component (+5,0) and (-5,0) by sign of first coordinate
     negative_samples = weighted_points[np.where(weighted_points[:,1]<0.)]
     positive_samples = weighted_points[np.where(weighted_points[:,1]>0.)]
 
-    instance.assertEqual(len(positive_samples) + len(negative_samples), rng_steps + 1)
+    instance.assertEqual(len(positive_samples) + len(negative_samples), rng_steps)
 
     # check abundancies
     negative_weightsum = negative_samples[:,0].sum()
@@ -190,7 +205,7 @@ class TestImportanceSampler(unittest.TestCase):
         sam  = ImportanceSampler(dummy_target, prop)
 
         origins = sam.run(50, trace=True)
-        samples = sam.hist[-1][1]
+        samples = sam.history[-1]
 
         for i in range(50):
             self.assertAlmostEqual(samples[i][1], origins[i], delta=1.e-15)
@@ -198,13 +213,14 @@ class TestImportanceSampler(unittest.TestCase):
     def test_indicator(self):
         prop = proposal.GaussianComponent(np.ones(5), np.eye(5))
 
-        self.assertRaises(NotImplementedError, lambda: ImportanceSampler(raise_not_implemented, prop))
+        no_ind = ImportanceSampler(raise_not_implemented, prop)
+        self.assertRaises(NotImplementedError, no_ind.run)
 
         indicator = lambda x: (x == np.ones(5)).all()
         with_ind  = ImportanceSampler(raise_not_implemented, prop, indicator)
         with_ind.run()
 
-        weighted_samples = with_ind.hist[:][1]
+        weighted_samples = with_ind.history[:]
         weights = weighted_samples[:,0]
 
         # samples out of support should have zero weight
@@ -221,11 +237,9 @@ class TestImportanceSampler(unittest.TestCase):
 
         target_weights = np.array([5.64485430502, 4.21621342833, 6.19074100415, 6.57693562598, 1.39850240669])
 
-        prop = proposal.MixtureProposal((proposal.GaussianComponent(mu+.1, cov+.1),))
-
-        sam = ImportanceSampler(log_target, prop, rng=np.random.mtrand)
-        sam.run(less_steps-1)
-        weights_sampels = sam.hist[:][1]
+        sam = ImportanceSampler(log_target, perturbed_prop, rng=np.random.mtrand)
+        sam.run(less_steps)
+        weights_sampels = sam.history[:]
 
         weights = weights_sampels[:,0 ]
         samples = weights_sampels[:,1:]
@@ -251,18 +265,13 @@ class TestDeterministicIS(unittest.TestCase):
         target_weights_second = np.array([ 4.51833133,  3.97876579,  4.68361755,  4.79001426,  2.03969365,
                                            4.42676502,  4.7814771 ,  4.38248357,  4.42923761,  4.80564581  ])
 
-        perfect_prop = proposal.MixtureProposal((proposal.GaussianComponent(mu, cov),))
+        sam = DeterministicIS(log_target, perturbed_prop, rng=np.random.mtrand)
 
-        # perturbed proposal
-        initial_prop = proposal.MixtureProposal((proposal.GaussianComponent(mu+.1, cov+.1),))
-
-        sam = DeterministicIS(log_target, initial_prop, rng=np.random.mtrand)
-
-        sam.run(less_steps-1)
-        samples_weights_first_step = sam.hist[:][1].copy() # need a copy because weights will be overwritten
+        sam.run(less_steps)
+        samples_weights_first_step = sam.history[:].copy() # need a copy because weights will be overwritten
         sam.proposal.components[0].update(mu, cov) # set proposal = normalized target (i.e. perfect_prop)
         sam.run(less_steps)
-        samples_weights_second_step = sam.hist[:][1]
+        samples_weights_second_step = sam.history[:]
 
         # first column is weight -> cut it to get samples only
         samples_first  = samples_weights_first_step [:,1:]
@@ -288,13 +297,13 @@ class TestDeterministicIS(unittest.TestCase):
             self.assertAlmostEqual(weights_second[i], target_weights_second[i], places=6)
 
     def test_clear(self):
+        N = 20
         prop = proposal.MixtureProposal((proposal.GaussianComponent(mu, cov),))
         pmc = DeterministicIS(log_target, prop, rng=np.random.mtrand)
-        pmc.run(10)
-        pmc.hist.clear()
+        pmc.run(N)
+        pmc.history.clear()
         self.assertRaisesRegexp(AssertionError, r'^Inconsistent state(.*)try ["\'`]*self.clear', pmc.run)
         pmc.clear()
-        pmc.run(19)
-        N, weighted_samples = pmc.hist[:]
-        self.assertEqual(N, 20)
+        pmc.run(N)
+        weighted_samples = pmc.history[:]
         self.assertEqual(len(weighted_samples), 20)

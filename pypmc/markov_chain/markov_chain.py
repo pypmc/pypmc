@@ -2,10 +2,10 @@
 
 from __future__ import division as _div
 import numpy as _np
-from .._tools._doc import _inherit_docstring
-from .._tools._chain import _Chain, _merge_function_with_indicator
+from ..tools import History as _History, merge_function_with_indicator as _indmerge
+from ..tools._doc import _inherit_docstring
 
-class MarkovChain(_Chain):
+class MarkovChain(object):
     r"""MarkovChain(target, proposal, start, indicator = None, prealloc = 0,
     rng = numpy.random.mtrand)
 
@@ -45,7 +45,7 @@ class MarkovChain(_Chain):
     :param prealloc:
 
         An integer, defines the number of Markov chain points for
-        which memory in ``hist`` is allocated. If more memory is
+        which memory in ``history`` is allocated. If more memory is
         needed, it will be allocated on demand.
 
         .. hint::
@@ -69,13 +69,25 @@ class MarkovChain(_Chain):
     def __init__(self, target, proposal, start, indicator = None,
                  prealloc = 0, rng = _np.random.mtrand):
         # store input into instance
-        super(MarkovChain, self).__init__(start = start, prealloc = prealloc)
+        self.current   = _np.array(start)                      # call array constructor to make sure to have a copy
+        self.history   = _History(len(self.current), prealloc) # initialize history
         self.proposal  = proposal
         self.rng       = rng
-        self.target    = _merge_function_with_indicator(target, indicator, -_np.inf)
+        self.target    = _indmerge(target, indicator, -_np.inf)
 
-    @_inherit_docstring(_Chain)
-    def run(self, N = 1):
+    def run(self, N=1):
+        '''Runs the chain and stores the history of visited points into
+        the member variable ``self.history``. Returns the number of
+        accepted points during the run.
+
+        .. seealso::
+            :py:class:`pypmc.tools.History`
+
+        :param N:
+
+            An int which defines the number of steps to run the chain.
+
+        '''
         # set the accept function
         if self.proposal.symmetric:
             get_log_rho = self._get_log_rho_metropolis
@@ -83,7 +95,7 @@ class MarkovChain(_Chain):
             get_log_rho = self._get_log_rho_metropolis_hastings
 
         # allocate an empty numpy array to store the run
-        this_run     = self.hist._alloc(N)
+        this_run     = self.history.append(N)
         accept_count = 0
 
         for i_N in range(N):
@@ -116,8 +128,7 @@ class MarkovChain(_Chain):
                 #self.current = self.current
         # ---------------------- end for --------------------------------
 
-        # store accept_count in history
-        self.hist._append_accept_count(accept_count)
+        return accept_count
 
     def _get_log_rho_metropolis(self, proposed_point):
         """calculate the log of the metropolis ratio"""
@@ -162,6 +173,11 @@ class AdaptiveMarkovChain(MarkovChain):
 
         # initialize unscaled sigma
         self.unscaled_sigma = self.proposal.sigma / self.covar_scale_factor
+
+    @_inherit_docstring(MarkovChain)
+    def run(self, N=1):
+        self._last_accept_count = super(AdaptiveMarkovChain, self).run(N)
+        return self._last_accept_count
 
     def set_adapt_params(self, *args, **kwargs):
         r"""Sets variables for covariance adaptation.
@@ -306,8 +322,8 @@ class AdaptiveMarkovChain(MarkovChain):
 
         time_dependent_damping_factor = 1./self.adapt_count**self.damping
 
-        last_accept_count, last_run = self.hist[-1]
-        accept_rate = float(last_accept_count)/len(last_run)
+        last_run = self.history[-1]
+        accept_rate = float(self._last_accept_count)/len(last_run)
 
         # careful with rowvar!
         # in this form it is expected that each column  of ``points``
