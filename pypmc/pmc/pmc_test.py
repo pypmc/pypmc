@@ -77,6 +77,40 @@ weighted_samples = np.hstack( (weights.reshape(len(weights),1),samples) )
 #new_weighted_samples = sampler.history[-1]
 
 class TestPMC(unittest.TestCase):
+    def test_invalid_usage(self):
+        self.assertRaisesRegexp(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*origin["\'` ]*.*not',
+                                gaussian_pmc, weighted_samples, prop, rb=False)
+        self.assertRaisesRegexp(ValueError, r'["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*origin["\'` ]*.*not',
+                                gaussian_pmc, weighted_samples, prop, mincount=10)
+        self.assertRaisesRegexp(ValueError, r'(["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*origin["\'` ]*.*not)' + \
+                                            r'|' + \
+                                            r'(["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*origin["\'` ]*.*not)',
+                                gaussian_pmc, weighted_samples, prop, mincount=10, rb=False)
+
+    def test_mincount_and_copy(self):
+        prop_weights = prop.weights.copy()
+        prop_mu0     = prop.components[0].mu.copy()
+        prop_mu1     = prop.components[1].mu.copy()
+        prop_cov0    = prop.components[0].sigma.copy()
+        prop_cov1    = prop.components[1].sigma.copy()
+
+        adapted_prop_no_die_rb     = gaussian_pmc(weighted_samples, prop, origins, mincount=8, rb=True )
+        adapted_prop_die_rb        = gaussian_pmc(weighted_samples, prop, origins, mincount=9, rb=True )
+        adapted_prop_no_die_no_rb  = gaussian_pmc(weighted_samples, prop, origins, mincount=8, rb=False)
+        adapted_prop_die_no_rb     = gaussian_pmc(weighted_samples, prop, origins, mincount=9, rb=False)
+
+        self.assertNotEqual(adapted_prop_no_die_rb.weights[1]   , 0.)
+        self.assertEqual   (adapted_prop_die_rb.weights[1]      , 0.)
+        self.assertNotEqual(adapted_prop_no_die_no_rb.weights[1], 0.)
+        self.assertEqual   (adapted_prop_die_no_rb.weights[1]   , 0.)
+
+        # the proposal should not have been touched --> expect exact equality
+        np.testing.assert_equal(prop.weights            , prop_weights)
+        np.testing.assert_equal(prop.components[0].mu   , prop_mu0    )
+        np.testing.assert_equal(prop.components[1].mu   , prop_mu1    )
+        np.testing.assert_equal(prop.components[0].sigma, prop_cov0   )
+        np.testing.assert_equal(prop.components[1].sigma, prop_cov1   )
+
     def test_gaussian_pmc_with_origin(self):
         #TODO: compare with pmclib (Kilbinger et. al.)
         adapted_prop = gaussian_pmc(weighted_samples, prop, origins)
@@ -130,3 +164,6 @@ class TestPMC(unittest.TestCase):
         np.testing.assert_allclose(adapted_mu2         , pmc_mu2         )
         np.testing.assert_allclose(adapted_sigma1      , pmc_sigma1      )
         np.testing.assert_allclose(adapted_sigma2      , pmc_sigma2      )
+
+#TODO: create test case such that the result depends on Rao Blackwellized on/off
+#TODO: test if rb is really switched on/of by argument "rb" even if "origin" is provided
