@@ -4,8 +4,6 @@
 
 from .variational import *
 from .gaussian_mixture import GaussianMixture
-from .. import pmc
-from .._tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
 import copy
 from nose.plugins.attrib import attr
@@ -15,26 +13,26 @@ import unittest
 
 def check_bound(test_case, variational, n=20, prune=True):
     bound = variational.likelihood_bound()
-    old_K = variational.components
+    old_K = variational.K
     for i in range(n):
         old_bound = bound
         variational.update()
         bound = variational.likelihood_bound()
-        print('%d: bound=%.16f, ncomp=%d, N_k=%s' % (i, bound, variational.components, variational.N_comp))
+        print('%d: bound=%.16f, ncomp=%d, N_k=%s' % (i, bound, variational.K, variational.N_comp))
 
         if bound == old_bound:
-            return True
+            return i + 1
 
-        test_case.assertLessEqual(variational.components, old_K)
-        if variational.components == old_K:
+        test_case.assertLessEqual(variational.K, old_K)
+        if variational.K == old_K:
             test_case.assertGreaterEqual(bound, old_bound)
 
         # save K *before* prune()
-        old_K = variational.components
+        old_K = variational.K
         if prune:
             variational.prune()
 
-    return False
+    return None
 
 invertible_matrix = np.array([[2.   , 3.   ],
                               [2.   , 2.   ]])
@@ -58,6 +56,51 @@ rng_seed = 625135153
 class TestGaussianInference(unittest.TestCase):
     def setUp(self):
         np.random.seed(rng_seed)
+
+    def test_parameter_validation(self):
+        target_mean = np.array((+1. , -4.))
+        data = np.random.mtrand.multivariate_normal(target_mean, covariance1, size=500)
+        D = len(target_mean)
+        K = 5
+        d = dict
+
+        # correct values should not throw
+        kwargs = [d(alpha0=2), d(beta0=1e-3), d(nu0=5),
+                  d(alpha0=np.zeros(K) + 1e-6), d(beta0=np.zeros(K) + 1e-6), d(nu0=np.zeros(K) + 3),
+                  d(alpha=np.zeros(K) + 1e-6), d(beta=np.zeros(K) + 1e-6), d(nu=np.zeros(K) + 3),
+                  d(m0=np.zeros(D)), d(W0=np.eye(D)),
+                  d(m0=np.zeros((K,D))), d(W0=np.array([np.eye(D)] * K)),
+                  d(m=np.zeros((K,D))), d(W=np.array([np.eye(D)] * K)),
+                 ]
+        for kw in kwargs:
+            print(kw)
+            GaussianInference(data, K, **kw)
+
+        # unknown argument
+        with self.assertRaises(TypeError) as cm:
+            GaussianInference(data, K, Balpha0=0.1)
+        print(cm.exception)
+
+        # invalid kwargs
+        kwargs = [d(alpha0=-2), d(beta0=-1), d(nu0=-1e-6), # wrong value
+                  d(alpha0=np.zeros(K)), d(beta0=np.zeros(K)), d(nu0=np.zeros(K)), # wrong values
+                  d(alpha=np.zeros(K-1)), d(beta=np.zeros(K+1)), d(nu=np.zeros(1)), # wrong dim
+                  d(alpha=np.zeros((K, D)) + 1e-6), # wrong shape
+                  d(alpha=np.zeros(K) - 1), d(beta=np.zeros(K) - 1), d(nu=np.zeros(K) + 2), # wrong values
+                  d(m0=np.zeros(D + 1)), d(W0=np.eye(D + 3)),
+                  d(m=np.zeros(D)), d(W=np.zeros((D, D))), # need to specify all components
+                  d(m=np.zeros((K, D + 1))), d(W=np.zeros((K, D + 1, D))),
+                  d(m0=np.zeros((K + 1, D)))
+                 ]
+        for kw in kwargs:
+            with self.assertRaises(ValueError) as cm:
+                GaussianInference(data, K, **kw)
+            print(cm.exception)
+
+        # zero matrix not positive definite
+        with self.assertRaises(AssertionError) as cm:
+            GaussianInference(data, K, W=np.zeros((K, D, D)))
+        print(cm.exception)
 
     def test_update(self):
         demo_data = np.array([
@@ -84,12 +127,10 @@ class TestGaussianInference(unittest.TestCase):
 
         # check W0 and inv_W0
         W0 = inv_W0 = np.eye(2)
-        np.testing.assert_allclose(infer.W0, W0)
-        np.testing.assert_allclose(infer.inv_W0, inv_W0)
+        np.testing.assert_allclose(infer.W0[0], W0)
+        np.testing.assert_allclose(infer.inv_W0[0], inv_W0)
         np.testing.assert_allclose(infer.W[0], W0)
         np.testing.assert_allclose(infer.W[1], W0)
-
-
 
         # check for correctness of first E-step (called from constructor) --> compare with calculation by hand
         # (only for first data_point if for all points)
@@ -163,98 +204,42 @@ class TestGaussianInference(unittest.TestCase):
         W     = np.linalg.inv(inv_W)
         np.testing.assert_allclose(infer.W[0], W)
 
-    def test_weighted(self):
-        # this test uses pypmc.pmc.importance_sampling --> before debugging here,
-        # first make sure that importance_sampling works
-
-        # -------------------------------- generate weighted test data ----------------------------------
-        # target
-        target_abundancies = np.array((.7, .3))
-
-        mean1  = np.array( [-5.   , 0.    ])
-        sigma1 = np.array([[ 0.01 , 0.003 ],
-                           [ 0.003, 0.0025]])
-        inv_sigma1 = np.linalg.inv(sigma1)
-
-        mean2  = np.array( [+5. , 0.   ])
-        sigma2 = np.array([[ 0.1, 0.0  ],
-                           [ 0.0, 0.5  ]])
-        inv_sigma2 = np.linalg.inv(sigma2)
-
-        log_target = lambda x: log( target_abundancies[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
-                                    target_abundancies[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) )
-
-        # proposal
-        prop_abundancies = np.array((.5, .5))
-
-        prop_dof1   = 5.
-        prop_mean1  = np.array( [-4.9  , 0.01  ])
-        prop_sigma1 = np.array([[ 0.007, 0.0   ],
-                                [ 0.0  , 0.0023]])
-        prop1       = pmc.proposal.StudentTComponent(prop_mean1, prop_sigma1, prop_dof1)
-
-        prop_dof2   = 5.
-        prop_mean2  = np.array( [+5.08, 0.01])
-        prop_sigma2 = np.array([[ 0.14, 0.01],
-                                [ 0.01, 0.6 ]])
-        prop2       = pmc.proposal.StudentTComponent(prop_mean2, prop_sigma2, prop_dof2)
-
-        prop = pmc.proposal.MixtureProposal((prop1, prop2), prop_abundancies)
-
-
-        sam = pmc.importance_sampling.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
-        sam.run(10**4)
-
-        num_samples, weighted_samples = sam.hist[:]
-        # -----------------------------------------------------------------------------------------------
-
-        rtol = .05
-        atol = .01
-        rtol_sigma = .12
-
-        weights = weighted_samples[:,0 ]
-        samples = weighted_samples[:,1:]
-
-        clust = GaussianInference(samples, 2, weights=weights, m=np.vstack((prop_mean1,prop_mean2)))
-        converged = clust.run(verbose=True)
-        self.assertTrue(converged)
-
-        resulting_mixture = clust.get_result()
-
-        sampled_abundancies = resulting_mixture.w
-        sampled_mean1       = resulting_mixture.comp[0].mean
-        sampled_mean2       = resulting_mixture.comp[1].mean
-        sampled_sigma1      = resulting_mixture.comp[0].cov
-        sampled_sigma2      = resulting_mixture.comp[1].cov
-
-        np.testing.assert_allclose(sampled_abundancies, target_abundancies, rtol=rtol)
-        np.testing.assert_allclose(sampled_mean1[0]   , mean1[0]          , rtol=rtol)
-        np.testing.assert_allclose(sampled_mean1[1]   , mean1[1]          , atol=atol) #atol here because target is 0.
-        np.testing.assert_allclose(sampled_mean2[0]   , mean2[0]          , rtol=rtol)
-        np.testing.assert_allclose(sampled_mean2[1]   , mean2[1]          , atol=atol) #atol here because target is 0.
-        np.testing.assert_allclose(sampled_sigma1     , sigma1            , rtol=rtol_sigma)
-        np.testing.assert_allclose(sampled_sigma2     , sigma2            , rtol=rtol_sigma, atol=atol) #target is 0. -> atol
-
-    @attr('slow')
-    def test_prune(self):
+    def test_prune_run(self):
         # generate test data from two independent gaussians
         target_abundances = np.array((.1, .9))
         target_mean1 = np.array((+1. , -4.))
         target_mean2 = np.array((-5. , +2.))
         target_cov1  = covariance1
         target_cov2  = covariance2
-        data1 = np.random.mtrand.multivariate_normal(target_mean1, target_cov1, size =   10**3)
-        data2 = np.random.mtrand.multivariate_normal(target_mean2, target_cov2, size = 9*10**3)
+        data1 = np.random.mtrand.multivariate_normal(target_mean1, target_cov1, size =   10**2)
+        data2 = np.random.mtrand.multivariate_normal(target_mean2, target_cov2, size = 9*10**2)
         test_data = np.vstack((data1,data2))
         np.random.shuffle(test_data)
 
         # provide hint for means to force convergence to a specific solution
-        infer = GaussianInference(test_data, 3, m = np.vstack((target_mean1+2. , target_mean2+2.,
-                                                               target_mean1+10., target_mean2+1    )) )
+        infer = GaussianInference(test_data, 3, m = np.vstack((target_mean1 +2., target_mean2 + 2., target_mean1+10.)) )
+        infer2 = copy.deepcopy(infer)
 
-        self.assertTrue(check_bound(self, infer, 20))
-        resulting_mixture = infer.get_result()
-        self.assertEqual(len(resulting_mixture.w), 2)
+        nsteps = check_bound(self, infer, 20)
+        self.assertTrue(nsteps)
+        result = infer.get_result()
+        self.assertEqual(len(result.w), 2)
+        np.testing.assert_allclose(result[0].mean, target_mean1, rtol=1e-2)
+        np.testing.assert_allclose(result[1].mean, target_mean2, rtol=1e-2)
+
+        # run should do the same number of E and M steps
+        # to result in same numbers
+        eps = 1e-15
+        nsteps2 = infer2.run(20, verbose=True)
+        self.assertEqual(nsteps2, nsteps)
+
+        result2 = infer2.get_result()
+        np.testing.assert_allclose(result2.w, result.w, rtol=1e-15)
+        for i in range(2):
+            np.testing.assert_allclose(result2[i].mean, result[i].mean, rtol=1e-15)
+            np.testing.assert_allclose(result2[i].cov, result[i].cov, rtol=1e-15)
+
+    # todo test if convergence only approximate
 
 def create_mixture(means, cov, ncomp):
     '''Create mixture density with different means but common covariance.
@@ -407,7 +392,7 @@ class TestVBMerge(unittest.TestCase):
         print('Keep all components...\n')
 
         self.assertTrue(check_bound(self, vb, prune=False))
-        self.assertEqual(vb.components, N_output_initial)
+        self.assertEqual(vb.K, N_output_initial)
 
         # now the same thing with pruning, should be faster
         # as only one component remains
@@ -415,7 +400,30 @@ class TestVBMerge(unittest.TestCase):
         print('Pruning...\n')
 
         self.assertTrue(check_bound(self, vb_prune, 20))
-        self.assertEqual(vb_prune.components, 1)
+        self.assertEqual(vb_prune.K, 1)
+
+    def test_bound(self):
+        # a Gaussian target, taken from a failing example
+        means  = (np.array([ 4.30733653,  1.10121756]),
+                  np.array([ 4.29948   ,  1.09937727]))
+        cov   = (np.array([[ 0.01382637,  0.00361037],
+                           [ 0.00361037,  0.0043224 ]]),
+                 np.array([[ 0.00969403,  0.00292157],
+                           [ 0.00292157,  0.00247721]]))
+        weights = np.array([ 0.12644431,  0.87355569])
+        components = [GaussianMixture.Component(m, c) for m,c in zip(means, cov)]
+        input_components = GaussianMixture(components, weights)
+        vb = VBMerge(input_components, N=1e4, components=2, alpha0=1e-5, beta0=1e-5)
+        # likelihood bound decreases once after 1st step when parameters favor one component,
+        # but N_k is nonzero for the other.
+        # Is it a bug or a feature? Setting alpha0 to 1-6 fixes the problem
+
+        # can't converge in one step
+        self.assertEqual(vb.run(1), None)
+
+        # but in three
+        nsteps = vb.run(verbose=True)
+        self.assertEqual(nsteps, 3)
 
 class TestWishart(unittest.TestCase):
     # comparison done in mathematica

@@ -2,7 +2,7 @@
 
 """
 
-from __future__ import division
+from __future__ import division, print_function
 from .gaussian_mixture import GaussianMixture
 from math import log
 import numpy as _np
@@ -12,53 +12,7 @@ from scipy.special.basic import digamma as _digamma
 from .._tools._doc import _inherit_docstring, _add_to_docstring
 from .._tools._regularize import regularize
 
-class _Inference(object):
-    '''Abstract base class; approximate an unknown probability density by a
-    member of a specific class of probability densities.
-
-    '''
-
-    def __init__(self):
-        raise NotImplementedError('Do not create instances from this class, use derived classes instead.')
-
-    def get_result(self):
-        '''Return the parameters calculated by ``self.update``'''
-        raise NotImplementedError()
-
-    def likelihood_bound(self):
-        '''Compute the lower bound on the true log marginal likelihood
-        :math:`L(Q)` given the current parameter estimates.
-
-        '''
-        raise NotImplementedError()
-
-    def prune(self, threshold=1.):
-        '''Delete components with an effective number of samples
-        :math:`N_k` below the threshold.
-
-        :param threshold:
-
-            Float; the minimum effective number of samples a component must have
-            to survive.
-
-        '''
-        raise NotImplementedError()
-
-    def set_variational_parameters(self, *args, **kwargs):
-        '''Reset the parameters to the submitted values or default
-        Use this function to set initial values for the iteration.
-
-        '''
-        raise NotImplementedError()
-
-    def update(self):
-        '''Recalculate the parameters (M step) and expectation values (E step)
-        using the update equations.
-
-        '''
-        raise NotImplementedError()
-
-class GaussianInference(_Inference):
+class GaussianInference(object):
     '''Approximate a probability density by a Gaussian mixture with a variational
     Bayes approach. The motivation, notation, and derivation is explained in
     detail in chapter 10.2 in [Bis06]_.
@@ -74,7 +28,7 @@ class GaussianInference(_Inference):
         :math:`D`-dimensional sample from the probability density to be
         approximated.
 
-    :param components:
+    :param K:
 
         Integer; :math:`K` is the number of Gaussian components in the
         approximating Gaussian mixture.
@@ -89,15 +43,19 @@ class GaussianInference(_Inference):
     '''
     def __init__(self, data, components, weights=None, **kwargs):
         self.data = data
-        self.components = components
+        self.K = components
         self.N, self.dim = self.data.shape
-        if weights is None:
-            self.weights = _np.ones(self.N)
-        else:
+        if weights is not None:
             assert weights.shape == (self.N,), \
                     "The number of samples (%s) does not match the number of weights (%s)" %(self.N, weights.shape[0])
             # normalize weights to N (not one)
             self.weights = self.N * weights / weights.sum()
+
+            # use weighted update formulae
+            self._update_N_comp = self._update_N_comp_weighted
+            self._update_x_mean_comp = self._update_x_mean_comp_weighted
+            self._update_S = self._update_S_weighted
+            self._update_expectation_log_q_Z = self._update_expectation_log_q_Z_weighted
 
         self.set_variational_parameters(**kwargs)
 
@@ -108,8 +66,10 @@ class GaussianInference(_Inference):
     def E_step(self):
         '''Compute expectation values and summary statistics.'''
 
-        self._update_expectation_gauss_exponent()
+        # check ln_lambda first to catch an invalid W matrix
+        # before expensive loop over samples
         self._update_expectation_det_ln_lambda()
+        self._update_expectation_gauss_exponent()
         self._update_expectation_ln_pi()
         self._update_r()
         self._update_N_comp()
@@ -126,7 +86,7 @@ class GaussianInference(_Inference):
         self._update_W()
 
     def get_result(self):
-        '''Return the mixture-density computed from the
+        '''Return the mixture-density defined by the
         mode of the variational-Bayes estimate.
 
         '''
@@ -151,9 +111,9 @@ class GaussianInference(_Inference):
                 components[-1].inv = W
 
                 # Dirichlet mode
-                pi = (self.alpha[k] - 1.) / (self.alpha.sum() - self.components)
+                pi = (self.alpha[k] - 1.) / (self.alpha.sum() - self.K)
                 assert pi >= 0, 'Mode of Dirichlet distribution requires alpha_k > 1 ' + \
-                                '(alpha_k=%g) and at least K > 2 (K=%g)' % (self.alpha[k], self.components)
+                                '(alpha_k=%g) and at least K > 2 (K=%g)' % (self.alpha[k], self.K)
 
                 # relative weight properly normalized
                 weights.append(pi)
@@ -162,9 +122,13 @@ class GaussianInference(_Inference):
 
         return GaussianMixture(components, weights)
 
-    @_inherit_docstring(_Inference)
     def likelihood_bound(self):
-        # todo easy to parallize sum of independent terms
+        '''Compute the lower bound on the true log marginal likelihood
+        :math:`L(Q)` given the current parameter estimates.
+
+        '''
+
+        # todo easy to parallelize sum of independent terms
         bound  = self._update_expectation_log_p_X()
         bound += self._update_expectation_log_p_Z()
         bound += self._update_expectation_log_p_pi()
@@ -175,18 +139,27 @@ class GaussianInference(_Inference):
 
         return bound
 
-    @_inherit_docstring(_Inference)
     def prune(self, threshold=1.):
+        '''Delete components with an effective number of samples
+        :math:`N_k` below the threshold.
+
+        :param threshold:
+
+            Float; the minimum effective number of samples a component must have
+            to survive.
+
+        '''
+
         # nothing to do for a zero threshold
         if not threshold:
             return
 
         components_to_survive = _np.where(self.N_comp >= threshold)[0]
-        self.components = len(components_to_survive)
+        self.K = len(components_to_survive)
 
         # list all vector and matrix vmembers
-        vmembers = ('alpha0', 'alpha', 'beta', 'expectation_det_ln_lambda',
-                   'expectation_ln_pi', 'N_comp', 'nu', 'm', 'S', 'W', 'x_mean_comp')
+        vmembers = ('alpha0', 'alpha', 'beta0', 'beta', 'expectation_det_ln_lambda',
+                   'expectation_ln_pi', 'N_comp', 'nu0', 'nu', 'm0', 'm', 'S', 'W0', 'inv_W0', 'W', 'x_mean_comp')
         mmembers = ('expectation_gauss_exponent', 'r')
 
         # shift surviving across dead components
@@ -205,16 +178,22 @@ class GaussianInference(_Inference):
 
         # cut the unneccessary part of the data
         for m in vmembers:
-            setattr(self, m, getattr(self, m)[:self.components])
+            setattr(self, m, getattr(self, m)[:self.K])
         for m in mmembers:
-            setattr(self, m, getattr(self, m)[:, :self.components])
+            setattr(self, m, getattr(self, m)[:, :self.K])
 
         # recreate consistent expectation values
         self.E_step()
 
-    def run(self, iterations=25, prune=1., rel_tol=1e-5, abs_tol=1e-3, verbose=False):
-        r'''Run variational-Bayes parameter updates and check for convergence using
-        the change of the log likelihood bound of the current and the last step. Convergence is not declared if
+    def run(self, iterations=25, prune=1., rel_tol=1e-4, abs_tol=1e-3, verbose=False):
+        r'''Run variational-Bayes parameter updates and check for convergence
+        using the change of the log likelihood bound of the current and the last
+        step. Convergence is not declared if the number of components changed,
+        or if the bound decreased. For the standard algorithm, the bound must
+        increase, but for modifications, this useful property may not hold for
+        all parameter values.
+
+        Return the number of iterations at convergence, or None.
 
         :param iterations:
             Maximum number of updates.
@@ -244,56 +223,75 @@ class GaussianInference(_Inference):
 
         '''
         bound = self.likelihood_bound()
-        old_K = self.components
-        for i in range(iterations):
+        old_K = self.K
+        if verbose:
+            print('Before first update: bound=%g, K=%d, N_k=%s' % (bound, self.K, self.N_comp))
+        for i in range(1, iterations + 1):
             old_bound = bound
             self.update()
             bound = self.likelihood_bound()
             if verbose:
-                print('After update %d: bound=%g, K=%d, N_k=%s' % (i+1, bound, self.components, self.N_comp))
+                print('After update %d: bound=%g, K=%d, N_k=%s' % (i, bound, self.K, self.N_comp))
 
             # declare convergence only if number of components didn't change
-            if self.components == old_K:
-                # bound must not decrease if implementation correct
-                # but tiny difference may accumulate due to summing over many samples
-                # or the fact that N_k changes in the 13th decimal place
-                assert bound + 1e-10 >= old_bound, \
-                       'Log likelihood bound decreased from %g to %g' % (old_bound, bound)
+            if self.K == old_K:
+                if bound < old_bound:
+                    print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
 
                  # exact convergence
                 if bound == old_bound:
-                    return True
+                    return i
                 # approximate convergence
-                # handle case when bound is close to 0
-                if abs(bound) < abs_tol:
-                    if (bound - old_bound) < abs_tol:
-                        return True
-                else:
-                    if abs((bound - old_bound) / bound) < rel_tol:
-                        return True
+                # but only if bound increased
+                diff = bound - old_bound
+                if diff > 0:
+                    # handle case when bound is close to 0
+                    if abs(bound) < abs_tol:
+                        if abs(diff) < abs_tol:
+                            return i
+                    else:
+                        if abs(diff / bound) < rel_tol:
+                            return i
 
             # save K *before* pruning
-            old_K = self.components
+            old_K = self.K
             self.prune(prune)
         # not converged
-        return False
+        return None
 
-    @_add_to_docstring(
-        r'''
+    def set_variational_parameters(self, *args, **kwargs):
+        r'''Reset the parameters to the submitted values or default.
 
-        The prior (and posterior) probability distribution of :math:`\boldsymbol{\mu}` and
-        :math:`\boldsymbol{\Lambda}` is given by
+        Use this function to set the prior value (indicated by the
+        subscript `0` as in :math:`\alpha_0`) or the initial value
+        (e.g., :math:`\alpha`) used in the iterative procedure to find
+        the posterior value of the variational distribution.
+
+        Every parameter can be set in two ways:
+
+        1. It is specified for only one component, then it is copied
+        to all other components.
+
+        2. It is specified separately for each component as a
+        :math:`K` vector.
+
+        The prior and posterior variational distributions of :math:`\boldsymbol{\mu}` and
+        :math:`\boldsymbol{\Lambda}` for each component are given by
 
         .. math::
 
-            p(\boldsymbol{\mu}, \boldsymbol{\Lambda}) =
-            p(\boldsymbol{\mu}|\boldsymbol{\Lambda}) p(\boldsymbol{\Lambda}) =
+            q(\boldsymbol{\mu}, \boldsymbol{\Lambda}) =
+            q(\boldsymbol{\mu}|\boldsymbol{\Lambda}) q(\boldsymbol{\Lambda}) =
             \prod_{k=1}^K
               \mathcal{N}(\boldsymbol{\mu}_k|\boldsymbol{m_k},(\beta_k\boldsymbol{\Lambda}_k)^{-1})
               \mathcal{W}(\boldsymbol{\Lambda}_k|\boldsymbol{W_k}, \nu_k),
 
-        where :math:`\mathcal{N}` denotes a Gaussian and :math:`\mathcal{W}`
-        a Wishart distribution.
+        where :math:`\mathcal{N}` denotes a Gaussian and
+        :math:`\mathcal{W}` a Wishart distribution. The weights
+        :math:`\boldsymbol{\pi}` follow a Dirichlet distribution
+
+        .. math::
+                q(\boldsymbol{\pi}) = Dir(\boldsymbol{\pi}|\boldsymbol{\alpha}).
 
         .. warning ::
 
@@ -306,137 +304,172 @@ class GaussianInference(_Inference):
             distribution. For all other parameters, consult chapter 10
             in [Bis06]_ when considering to modify the defaults.
 
-        :param alpha0:
+        :param alpha0, alpha:
 
-            Float; :math:`\alpha_0` parameter for the mixing coefficients'
-            probability distribution
-
-            .. math::
-                p(\boldsymbol{\pi}) = Dir(\boldsymbol{\pi}|\boldsymbol{\alpha_0})
-
-            where Dir denotes the Dirichlet distribution and
+            Float or :math:`K` vector; parameter of the mixing
+            coefficients' probability distribution (prior:
+            :math:`\alpha_0`, posterior initial value: :math:`\alpha`).
 
             .. math::
-                \boldsymbol{\alpha_0} = (\alpha_0,\dots,\alpha_0).
+                \alpha_i > 0, i=1 \dots K.
+
+            A scalar is promoted to a :math:`K` vector as
+
+            .. math::
+                \boldsymbol{\alpha} = (\alpha,\dots,\alpha),
+
+            but a `K` vector is accepted, too.
 
             Default:
 
             .. math::
-                \alpha_0 = 10^{-5}.
+                \alpha = 10^{-5}.
 
-        :param beta0:
+        :param beta0, beta:
 
-            Float; :math:`\beta_0` parameter of the probability distribution of
-            :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}`. Should be
-            of the same order as ``alpha0`` for numerical stability. Default:
+            Float or :math:`K` vector; :math:`\beta` parameter of
+            the probability distribution of :math:`\boldsymbol{\mu}`
+            and :math:`\boldsymbol{\Lambda}`. The same restrictions
+            as for ``alpha`` apply. Default:
 
             .. math::
                 \beta_0 = 10^{-5}.
 
-        :param nu0:
+        :param nu0, nu:
 
-            Float; :math:`\nu_0` is the minimum value of the number of degrees of
-            freedom of the Wishart distribution of :math:`\boldsymbol{\Lambda}`.
-            It is `not` updated and common to all components. To avoid a
+            Float or :math:`K` vector; :math:`\nu` is the minimum
+            value of the number of degrees of freedom of the Wishart
+            distribution of :math:`\boldsymbol{\Lambda}`.  To avoid a
             divergence at the origin, it is required that
 
             .. math::
-                \nu_0 \geq D + 1 .
+                \nu_0 \geq D + 1.
+
+            The same restrictions as for ``alpha`` apply.
 
             Default:
 
             .. math::
                 \nu_0 = D+1.
 
-        :param nu:
+        :param m0, m:
 
-            :math:`K` vector; The number of degrees of freedom of the Wishart
-            distribution of the precision matrix of each output component. The
-            default initialization is
+            :math:`D` vector or :math:`K \times D` matrix; mean
+            parameter for the Gaussian
+            :math:`q(\boldsymbol{\mu_k}|\boldsymbol{m_k}, \beta_k
+            \Lambda_k)`.
 
-            .. math::
-                \nu_k = \nu_0 .
-
-        :param m0:
-
-            :math:`K` vector; regularization parameter for the Gausian means.
             Default:
 
+            For the prior of each component:
+
             .. math::
-                \boldsymbol{m_0} = (0,\dots,0)
+                \boldsymbol{m}_0 = (0,\dots,0)
 
-        :param m:
+            For initial value of the posterior,
+            :math:`\boldsymbol{m}`: the sequence of :math:`K \times D`
+            equally spaced values in [-1,1] reshaped to :math:`K
+            \times D` dimensions.
 
-            :math:`(K \times D)` matrix-like array; :math:`\boldsymbol{m}_k` is
-            the mean parameter of the Gaussian distribution of the :math:`k`-th
-            component mean :math:`\boldsymbol{\mu}_k`. Default: The sequence of
-            :math:`K \times D` equally spaced values in [-1,1] reshaped to
-            :math:`K \times D` dimensions.
+            .. warning:: If all :math:`\boldsymbol{m}_k` are identical
+                initially, they may remain identical. It is advisable
+                to randomly scatter them in order to avoid singular
+                behavior.
 
-            .. warning:: If component means are identical initially, they
-                may remain identical. It is advisable to randomly scatter
-                them in order to avoid singular behavior.
+        :param W0, W:
 
-        :param W0:
+            :math:`D \times D` or :math:`K \times D \times D`
+            matrix-like array; :math:`\boldsymbol{W}` is a symmetric
+            positive-definite matrix used in the Wishart distribution.
+            Default: identity matrix in :math:`D` dimensions for every
+            component.
 
-            :math:`D \times D` matrix-like array; :math:`\boldsymbol{W_0}` is a
-            symmetric positive-definite matrix taken as the regularization
-            parameter `and` initial value for updates of the Wishart parameter
-            :math:`W_k`. Default: identity matrix.
-
-        ''')
-    @_inherit_docstring(_Inference)
-    def set_variational_parameters(self, *args, **kwargs):
+        '''
         if args: raise TypeError('keyword args only')
 
-        # todo check all user input for shape and values
-
-        alpha0 = kwargs.pop('alpha0', 1e-5)
-        self.alpha0 = _np.ones(self.components) * alpha0
+        self.alpha0 = kwargs.pop('alpha0', 1e-5)
+        if not _np.iterable(self.alpha0):
+            self.alpha0 =  self.alpha0 * _np.ones(self.K)
+        self._check_K_vector('alpha0')
+        self.alpha = kwargs.pop('alpha', _np.ones(self.K) * self.alpha0)
+        self._check_K_vector('alpha')
 
         # in the limit beta --> 0: uniform prior
-        self.beta0  = kwargs.pop('beta0' , 1e-5)
+        self.beta0 = kwargs.pop('beta0', 1e-5)
+        if not _np.iterable(self.beta0):
+            self.beta0 =  self.beta0 * _np.ones(self.K)
+        self._check_K_vector('beta0')
+        self.beta = kwargs.pop('beta', _np.ones(self.K) * self.beta0)
+        self._check_K_vector('beta')
 
         # smallest possible nu such that the Wishart pdf does not diverge at 0
-        self.nu0    = kwargs.pop('nu0'   , self.dim + 1.)
-        if self.nu0 < self.dim + 1.:
-            raise ValueError('nu0 (%g) must exceed %g to avoid divergence at the origin.' % (self.nu0, self.dim + 1.))
-        self.nu     = kwargs.pop('nu'   , _np.zeros(self.components) + self.nu0)
-        assert len(self.nu) == self.components
-        assert (self.nu >= self.dim + 1).all(), 'Require nu >= %d: %s' % (self.dim + 1, self.nu)
+        nu_min = self.dim + 1.
+        self.nu0 = kwargs.pop('nu0', nu_min)
+        if not _np.iterable(self.nu0):
+            self.nu0 = self.nu0 * _np.ones(self.K)
+        self._check_K_vector('nu0', min=nu_min - 2 * _np.finfo('d').eps)
+        self.nu = kwargs.pop('nu', self.nu0 * _np.ones(self.K))
+        self._check_K_vector('nu', min=nu_min - 2 * _np.finfo('d').eps)
 
-        self.m0     = kwargs.pop('m0'    , _np.zeros(self.dim))
-        self.m      = kwargs.pop('m'     , None)
-        if self.m is None:
-            # TODO: maybe remove standard value because this won't perform well on components far away from zero
-            # If the initial means are identical, the components remain identical in all updates.
-            self.m = _np.linspace(-1.,1., self.components*self.dim).reshape((self.components, self.dim))
+        self.m0 = kwargs.pop('m0', _np.zeros(self.dim))
+        if len(self.m0) == self.dim:
+            # vector or matrix?
+            if len(self.m0.shape) == 1:
+                self.m0 = _np.vstack(tuple([self.m0] * self.K))
+        # TODO: maybe remove standard value because this won't perform well on K far away from zero
+        # If the initial means are identical, the K remain identical in all updates.
+        self.m      = kwargs.pop('m'     , _np.linspace(-1.,1., self.K*self.dim).reshape((self.K, self.dim)))
+        for name in ('m0', 'm'):
+            if getattr(self, name).shape != (self.K, self.dim):
+                raise ValueError('Shape of %s %s does not match (K,d)=%s' % (name, self.m.shape, (self.K, self.dim)))
 
         # covariance matrix; unit matrix <--> unknown correlation
-        self.W0     = kwargs.pop('W0'    , None)
+        self.W0     = kwargs.pop('W0', None)
         if self.W0 is None:
             self.W0     = _np.eye(self.dim)
             self.inv_W0 = self.W0.copy()
-        else:
+        elif self.W0.shape == (self.dim, self.dim):
             self.inv_W0 = _np.linalg.inv(self.W0)
+        # handle both above cases
+        if self.W0.shape == (self.dim, self.dim):
+            self.W0 = _np.array([self.W0] * self.K)
+            self.inv_W0 = _np.array([self.inv_W0] * self.K)
+        # full sequence of matrices given
+        elif self.W0.shape == (self.K, self.dim, self.dim):
+            self.inv_W0 = _np.array([_np.linalg.inv(W0) for W0 in self.W0])
+        else:
+            raise ValueError('W0 is neither None, nor a %s array, nor a %s array.' % ((self.dim, self.dim), (self.K, self.dim, self.dim)))
+        self.W      = kwargs.pop('W', self.W0.copy())
+        if self.W.shape != (self.K, self.dim, self.dim):
+            raise ValueError('Shape of W %s does not match (K, d, d)=%s' % (self.W.shape, (self.K, self.dim, self.dim)))
 
         if kwargs: raise TypeError('unexpected keyword(s): ' + str(kwargs.keys()))
 
         self._initialize_output()
 
-    @_inherit_docstring(_Inference)
     def update(self):
+        '''Recalculate the parameters (M step) and expectation values (E step)
+        using the update equations.
+
+        '''
+
         self.M_step()
         self.E_step()
 
+    def _check_K_vector(self, name, min=0.0):
+        v = getattr(self, name)
+        if len(v.shape) != 1:
+            raise ValueError('%s is not a vector but has shape %s' % (name, v.shape))
+        if len(v) != self.K:
+            raise ValueError('len(%s)=%d does not match K=%d' % (name, len(v), self.K))
+        if not (v > min).all():
+            raise ValueError('All elements of %s must exceed %g. %s=%s' % (name, min, name, v))
+
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
-        self.x_mean_comp = _np.zeros((self.components, self.dim))
-        self.W = _np.array([self.W0 for i in range(self.components)])
-        self.expectation_gauss_exponent = _np.zeros((  self.N,self.components  ))
-        self.N_comp = self.N / self.components * _np.ones(self.components) # todo zeros to start with?
-        self.alpha = _np.array(self.alpha0)
-        self.beta  = self.beta0  * _np.ones(self.components)
+        self.x_mean_comp = _np.zeros((self.K, self.dim))
+        self.expectation_gauss_exponent = _np.zeros((self.N, self.K))
+        self.N_comp = _np.zeros(self.K)
         self.S = _np.empty_like(self.W)
 
     def _update_log_rho(self):
@@ -455,13 +488,19 @@ class GaussianInference(_Inference):
     def _update_m(self):
         # (10.61)
 
-        for k in range(self.components):
-            self.m[k] = 1. / self.beta[k] * (self.beta0 * self.m0 + self.N_comp[k] * self.x_mean_comp[k])
+        for k in range(self.K):
+            self.m[k] = 1. / self.beta[k] * (self.beta0[k] * self.m0[k] + self.N_comp[k] * self.x_mean_comp[k])
+
+    def _update_N_comp_weighted(self):
+        # modified (10.51)
+
+        _np.einsum('n,nk->k', self.weights, self.r, out=self.N_comp)
+        self.inv_N_comp = 1. / regularize(self.N_comp)
 
     def _update_N_comp(self):
         # (10.51)
 
-        _np.einsum('n,nk->k', self.weights, self.r, out=self.N_comp)
+        _np.einsum('nk->k', self.r, out=self.N_comp)
         self.inv_N_comp = 1. / regularize(self.N_comp)
 
     def _update_r(self):
@@ -490,7 +529,7 @@ class GaussianInference(_Inference):
         # negative determinants from improper matrices trigger ValueError on some machines only;
         # so test explicitly
         dets = _np.array([_np.linalg.det(W) for W in self.W])
-        assert (dets > 0).all(), 'Some precision matrix is not positive definite in %s' % self.W
+        assert (dets > 0).all(), 'Some precision matrix is not positive definite in\n %s' % self.W
 
         res = _np.zeros_like(self.nu)
         tmp = _np.zeros_like(self.nu)
@@ -511,7 +550,7 @@ class GaussianInference(_Inference):
 
         tmp = _np.zeros_like(self.data[0])
 
-        for k in range(self.components):
+        for k in range(self.K):
             for n in range(self.N):
                 tmp[:] = self.data[n]
                 tmp   -= self.m[k]
@@ -522,10 +561,34 @@ class GaussianInference(_Inference):
 
         self.expectation_ln_pi = _digamma(self.alpha) - _digamma(self.alpha.sum())
 
+    def _update_x_mean_comp_weighted(self):
+        # modified (10.52)
+
+        _np.einsum('k,n,nk,ni->ki', self.inv_N_comp, self.weights, self.r, self.data, out=self.x_mean_comp)
+
     def _update_x_mean_comp(self):
         # (10.52)
 
-        _np.einsum('k,n,nk,ni->ki', self.inv_N_comp, self.weights, self.r, self.data, out=self.x_mean_comp)
+        _np.einsum('k,nk,ni->ki', self.inv_N_comp, self.r, self.data, out=self.x_mean_comp)
+
+    def _update_S_weighted(self):
+        # modified (10.53)
+
+        # temp vector and matrix to store outer product
+        tmpv = _np.empty_like(self.data[0])
+        outer = _np.empty_like(self.S[0])
+
+        # use outer product to guarantee a positive definite symmetric S
+        # expanding it into four terms, then using einsum failed numerically for large N
+        for k in range(self.K):
+            self.S[k,:,:] = 0
+            for n, x in enumerate(self.data):
+                tmpv[:] = x
+                tmpv -= self.x_mean_comp[k]
+                _np.einsum('i,j', tmpv, tmpv, out=outer)
+                outer *= self.r[n,k] * self.weights[n]
+                self.S[k] += outer
+            self.S[k] *= self.inv_N_comp[k]
 
     def _update_S(self):
         # (10.53)
@@ -536,13 +599,13 @@ class GaussianInference(_Inference):
 
         # use outer product to guarantee a positive definite symmetric S
         # expanding it into four terms, then using einsum failed numerically for large N
-        for k in range(self.components):
+        for k in range(self.K):
             self.S[k,:,:] = 0
             for n, x in enumerate(self.data):
                 tmpv[:] = x
                 tmpv -= self.x_mean_comp[k]
                 _np.einsum('i,j', tmpv, tmpv, out=outer)
-                outer *= self.r[n,k] * self.weights[n]
+                outer *= self.r[n,k]
                 self.S[k] += outer
             self.S[k] *= self.inv_N_comp[k]
 
@@ -550,27 +613,30 @@ class GaussianInference(_Inference):
         # (10.62)
 
         # change order of operations to minimize copying
-        for k in range(self.components):
-            tmp = self.x_mean_comp[k] - self.m0
+        for k in range(self.K):
+            tmp = self.x_mean_comp[k] - self.m0[k]
             cov = _np.outer(tmp, tmp)
-            cov *= self.beta0 / (self.beta0 + self.N_comp[k])
+            cov *= self.beta0[k] / (self.beta0[k] + self.N_comp[k])
             cov += self.S[k]
             cov *= self.N_comp[k]
-            cov += self.inv_W0
+            cov += self.inv_W0[k]
             self.W[k] = _np.linalg.inv(cov)
 
     def _update_expectation_log_p_X(self):
         # (10.71)
 
-        res = 0
-        for k in range(self.components):
+        self._expectation_log_p_X = 0.
+        for k in range(self.K):
+            res = 0.
             tmp = self.x_mean_comp[k] - self.m[k]
-            res += self.N_comp[k] * \
-                      (self.expectation_det_ln_lambda[k] - self.dim / self.beta[k]
-                       -self.nu[k] * (_np.trace(self.S[k].dot(self.W[k]))
-                       + tmp.dot(self.W[k]).dot(tmp)) - self.dim * log(2 * _np.pi))
+            res += self.expectation_det_ln_lambda[k]
+            res -= self.dim / self.beta[k]
+            res -= self.nu[k] * (_np.trace(self.S[k].dot(self.W[k])) + tmp.dot(self.W[k]).dot(tmp))
+            res -= self.dim * log(2 * _np.pi)
+            res *= self.N_comp[k]
+            self._expectation_log_p_X += res
 
-        self._expectation_log_p_X = 0.5 * res
+        self._expectation_log_p_X /= 2.0
         return self._expectation_log_p_X
 
     def _update_expectation_log_p_Z(self):
@@ -593,28 +659,29 @@ class GaussianInference(_Inference):
         # (10.74)
 
         res = 0
-        for k in range(self.components):
-            tmp = self.m[k] - self.m0
-            res += self.expectation_det_ln_lambda[k] - self.dim * self.beta0 / self.beta[k] \
-                      - self.beta0 * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
+        for k in range(self.K):
+            tmp = self.m[k] - self.m0[k]
+            res += self.dim * log(self.beta0[k] / (2. * _np.pi))
+            res += self.expectation_det_ln_lambda[k] - self.dim * self.beta0[k] / self.beta[k] \
+                   - self.beta0[k] * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
-        res *= 0.5
-        res += self.components * 0.5 * self.dim * log(self.beta0 / (2. * _np.pi))
+            # 2nd part: Wishart normalization
+            res +=  2 * Wishart_log_B(self.W0[k], self.nu0[k])
 
-        # compute Wishart normalization
-        res += self.components * Wishart_log_B(self.W0, self.nu0)
+            # 3rd part
+            res += (self.nu0[k] - self.dim - 1) * self.expectation_det_ln_lambda[k]
 
-        # third part
-        res += 0.5 * (self.nu0 - self.dim - 1) * _np.einsum('k->', self.expectation_det_ln_lambda)
+            # 4th part: traces
+            res -= self.nu[k] * _np.trace(self.inv_W0[k].dot(self.W[k]))
 
-        # final part
-        traces = 0
-        for nu_k, W_k in zip(self.nu, self.W):
-            traces += nu_k * _np.trace(self.inv_W0.dot(W_k))
-        res -= 0.5 * traces
-
-        self._expectation_log_p_mu_lambda = res
+        self._expectation_log_p_mu_lambda = 0.5 * res
         return self._expectation_log_p_mu_lambda
+
+    def _update_expectation_log_q_Z_weighted(self):
+        # modified (10.75)
+
+        self._expectation_log_q_Z = _np.einsum('n,nk,nk', self.weights, self.r, _np.log(self.r))
+        return self._expectation_log_q_Z
 
     def _update_expectation_log_q_Z(self):
         # (10.75)
@@ -632,9 +699,9 @@ class GaussianInference(_Inference):
         # (10.77)
 
         # pull constant out of loop
-        res = -0.5 * self.components * self.dim
+        res = -0.5 * self.K * self.dim
 
-        for k in range(self.components):
+        for k in range(self.K):
             res += 0.5 * (self.expectation_det_ln_lambda[k] + self.dim * log(self.beta[k] / (2 * _np.pi)))
             # Wishart entropy
             res -= Wishart_H(self.W[k], self.nu[k])
@@ -698,9 +765,9 @@ class VBMerge(GaussianInference):
         self.mu = _np.array([c.mean for c in self.input])
 
         if initial_guess is not None:
-            self.components = len(initial_guess.comp)
+            self.K = len(initial_guess.comp)
         elif components is not None:
-            self.components = components
+            self.K = components
         else:
             raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
 
@@ -729,9 +796,10 @@ class VBMerge(GaussianInference):
 
     def _initialize_output(self):
         GaussianInference._initialize_output(self)
-        self.expectation_gauss_exponent = _np.zeros((self.L, self.components))
+        self.expectation_gauss_exponent = _np.zeros((self.L, self.K))
 
     def _update_expectation_gauss_exponent(self):
+        # after (40) in [BGP10]
         for k, W in enumerate(self.W):
             for l, comp in enumerate(self.input):
                 tmp = comp.mean - self.m[k]
@@ -766,7 +834,7 @@ class VBMerge(GaussianInference):
     def _update_S(self):
         # combine (43) and (44), since only ever need sum of S and C
 
-        for k in range(self.components):
+        for k in range(self.K):
             self.S[k,:] = 0.0
             for l in range(self.L):
                 tmp        = self.mu[l] - self.x_mean_comp[k]
