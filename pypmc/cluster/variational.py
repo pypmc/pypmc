@@ -59,6 +59,10 @@ class GaussianInference(object):
 
         self.set_variational_parameters(**kwargs)
 
+        self._initialize_output()
+        # initialize manually so subclasses can save memory
+        self.expectation_gauss_exponent = _np.zeros((self.N, self.K))
+
         # compute expectation values for the initial parameter values
         # so a valid bound can be computed after object is initialized
         self.E_step()
@@ -138,6 +142,18 @@ class GaussianInference(object):
         bound -= self._update_expectation_log_q_mu_lambda()
 
         return bound
+
+    def prior_posterior(self):
+        '''Return references to prior and posterior values of all variational parameters as dict.
+
+        .. warning::
+            Results are *not* copied.
+
+        '''
+
+        return dict(alpha0=self.alpha0, beta0=self.beta0, m0=self.m0, nu0=self.nu0, W0=self.W0,
+                    alpha=self.alpha, beta=self.beta, m=self.m, nu=self.nu, W=self.W,
+                    N=self.N, components=self.K)
 
     def prune(self, threshold=1.):
         '''Delete components with an effective number of samples
@@ -384,6 +400,9 @@ class GaussianInference(object):
             Default: identity matrix in :math:`D` dimensions for every
             component.
 
+        .. warning::
+            Inputs are *not* copied.
+
         '''
         if args: raise TypeError('keyword args only')
 
@@ -445,8 +464,6 @@ class GaussianInference(object):
 
         if kwargs: raise TypeError('unexpected keyword(s): ' + str(kwargs.keys()))
 
-        self._initialize_output()
-
     def update(self):
         '''Recalculate the parameters (M step) and expectation values (E step)
         using the update equations.
@@ -468,7 +485,6 @@ class GaussianInference(object):
     def _initialize_output(self):
         '''Create all variables needed for the iteration in ``self.update``'''
         self.x_mean_comp = _np.zeros((self.K, self.dim))
-        self.expectation_gauss_exponent = _np.zeros((self.N, self.K))
         self.N_comp = _np.zeros(self.K)
         self.S = _np.empty_like(self.W)
 
@@ -779,6 +795,9 @@ class VBMerge(GaussianInference):
         self.Nomega = N * self.input.w
 
         self.set_variational_parameters(**kwargs)
+
+        self._initialize_output()
+
         # take mean and covariances from initial guess
         if initial_guess is not None:
             # precision matrix is inverse of covariance
