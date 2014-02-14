@@ -238,36 +238,39 @@ class GaussianInference(object):
             Output status information after each update.
 
         '''
-        bound = self.likelihood_bound()
-        old_K = self.K
-        if verbose:
-            print('Before first update: bound=%g, K=%d, N_k=%s' % (bound, self.K, self.N_comp))
+        old_K = None
         for i in range(1, iterations + 1):
-            old_bound = bound
+            # recompute bound in 1st step or if components were removed
+            if self.K == old_K:
+                old_bound = bound
+            else:
+                old_bound = self.likelihood_bound()
+                if verbose:
+                    print('New bound=%g, K=%d, N_k=%s' % (old_bound, self.K, self.N_comp))
+
             self.update()
             bound = self.likelihood_bound()
+
             if verbose:
                 print('After update %d: bound=%g, K=%d, N_k=%s' % (i, bound, self.K, self.N_comp))
 
-            # declare convergence only if number of components didn't change
-            if self.K == old_K:
-                if bound < old_bound:
-                    print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
+            if bound < old_bound:
+                print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
 
-                 # exact convergence
-                if bound == old_bound:
-                    return i
-                # approximate convergence
-                # but only if bound increased
-                diff = bound - old_bound
-                if diff > 0:
-                    # handle case when bound is close to 0
-                    if abs(bound) < abs_tol:
-                        if abs(diff) < abs_tol:
-                            return i
-                    else:
-                        if abs(diff / bound) < rel_tol:
-                            return i
+             # exact convergence
+            if bound == old_bound:
+                return i
+            # approximate convergence
+            # but only if bound increased
+            diff = bound - old_bound
+            if diff > 0:
+                # handle case when bound is close to 0
+                if abs(bound) < abs_tol:
+                    if abs(diff) < abs_tol:
+                        return i
+                else:
+                    if abs(diff / bound) < rel_tol:
+                        return i
 
             # save K *before* pruning
             old_K = self.K
@@ -769,10 +772,8 @@ class VBMerge(GaussianInference):
     '''
 
     def __init__(self, input_mixture, N, components=None, initial_guess=None, copy_weights=True, **kwargs):
-        # make sure input has the correct inverse matrices available
+        # don't copy input_mixture, we won't update it
         self.input = input_mixture
-        for c in self.input:
-            c._inv()
 
         # number of input components
         self.L = len(input_mixture.comp)
@@ -823,7 +824,7 @@ class VBMerge(GaussianInference):
             for l, comp in enumerate(self.input):
                 tmp = comp.mean - self.m[k]
                 self.expectation_gauss_exponent[l,k] = self.dim / self.beta[k] + self.nu[k] * \
-                                                       (_np.trace(W.dot(comp.inv)) + tmp.dot(W).dot(tmp))
+                                                       (_np.trace(W.dot(comp.cov)) + tmp.dot(W).dot(tmp))
 
     def _update_log_rho(self):
         # (40) in [BGP10]

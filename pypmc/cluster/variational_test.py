@@ -228,10 +228,11 @@ class TestGaussianInference(unittest.TestCase):
         np.testing.assert_allclose(result[1].mean, target_mean2, rtol=1e-2)
 
         # run should do the same number of E and M steps
-        # to result in same numbers
+        # to result in same numbers, except it works also when
+        # components were reduced => nsteps2 + 1
         eps = 1e-15
         nsteps2 = infer2.run(20, verbose=True)
-        self.assertEqual(nsteps2, nsteps)
+        self.assertEqual(nsteps2 + 1, nsteps)
 
         result2 = infer2.get_result()
         np.testing.assert_allclose(result2.w, result.w, rtol=1e-15)
@@ -415,7 +416,11 @@ class TestVBMerge(unittest.TestCase):
         self.assertEqual(vb_prune.K, 1)
 
     def test_bound(self):
-        # a Gaussian target, taken from a failing example
+        # a Gaussian target, should combine both components
+        # taken from MCMC sampling
+        target_mean  = np.array([4.3, 1.1])
+        target_sigma = np.array([[0.01 , 0.003 ],
+                                 [0.003, 0.0025]])
         means  = (np.array([ 4.30733653,  1.10121756]),
                   np.array([ 4.29948   ,  1.09937727]))
         cov   = (np.array([[ 0.01382637,  0.00361037],
@@ -425,17 +430,20 @@ class TestVBMerge(unittest.TestCase):
         weights = np.array([ 0.12644431,  0.87355569])
         components = [GaussianMixture.Component(m, c) for m,c in zip(means, cov)]
         input_components = GaussianMixture(components, weights)
-        vb = VBMerge(input_components, N=1e4, components=2, alpha0=1e-5, beta0=1e-5)
-        # likelihood bound decreases once after 1st step when parameters favor one component,
-        # but N_k is nonzero for the other.
-        # Is it a bug or a feature? Setting alpha0 to 1-6 fixes the problem
+        vb = VBMerge(input_components, N=1e4,  components=2)#initial_guess=input_components)
+        # compute (43) and (44) manually
+        S = np.array([[ 0.01022336,  0.00301026],
+                   [ 0.00301026,  0.00271089]])
+        np.testing.assert_allclose(vb.S[0], S,  rtol=1e-5)
 
-        # can't converge in one step
-        self.assertEqual(vb.run(1), None)
-
-        # but in three
-        nsteps = vb.run(verbose=True)
-        self.assertEqual(nsteps, 3)
+        # converge exactly in two steps
+        # prune out one component after first update
+        # then get same bound twice
+        self.assertEqual(vb.run(verbose=True), 2)
+        self.assertEqual(vb.K, 1)
+        res = vb.get_result()
+        np.testing.assert_allclose(res[0].mean, target_mean,  rtol=1e-3)
+        np.testing.assert_allclose(res[0].cov,  target_sigma, rtol=0.15)
 
 class TestWishart(unittest.TestCase):
     # comparison done in mathematica
