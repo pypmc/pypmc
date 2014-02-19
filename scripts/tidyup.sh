@@ -8,7 +8,8 @@ find -P .. -name *.pyc -delete
 find -P .. -name __pycache__ -delete
 
 #remove backup files
-find -P .. -name "*.*~" -delete
+find -P -name *~ -delete
+find -P .. -name *~ -delete
 
 #remove file created by coverage
 rm -f .coverage
