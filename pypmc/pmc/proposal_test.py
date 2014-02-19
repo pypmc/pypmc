@@ -61,7 +61,7 @@ class TestMixtureProposal(unittest.TestCase):
         mix = MixtureProposal(self.components, range(self.ncomp))
 
         # removing elements
-        self.assertEqual(mix.prune(), [(DummyComponent,0.)])
+        self.assertEqual(mix.prune(), [(0,DummyComponent,0.)])
         self.assertEqual(len(mix.weights), self.ncomp - 1)
         self.assertTrue(mix.normalized())
 

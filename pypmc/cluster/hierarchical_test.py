@@ -3,7 +3,7 @@
 """
 from __future__ import division
 from .hierarchical import *
-from .gaussian_mixture import GaussianMixture
+from ..pmc.proposal import MixtureProposal, GaussianComponent
 import numpy as np
 import unittest
 
@@ -31,17 +31,17 @@ class TestHierarchical(unittest.TestCase):
 
         # both components should survive and have equal weight
         # expect precision loss in the weight summation for many input components
-        self.assertEqual(len(sol.comp), 2)
-        self.assertAlmostEqual(sol.w[0], 0.5, 13)
+        self.assertEqual(len(sol.components), 2)
+        self.assertAlmostEqual(sol.weights[0], 0.5, 13)
 
         # means should be reproduced
         eps = 12e-2
-        self.assertAlmostEqual(sol.comp[0].mean[0], self.means[0][0], delta=eps)
-        self.assertAlmostEqual(sol.comp[1].mean[0], self.means[1][0], delta=eps)
+        self.assertAlmostEqual(sol.components[0].mu[0], self.means[0][0], delta=eps)
+        self.assertAlmostEqual(sol.components[1].mu[0], self.means[1][0], delta=eps)
 
         # variance much larger now, but still should have little correlation
         for i in range(2):
-            self.assertAlmostEqual(sol.comp[i].cov[0,1], 0, delta=0.1)
+            self.assertAlmostEqual(sol.components[i].sigma[0,1], 0, delta=0.1)
 
 class TestKL(unittest.TestCase):
     def test_2D(self):
@@ -50,13 +50,13 @@ class TestKL(unittest.TestCase):
         mu2 = np.zeros(d)
         cov = np.eye(d)
 
-        c1 = GaussianMixture.Component(mu1, cov)
-        c2 = GaussianMixture.Component(mu2, cov, inv=True)
+        c1 = GaussianComponent(mu1, cov)
+        c2 = GaussianComponent(mu2, cov)
 
         self.assertAlmostEqual(kullback_leibler(c1, c2), 0.5 * mu1.dot(mu1), 15)
 
         # now add correlation, matrix inverse not trivial anymore
         cov2 = np.eye(d)
         cov2[0,1] = cov2[1,0] = 0.2
-        c2 = GaussianMixture.Component(mu2, cov2, inv=True)
+        c2 = GaussianComponent(mu2, cov2)
         self.assertAlmostEqual(kullback_leibler(c1, c2), 4.6045890027398722, 15)

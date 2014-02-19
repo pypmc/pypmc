@@ -1,5 +1,6 @@
 def merge_function_with_indicator(function, indicator, alternative):
     '''Returns a function such that a call to it is equivalent to:
+
     if indicator(x):
         return function(x)
     else:

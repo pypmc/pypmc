@@ -2,8 +2,9 @@
 
 """
 
+from __future__ import print_function
 from .variational import *
-from .gaussian_mixture import GaussianMixture
+from ..pmc.proposal import MixtureProposal, GaussianComponent
 from .. import pmc
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
@@ -264,11 +265,11 @@ class TestGaussianInference(unittest.TestCase):
 
         resulting_mixture = clust.get_result()
 
-        sampled_abundancies = resulting_mixture.w
-        sampled_mean1       = resulting_mixture.comp[0].mean
-        sampled_mean2       = resulting_mixture.comp[1].mean
-        sampled_sigma1      = resulting_mixture.comp[0].cov
-        sampled_sigma2      = resulting_mixture.comp[1].cov
+        sampled_abundancies = resulting_mixture.weights
+        sampled_mean1       = resulting_mixture.components[0].mu
+        sampled_mean2       = resulting_mixture.components[1].mu
+        sampled_sigma1      = resulting_mixture.components[0].sigma
+        sampled_sigma2      = resulting_mixture.components[1].sigma
 
         np.testing.assert_allclose(sampled_abundancies, target_abundancies, rtol=rtol)
         np.testing.assert_allclose(sampled_mean1[0]   , mean1[0]          , rtol=rtol)
@@ -298,9 +299,9 @@ class TestGaussianInference(unittest.TestCase):
         nsteps = check_bound(self, infer, 20)
         self.assertTrue(nsteps)
         result = infer.get_result()
-        self.assertEqual(len(result.w), 2)
-        np.testing.assert_allclose(result[0].mean, target_mean1, rtol=1e-2)
-        np.testing.assert_allclose(result[1].mean, target_mean2, rtol=1e-2)
+        self.assertEqual(len(result.weights), 2)
+        np.testing.assert_allclose(result[0][0].mu, target_mean1, rtol=1e-2)
+        np.testing.assert_allclose(result[1][0].mu, target_mean2, rtol=1e-2)
 
         # run should do the same number of E and M steps
         # to result in same numbers, except it works also when
@@ -310,10 +311,10 @@ class TestGaussianInference(unittest.TestCase):
         self.assertEqual(nsteps2 + 1, nsteps)
 
         result2 = infer2.get_result()
-        np.testing.assert_allclose(result2.w, result.w, rtol=1e-15)
+        np.testing.assert_allclose(result2.weights, result.weights, rtol=1e-15)
         for i in range(2):
-            np.testing.assert_allclose(result2[i].mean, result[i].mean, rtol=1e-15)
-            np.testing.assert_allclose(result2[i].cov, result[i].cov, rtol=1e-15)
+            np.testing.assert_allclose(result2[i][0].mu   , result[i][0].mu   , rtol=1e-15)
+            np.testing.assert_allclose(result2[i][0].sigma, result[i][0].sigma, rtol=1e-15)
 
     # todo test if convergence only approximate
 
@@ -329,7 +330,7 @@ def create_mixture(means, cov, ncomp):
     for mu in means[1:]:
         random_centers = np.vstack((random_centers, np.random.multivariate_normal(mu, cov, size=ncomp)))
 
-    return GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers])
+    return MixtureProposal([GaussianComponent(mu, cov) for mu in random_centers])
 
 class TestVBMerge(unittest.TestCase):
     def setUp(self):
@@ -340,24 +341,25 @@ class TestVBMerge(unittest.TestCase):
 
         means = (np.array([5, 0]), np.array([-5,0]))
         cov = np.eye(2)
+        N = 500
         input_components = create_mixture(means, cov, 2)
         initial_guess = create_mixture(means, cov, 1)
-        N = 500
+        initial_guess.weights = np.ones(2) * 1e-5 / N
+
         print('input')
         for c in input_components:
-            print(c.mean)
+            print(c[0].mu, "weight =", c[1])
 
         print('initial guess')
         for c in initial_guess:
-            print(c.mean)
+            print(c[0].mu, "weight =", c[1])
 
-        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, copy_weights=False,
-                     alpha0=1e-5, beta0=1e-5, nu=np.zeros(2) + 3)
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, alpha0=1e-5, beta0=1e-5, nu=np.zeros(2) + 3)
 
         # initial guess taken over?
-        for i,c in enumerate(initial_guess):
-            np.testing.assert_array_equal(vb.m[i], c.mean)
-            np.testing.assert_array_equal(vb.W[i],  c.inv)
+        for i,c in enumerate(initial_guess.components):
+            np.testing.assert_array_equal(vb.m[i], c.mu       )
+            np.testing.assert_array_equal(vb.W[i], c.inv_sigma)
 
         # all matrices are unit matrices, compute result by hand
         self.assertAlmostEqual(vb.expectation_det_ln_lambda[0], vb.expectation_det_ln_lambda[1])
@@ -404,19 +406,19 @@ class TestVBMerge(unittest.TestCase):
 
         # is output properly generated?
         output = vb.get_result()
-        self.assertAlmostEqual(output.w[0], 0.5, 13)
+        self.assertAlmostEqual(output.weights[0], 0.5, 13)
         # best fit is just the average
         for i in range(2):
-            np.testing.assert_allclose(output[i].mean, average[i], rtol=1e-7)
+            np.testing.assert_allclose(output[i][0].mu, average[i], rtol=1e-7)
 
         # covariance only roughly determined
-        for c in output:
+        for c in output.components:
             for i in range(2):
-                self.assertGreater(c.cov[i, i], 0.5)
-                self.assertLess(   c.cov[i, i], 3)
-            self.assertAlmostEqual(c.cov[0, 1], c.cov[1, 0])
-            self.assertGreater(c.cov[0, 1], -1)
-            self.assertLess(   c.cov[0, 1], +1)
+                self.assertGreater(c.sigma[i, i], 0.5)
+                self.assertLess(   c.sigma[i, i], 3)
+            self.assertAlmostEqual(c.sigma[0, 1], c.sigma[1, 0])
+            self.assertGreater(c.sigma[0, 1], -1)
+            self.assertLess(   c.sigma[0, 1], +1)
 
         # converge after one step
         old_bound = vb.likelihood_bound()
@@ -426,14 +428,14 @@ class TestVBMerge(unittest.TestCase):
 
         # it's a discrete problem that converges exactly,
         # so mean and bound are identical
-        np.testing.assert_array_equal(output[0].mean, output2[0].mean)
-        np.testing.assert_array_equal(output[1].mean, output2[1].mean)
-        self.assertAlmostEqual(output.w[0], 0.5, places=5)
+        np.testing.assert_array_equal(output[0][0].mu, output2[0][0].mu)
+        np.testing.assert_array_equal(output[1][0].mu, output2[1][0].mu)
+        self.assertAlmostEqual(output[0][1], 0.5, places=5) # weight
         self.assertEqual(vb.likelihood_bound(), old_bound)
 
         # expect nothing to die out
         vb.prune()
-        self.assertEqual(len(output.comp), len(initial_guess.comp))
+        self.assertEqual(len(output.components), len(initial_guess.components))
 
         # restart, should converge immediately
         params = vb.prior_posterior()
@@ -503,12 +505,12 @@ class TestVBMerge(unittest.TestCase):
                  np.array([[ 0.00969403,  0.00292157],
                            [ 0.00292157,  0.00247721]]))
         weights = np.array([ 0.12644431,  0.87355569])
-        components = [GaussianMixture.Component(m, c) for m,c in zip(means, cov)]
-        input_components = GaussianMixture(components, weights)
-        vb = VBMerge(input_components, N=1e4,  components=2)#initial_guess=input_components)
+        components = [GaussianComponent(m, c) for m,c in zip(means, cov)]
+        input_components = MixtureProposal(components, weights)
+        vb = VBMerge(input_components, N=1e4,  components=2)
         # compute (43) and (44) manually
         S = np.array([[ 0.01022336,  0.00301026],
-                   [ 0.00301026,  0.00271089]])
+                      [ 0.00301026,  0.00271089]])
         np.testing.assert_allclose(vb.S[0], S,  rtol=1e-5)
 
         # converge exactly in two steps
@@ -517,8 +519,8 @@ class TestVBMerge(unittest.TestCase):
         self.assertEqual(vb.run(verbose=True), 2)
         self.assertEqual(vb.K, 1)
         res = vb.get_result()
-        np.testing.assert_allclose(res[0].mean, target_mean,  rtol=1e-3)
-        np.testing.assert_allclose(res[0].cov,  target_sigma, rtol=0.15)
+        np.testing.assert_allclose(res[0][0].mu   , target_mean,  rtol=1e-3)
+        np.testing.assert_allclose(res[0][0].sigma, target_sigma, rtol=0.15)
 
 class TestWishart(unittest.TestCase):
     # comparison done in mathematica

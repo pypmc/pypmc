@@ -18,12 +18,14 @@ class Hierarchical(object):
 
     :param input_components:
 
-        :py:class:`pypmc.cluster.hierarchical.GaussianMixture`, the Gaussian
+        :py:class:`pypmc.pmc.proposal.MixtureProposal` with components
+        :py:class:`pypmc.pmc.proposal.GaussianComponent`; the Gaussian
         mixture to be reduced.
 
     :param initial_guess:
 
-        :py:class:`pypmc.cluster.hierarchical.GaussianMixture`, initial guess for
+        :py:class:`pypmc.pmc.proposal.MixtureProposal` with components
+        :py:class:`pypmc.pmc.proposal.GaussianComponent`; initial guess for
         the EM algorithm.
 
     :param verbose:
@@ -34,14 +36,14 @@ class Hierarchical(object):
     def __init__(self, input_components, initial_guess, verbose=False):
 
         # read and verify component numbers
-        self.nin = len(input_components.comp)
-        self.nout = len(initial_guess.comp)
+        self.nin = len(input_components.components)
+        self.nout = len(initial_guess.components)
 
         assert self.nin > self.nout, "Cannot reduce number of input components: %s" % (self.nin, self.nout)
         assert self.nout > 0, "Invalid number of output components %s" % self.nout
 
         self.f = input_components
-        self.g = copy.copy(initial_guess)
+        self.g = copy.deepcopy(initial_guess)
 
         self._verbose = verbose
 
@@ -55,7 +57,7 @@ class Hierarchical(object):
 
     def _cleanup(self, kill):
         """Look for dead components (weight=0) and remove them
-        if enable by ``kill``.
+        if enabled by ``kill``.
         Resize storage. Recompute determinant and covariance.
 
         """
@@ -68,16 +70,12 @@ class Hierarchical(object):
             if self._verbose and removed_indices:
                 print('Removing %s' % removed_indices)
 
-        for j in removed_indices:
-            self.inv_map.pop(j)
-
-        # covariance and determinant need to be (re-)calculated
-        for c in self.g:
-            c.recompute_det_inv()
+            for j in removed_indices:
+                self.inv_map.pop(j[0])
 
     def _distance(self):
         """Compute the distance function d(f,g,\pi), Eq. (3)"""
-        return np.average(self.min_kl, weights=self.f.w)
+        return np.average(self.min_kl, weights=self.f.weights)
 
     def _refit(self):
         """Update the map :math:`\pi` keeping the output :math:`g` fixed
@@ -88,45 +86,51 @@ class Hierarchical(object):
         # todo parallelize
 
         # temporary variables for manipulation
-        mu_diff = np.empty_like(self.f[0].mean)
-        sigma = np.empty_like(self.f[0].cov)
+        mu_diff = np.empty_like(self.f.components[0].mu)
+        sigma   = np.empty_like(self.f.components[0].sigma)
+        mean    = np.empty_like(mu_diff)
+        cov     = np.empty_like(sigma)
 
-        for j, c in enumerate(self.g):
+        for j, c in enumerate(self.g.components):
             # stop if inv_map is empty for j-th comp.
             if not self.inv_map[j]:
                 continue
 
-            # update in place
-            c.mean[:] = 0.0
-            c.cov[:] = 0.0
+            # (re-)initialize new mean/cov to zero
+            mean[:] = 0.0
+            cov[:] = 0.0
 
             # compute total weight and mean
-            weight = self.f.w[self.inv_map[j]].sum()
+            weight = self.f.weights[self.inv_map[j]].sum()
             for i in self.inv_map[j]:
-                c.mean += self.f.w[i] * self.f[i].mean
+                mean += self.f.weights[i] * self.f.components[i].mu
 
             # rescale by total weight
-            c.mean /= weight
+            mean /= weight
 
             # update covariance
             for i in self.inv_map[j]:
                 # mu_diff = mu'_j - mu_i
-                mu_diff[:] = c.mean
-                mu_diff -= self.f[i].mean
+                mu_diff[:] = mean
+                mu_diff -= self.f.components[i].mu
 
                 # sigma = (mu'_j - mu_i) (mu'_j - mu_i)^T
                 sigma[:] = np.outer(mu_diff, mu_diff)
 
                 # sigma += sigma_i
-                sigma += self.f[i].cov
+                sigma += self.f.components[i].sigma
 
                 # multiply with alpha_i
-                sigma *= self.f.w[i]
+                sigma *= self.f.weights[i]
 
                 # sigma_j += alpha_i * (sigma_i + (mu'_j - mu_i) (mu'_j - mu_i)^T
-                c.cov += sigma
+                cov += sigma
+
             # 1 / beta_j
-            c.cov /= weight
+            cov /= weight
+
+            # update the Mixture
+            c.update(mean, cov)
 
     def _regroup(self):
         """Update the output :math:`g` keeping the map :math:`\pi` fixed.
@@ -144,7 +148,7 @@ class Hierarchical(object):
             self.min_kl[i] = np.inf
             j_min = None
             for j in range(self.nout):
-                kl = kullback_leibler(self.f[i], self.g[j])
+                kl = kullback_leibler(self.f.components[i], self.g.components[j])
                 if kl < self.min_kl[i]:
                     self.min_kl[i] = kl
                     j_min = j
@@ -173,7 +177,7 @@ class Hierarchical(object):
         new_distance = np.finfo(np.float64).max
 
         if self._verbose:
-            print('Starting hierarchical clustering with %d components.' % len(self.g.comp))
+            print('Starting hierarchical clustering with %d components.' % len(self.g.components))
         converged = False
         step = 0
         while not converged and step < max_steps:
@@ -207,17 +211,17 @@ class Hierarchical(object):
         assert converged
         self._cleanup(kill)
         if self._verbose:
-            print('%d components remain.' % len(self.g.comp))
+            print('%d components remain.' % len(self.g.components))
 
         return self.g
 
 def kullback_leibler(c1, c2):
     """Kullback Leibler divergence of two Gaussians, :math:`KL(1||2)`"""
     # todo improve speed with scipy.linalg.blas and preallocating vector, matrix of right dim
-    d = np.log(c2.det / c1.det)
-    d += np.trace(c2.inv.dot(c1.cov))
-    mean_diff = c1.mean - c2.mean
-    d += mean_diff.transpose().dot(c2.inv).dot(mean_diff)
-    d -= len(c1.mean)
+    d = np.log(c2.det_sigma / c1.det_sigma)
+    d += np.trace(c2.inv_sigma.dot(c1.sigma))
+    mean_diff = c1.mu - c2.mu
+    d += mean_diff.transpose().dot(c2.inv_sigma).dot(mean_diff)
+    d -= len(c1.mu)
 
     return 0.5 * d

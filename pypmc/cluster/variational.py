@@ -3,12 +3,12 @@
 """
 
 from __future__ import division, print_function
-from .gaussian_mixture import GaussianMixture
 from math import log
 import numpy as _np
 from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
+from ..pmc.proposal import MixtureProposal, GaussianComponent
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 from ..tools._regularize import regularize
 
@@ -110,7 +110,7 @@ class GaussianInference(object):
             if self.nu[k] >= self.dim + 1:
                 W = (self.nu[k] - self.dim) * W
                 cov = _np.linalg.inv(W)
-                components.append(GaussianMixture.Component(self.m[k], cov))
+                components.append(GaussianComponent(self.m[k], cov))
                 # copy over precision matrix
                 components[-1].inv = W
 
@@ -124,7 +124,7 @@ class GaussianInference(object):
             else:
                 print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
 
-        return GaussianMixture(components, weights)
+        return MixtureProposal(components, weights)
 
     def likelihood_bound(self):
         '''Compute the lower bound on the true log marginal likelihood
@@ -438,7 +438,7 @@ class GaussianInference(object):
             # vector or matrix?
             if len(self.m0.shape) == 1:
                 self.m0 = _np.vstack(tuple([self.m0] * self.K))
-        # TODO: maybe remove standard value because this won't perform well on K far away from zero
+
         # If the initial means are identical, the K remain identical in all updates.
         self.m      = kwargs.pop('m'     , _np.linspace(-1.,1., self.K*self.dim).reshape((self.K, self.dim)))
         for name in ('m0', 'm'):
@@ -729,7 +729,6 @@ class GaussianInference(object):
         return self._expectation_log_q_mu_lambda
 
 class VBMerge(GaussianInference):
-
     '''Parsimonious reduction of Gaussian mixture models with a
     variational-Bayes approach [BGP10]_.
 
@@ -744,12 +743,7 @@ class VBMerge(GaussianInference):
 
     :param input_mixture:
 
-        A Gaussian mixture density, the input to be compressed.
-
-    :param initial_guess:
-
-        A Gaussian mixture density, the starting point for the optimization.
-        Its number of components defines the maximum possible.
+        MixtureProposal with GaussianComponents, the input to be compressed.
 
     :param N:
 
@@ -757,43 +751,51 @@ class VBMerge(GaussianInference):
         based on. For example, if ``input_mixture`` was fitted to 1000 samples,
         set ``N`` to 1000.
 
-    :param copy_weights:
+    :param components:
 
-        Initialize the vector ``alpha`` from the weights of ``initial guess`` as
-        :math:`N w`.
+        Integer; the maximum number of output components.
+
+    :param initial_guess:
+
+        MixtureProposal with GaussianComponents, optional; the starting point
+        for the optimization. If provided, its number of components defines
+        the maximum possible and the parameter ``components`` is ignored.
 
 
     All other keyword arguments are documented in
     :py:meth:`GaussianInference.set_variational_parameters`.
 
     .. seealso::
-        :py:class:`.gaussian_mixture.GaussianMixture`
+
+        :py:class:`pypmc.pmc.proposal.MixtureProposal`
+
+        :py:class:`pypmc.pmc.proposal.GaussianComponent`
 
     '''
 
-    def __init__(self, input_mixture, N, components=None, initial_guess=None, copy_weights=True, **kwargs):
+    def __init__(self, input_mixture, N, components=None, initial_guess=None, **kwargs):
         # don't copy input_mixture, we won't update it
         self.input = input_mixture
 
         # number of input components
-        self.L = len(input_mixture.comp)
+        self.L = len(input_mixture.components)
 
         # input means
-        self.mu = _np.array([c.mean for c in self.input])
+        self.mu = _np.array([c.mu for c in self.input.components])
 
         if initial_guess is not None:
-            self.K = len(initial_guess.comp)
+            self.K = len(initial_guess.components)
         elif components is not None:
             self.K = components
         else:
             raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
 
-        self.dim = len(input_mixture[0].mean)
+        self.dim = len(input_mixture[0][0].mu)
         self.N = N
 
         # effective number of samples per input component
         # in [BGP10], that's N \cdot \omega' (vector!)
-        self.Nomega = N * self.input.w
+        self.Nomega = N * self.input.weights
 
         self.set_variational_parameters(**kwargs)
 
@@ -801,16 +803,13 @@ class VBMerge(GaussianInference):
 
         # take mean and covariances from initial guess
         if initial_guess is not None:
-            # precision matrix is inverse of covariance
-            for c in initial_guess:
-                c._inv()
-            self.W = _np.array([c.inv for c in initial_guess])
+
+            self.W = _np.array([c.inv_sigma for c in initial_guess.components]) #TODO: correct for nu
 
             # copy over the means
-            self.m = _np.array([c.mean for c in initial_guess])
+            self.m = _np.array([c.mu for c in initial_guess.components])
 
-            if copy_weights:
-                self.alpha = N * initial_guess.w
+            self.alpha = N * initial_guess.weights
 
         self.E_step()
 
@@ -821,10 +820,10 @@ class VBMerge(GaussianInference):
     def _update_expectation_gauss_exponent(self):
         # after (40) in [BGP10]
         for k, W in enumerate(self.W):
-            for l, comp in enumerate(self.input):
-                tmp = comp.mean - self.m[k]
+            for l, comp in enumerate(self.input.components):
+                tmp = comp.mu - self.m[k]
                 self.expectation_gauss_exponent[l,k] = self.dim / self.beta[k] + self.nu[k] * \
-                                                       (_np.trace(W.dot(comp.cov)) + tmp.dot(W).dot(tmp))
+                                                       (_np.trace(W.dot(comp.sigma)) + tmp.dot(W).dot(tmp))
 
     def _update_log_rho(self):
         # (40) in [BGP10]
@@ -858,7 +857,7 @@ class VBMerge(GaussianInference):
             self.S[k,:] = 0.0
             for l in range(self.L):
                 tmp        = self.mu[l] - self.x_mean_comp[k]
-                self.S[k] += self.Nomega[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input[l].cov)
+                self.S[k] += self.Nomega[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input.components[l].sigma)
 
             self.S[k] *= self.inv_N_comp[k]
 

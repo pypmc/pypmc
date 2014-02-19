@@ -76,6 +76,7 @@ class Multivariate(ProposalDensity):
             raise _np.linalg.LinAlgError('Matrix is not symmetric')
         self.cholesky_sigma = _np.linalg.cholesky(self.sigma)
         self.inv_sigma      = _np.linalg.inv(self.sigma)
+        self.det_sigma      = _np.linalg.det(self.sigma)
         self._compute_norm()
 
     def _compute_norm(self):
@@ -86,7 +87,7 @@ class Multivariate(ProposalDensity):
         raise NotImplementedError()
 
     def _get_gauss_sample(self, rng):
-        """transform sample from standard gauss to Gauss(mean=0, sigma = sigma)"""
+        """transform sample from standard gauss to Gauss(mean=0, sigma=sigma)"""
         return _np.dot(self.cholesky_sigma,rng.normal(0,1,self.dim))
 
 class MultivariateGaussian(Multivariate):
@@ -102,7 +103,7 @@ class MultivariateGaussian(Multivariate):
         super(MultivariateGaussian, self).update_sigma(sigma)
 
     def _compute_norm(self):
-        self.log_normalization = -.5 * self.dim * _np.log(2 * _np.pi) + .5 * _np.log(_np.linalg.det(self.inv_sigma))
+        self.log_normalization = -.5 * self.dim * _np.log(2 * _np.pi) - .5 * _np.log(self.det_sigma)
 
     @_inherit_docstring(ProposalDensity)
     def evaluate(self, x , y):

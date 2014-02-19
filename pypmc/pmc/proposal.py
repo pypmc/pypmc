@@ -97,7 +97,8 @@ class MixtureProposal(PmcProposal):
 
     def prune(self,threshold=0.0):
         """Remove components with weight less or equal ``threshold``.
-        Return list of removed components and weights.
+        Return list of removed components and weights in the form:
+        [(index, component, weight), ...].
 
             :param threshold:
 
@@ -114,7 +115,8 @@ class MixtureProposal(PmcProposal):
                 removed_indices.append(current_index)
 
                 removed_components.append( (
-                         self.components.pop(current_index) #this also deletes the component
+                         current_index
+                        ,self.components.pop(current_index) #this also removes the component
                         ,self.weights[current_index]
                     ) )
 
@@ -232,12 +234,15 @@ class GaussianComponent(PmcProposal):
 
         """
         self.mu          = _np.array(mu)
-        self.sigma       = _np.array(sigma)
-
         self.dim         = len(self.mu)
-        assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
-        self.mc_proposal = _mc_proposal.MultivariateGaussian(self.sigma)
+        self.mc_proposal = _mc_proposal.MultivariateGaussian(sigma)
+
+        self.inv_sigma   = self.mc_proposal.inv_sigma # creates reference
+        self.det_sigma   = self.mc_proposal.det_sigma # creates copy because det_sigma is a float
+        self.sigma       = self.mc_proposal.sigma     # creates reference
+
+        assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
     @_inherit_docstring(PmcProposal)
     def evaluate(self, x):
@@ -291,13 +296,16 @@ class StudentTComponent(PmcProposal):
 
         """
         self.mu          = _np.array(mu)
-        self.sigma       = _np.array(sigma)
+        self.dim         = len(self.mu)
         self.dof         = dof
 
-        self.dim         = len(self.mu)
-        assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
+        self.mc_proposal = _mc_proposal.MultivariateStudentT(sigma, dof)
 
-        self.mc_proposal = _mc_proposal.MultivariateStudentT(self.sigma, self.dof)
+        self.inv_sigma   = self.mc_proposal.inv_sigma
+        self.det_sigma   = self.mc_proposal.det_sigma
+        self.sigma       = self.mc_proposal.sigma
+
+        assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
     @_inherit_docstring(PmcProposal)
     def evaluate(self, x):
