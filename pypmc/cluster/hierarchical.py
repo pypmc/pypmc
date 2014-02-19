@@ -94,6 +94,7 @@ class Hierarchical(object):
         for j, c in enumerate(self.g.components):
             # stop if inv_map is empty for j-th comp.
             if not self.inv_map[j]:
+                self.g.weights[j] = 0.
                 continue
 
             # (re-)initialize new mean/cov to zero
@@ -101,12 +102,12 @@ class Hierarchical(object):
             cov[:] = 0.0
 
             # compute total weight and mean
-            weight = self.f.weights[self.inv_map[j]].sum()
+            self.g.weights[j] = self.f.weights[self.inv_map[j]].sum()
             for i in self.inv_map[j]:
                 mean += self.f.weights[i] * self.f.components[i].mu
 
             # rescale by total weight
-            mean /= weight
+            mean /= self.g.weights[j]
 
             # update covariance
             for i in self.inv_map[j]:
@@ -127,7 +128,7 @@ class Hierarchical(object):
                 cov += sigma
 
             # 1 / beta_j
-            cov /= weight
+            cov /= self.g.weights[j]
 
             # update the Mixture
             c.update(mean, cov)

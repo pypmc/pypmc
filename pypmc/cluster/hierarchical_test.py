@@ -18,15 +18,34 @@ class TestHierarchical(unittest.TestCase):
     # generate 50% of components from each mode
     ncomp = 500
     np.random.seed(ncomp)
-    random_centers = np.random.multivariate_normal(means[0], cov, size=(ncomp // 2))
-    random_centers = np.vstack((random_centers, np.random.multivariate_normal(means[1], cov, size=ncomp // 2)))
+    random_centers1 = np.random.multivariate_normal(means[0], cov, size=(ncomp // 2))
+    random_centers2 = np.vstack((random_centers1, np.random.multivariate_normal(means[1], cov, size=ncomp // 2)))
     #input_components = GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers]) --> does not work in python3
-    input_components = GaussianMixture([GaussianMixture.Component(mu, hierarchical_cov) for mu in random_centers])
-    initial_guess = GaussianMixture([GaussianMixture.Component(np.zeros(2) + 0.1, cov*3),
-                     GaussianMixture.Component(np.zeros(2) - 0.1, cov*3),])
+    input_components1 = MixtureProposal([GaussianComponent(mu, hierarchical_cov) for mu in random_centers1])
+    input_components2 = MixtureProposal([GaussianComponent(mu, hierarchical_cov) for mu in random_centers2])
+    initial_guess1 = MixtureProposal([GaussianComponent(np.zeros(2) + 1e10, cov*3),
+                      GaussianComponent(np.zeros(2) - 0.1, cov*3),])
+    initial_guess2 = MixtureProposal([GaussianComponent(np.zeros(2) + 0.1, cov*3),
+                      GaussianComponent(np.zeros(2) - 0.1, cov*3),])
+
+    def test_prune(self):
+        h = Hierarchical(self.input_components1, self.initial_guess1, verbose=True)
+        sol = h.run()
+
+        # only one component should survive and have weight 1.0
+        # expect precision loss in the weight summation for many input components
+        self.assertEqual(len(sol.components), 1)
+        self.assertAlmostEqual(sol.weights[0], 1., 14)
+
+        # means should be reproduced
+        eps = 12e-2
+        self.assertAlmostEqual(sol.components[0].mu[0], self.means[0][0], delta=eps)
+
+        # variance much larger now, but still should have little correlation
+        self.assertAlmostEqual(sol.components[0].sigma[0,1], 0, delta=0.1)
 
     def test_cluster(self):
-        h = Hierarchical(self.input_components, self.initial_guess, verbose=True)
+        h = Hierarchical(self.input_components2, self.initial_guess2, verbose=True)
         sol = h.run()
 
         # both components should survive and have equal weight
