@@ -89,7 +89,7 @@ class GaussianInference(object):
         self._update_m()
         self._update_W()
 
-    def get_result(self):
+    def make_mixture(self):
         '''Return the mixture-density defined by the
         mode of the variational-Bayes estimate.
 
@@ -98,31 +98,51 @@ class GaussianInference(object):
         # find mode of Gaussian-Wishart distribution
         # and invert to find covariance. The result
         # \Lambda_k = (\nu_k - D) W_k
+        # the mode of the Gauss-Wishart exists only if \nu_k > D
         # turns out to be independent of beta.
 
         # The most likely value of the mean is m_k,
         # the mean parameter of the Gaussian q(\mu_k).
 
-        # The mode of the Dirichlet exists only if \alpha_k > 1.
+        # The mode of the Dirichlet exists only if \alpha_k > 1
+
         components = []
         weights = []
+        skipped = []
         for k, W in enumerate(self.W):
-            if self.nu[k] >= self.dim + 1:
+            # Dirichlet mode
+            # do not divide by the normalization constant because:
+            #   1. this will be done automatically by the mixture contructor
+            #   2. in case \alpha_k < 1 and normalization = \sum_{n=1}^{N}\(alpha_k-1) < 0
+            #      the results would be nonsense but no warning would be printed
+            #      because in that case \frac{\alpha_k - 1}{normalization} > 0
+            pi = self.alpha[k] - 1.
+            if pi <= 0:
+                print("Skipped component %i because of zero weight" %k)
+                skipped.append(k)
+                continue
+
+            # Gauss-Wishart mode
+            if self.nu[k] <= self.dim:
+                print("WARNING: Gauss-Wishart mode of component %i is not defined" %k)
+                skipped.append(k)
+                continue
+
+            try:
                 W = (self.nu[k] - self.dim) * W
                 cov = _np.linalg.inv(W)
                 components.append(GaussianComponent(self.m[k], cov))
-                # copy over precision matrix
-                components[-1].inv = W
+            except Exception as error:
+                print("ERROR: Could not create component %i." %k)
+                print("The error was:", repr(error) )
+                skipped.append(k)
+                continue
 
-                # Dirichlet mode
-                pi = (self.alpha[k] - 1.) / (self.alpha.sum() - self.K)
-                assert pi >= 0, 'Mode of Dirichlet distribution requires alpha_k > 1 ' + \
-                                '(alpha_k=%g) and at least K > 2 (K=%g)' % (self.alpha[k], self.K)
+            # relative weight properly normalized
+            weights.append(pi)
 
-                # relative weight properly normalized
-                weights.append(pi)
-            else:
-                print('Skipping comp. %d with dof %g' % (k,self.nu[k]))
+        if skipped:
+            print("The following components have been skipped:", skipped)
 
         return MixtureProposal(components, weights)
 
@@ -157,7 +177,7 @@ class GaussianInference(object):
 
     def prune(self, threshold=1.):
         '''Delete components with an effective number of samples
-        :math:`N_k` below the threshold.
+        :math:`\alpha_k` below the threshold.
 
         :param threshold:
 
@@ -170,7 +190,7 @@ class GaussianInference(object):
         if not threshold:
             return
 
-        components_to_survive = _np.where(self.N_comp >= threshold)[0]
+        components_to_survive = _np.where(self.alpha >= threshold)[0]
         self.K = len(components_to_survive)
 
         # list all vector and matrix vmembers
@@ -424,14 +444,16 @@ class GaussianInference(object):
         self.beta = kwargs.pop('beta', _np.ones(self.K) * self.beta0)
         self._check_K_vector('beta')
 
-        # smallest possible nu such that the Wishart pdf does not diverge at 0
-        nu_min = self.dim + 1.
-        self.nu0 = kwargs.pop('nu0', nu_min)
+        # smallest possible nu such that the Wishart pdf does not diverge at 0 is self.dim + 1
+        # smallest possible nu such that the Gauss-Wishart pdf does not diverge is self.dim
+        # allowed values: nu > self.dim - 1
+        nu_min = self.dim - 1.
+        self.nu0 = kwargs.pop('nu0', nu_min + 1e-5)
         if not _np.iterable(self.nu0):
             self.nu0 = self.nu0 * _np.ones(self.K)
-        self._check_K_vector('nu0', min=nu_min - 2 * _np.finfo('d').eps)
+        self._check_K_vector('nu0', min=nu_min)
         self.nu = kwargs.pop('nu', self.nu0 * _np.ones(self.K))
-        self._check_K_vector('nu', min=nu_min - 2 * _np.finfo('d').eps)
+        self._check_K_vector('nu', min=nu_min)
 
         self.m0 = kwargs.pop('m0', _np.zeros(self.dim))
         if len(self.m0) == self.dim:

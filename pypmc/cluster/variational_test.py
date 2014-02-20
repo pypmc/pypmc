@@ -89,7 +89,7 @@ class TestGaussianInference(unittest.TestCase):
                   d(alpha0=np.zeros(K)), d(beta0=np.zeros(K)), d(nu0=np.zeros(K)), # wrong values
                   d(alpha=np.zeros(K-1)), d(beta=np.zeros(K+1)), d(nu=np.zeros(1)), # wrong dim
                   d(alpha=np.zeros((K, D)) + 1e-6), # wrong shape
-                  d(alpha=np.zeros(K) - 1), d(beta=np.zeros(K) - 1), d(nu=np.zeros(K) + 2), # wrong values
+                  d(alpha=np.zeros(K) - 1), d(beta=np.zeros(K) - 1), d(nu=np.ones(K)), # wrong values
                   d(m0=np.zeros(D + 1)), d(W0=np.eye(D + 3)),
                   d(m=np.zeros(D)), d(W=np.zeros((D, D))), # need to specify all components
                   d(m=np.zeros((K, D + 1))), d(W=np.zeros((K, D + 1, D))),
@@ -263,7 +263,7 @@ class TestGaussianInference(unittest.TestCase):
         converged = clust.run(verbose=True)
         self.assertTrue(converged)
 
-        resulting_mixture = clust.get_result()
+        resulting_mixture = clust.make_mixture()
 
         sampled_abundancies = resulting_mixture.weights
         sampled_mean1       = resulting_mixture.components[0].mu
@@ -298,7 +298,7 @@ class TestGaussianInference(unittest.TestCase):
 
         nsteps = check_bound(self, infer, 20)
         self.assertTrue(nsteps)
-        result = infer.get_result()
+        result = infer.make_mixture()
         self.assertEqual(len(result.weights), 2)
         np.testing.assert_allclose(result[0][0].mu, target_mean1, rtol=1e-2)
         np.testing.assert_allclose(result[1][0].mu, target_mean2, rtol=1e-2)
@@ -310,7 +310,7 @@ class TestGaussianInference(unittest.TestCase):
         nsteps2 = infer2.run(20, verbose=True)
         self.assertEqual(nsteps2 + 1, nsteps)
 
-        result2 = infer2.get_result()
+        result2 = infer2.make_mixture()
         np.testing.assert_allclose(result2.weights, result.weights, rtol=1e-15)
         for i in range(2):
             np.testing.assert_allclose(result2[i][0].mu   , result[i][0].mu   , rtol=1e-15)
@@ -405,7 +405,7 @@ class TestVBMerge(unittest.TestCase):
         np.testing.assert_allclose(vb.S[0], S0)
 
         # is output properly generated?
-        output = vb.get_result()
+        output = vb.make_mixture()
         self.assertAlmostEqual(output.weights[0], 0.5, 13)
         # best fit is just the average
         for i in range(2):
@@ -424,7 +424,7 @@ class TestVBMerge(unittest.TestCase):
         old_bound = vb.likelihood_bound()
 
         vb.update()
-        output2 = vb.get_result()
+        output2 = vb.make_mixture()
 
         # it's a discrete problem that converges exactly,
         # so mean and bound are identical
@@ -460,7 +460,7 @@ class TestVBMerge(unittest.TestCase):
         input_components = create_mixture(means, cov, N_input)
 
         # first test with only two components to check calculation by hand
-        vb_check = VBMerge(input_components, N=N, initial_guess=create_mixture(means, cov, 2), nu=np.zeros(2) + 13.)
+        vb_check = VBMerge(input_components, N=N, initial_guess=create_mixture(means, cov, 2), nu=np.zeros(2) + 13., nu0=3.)
 
         vb_check.likelihood_bound()
         self.assertAlmostEqual(vb_check._expectation_log_p_X, -50014387.38992466, 3)
@@ -518,7 +518,7 @@ class TestVBMerge(unittest.TestCase):
         # then get same bound twice
         self.assertEqual(vb.run(verbose=True), 2)
         self.assertEqual(vb.K, 1)
-        res = vb.get_result()
+        res = vb.make_mixture()
         np.testing.assert_allclose(res[0][0].mu   , target_mean,  rtol=1e-3)
         np.testing.assert_allclose(res[0][0].sigma, target_sigma, rtol=0.15)
 
