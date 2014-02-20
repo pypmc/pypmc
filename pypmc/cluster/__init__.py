@@ -3,4 +3,4 @@
 '''
 
 # import these submodules by default
-from . import hierarchical, variational
+from . import hierarchical, variational, mixture_factory
