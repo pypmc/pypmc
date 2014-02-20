@@ -2,20 +2,22 @@
 
 """
 
+from __future__ import division
 from .proposal import MixtureProposal, GaussianComponent
 import numpy as _np
 from math import exp as _exp
 from copy import deepcopy as _cp
 from ..tools._regularize import regularize
 
-def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, copy=True):
+def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, copy=True, weighted=True):
     '''Adapts a ``proposal`` using the (M-)PMC algorithm according to
     [Cap+08]_.
 
     :param weighted_samples:
 
         Matrix-like array; the samples to be used for the pmc-run. The first
-        column is interpreted as (unnormalized) weights.
+        column is interpreted as (unnormalized) weights unless ``weighted``
+        is `False`.
 
     :param proposal:
 
@@ -57,10 +59,20 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
         Bool; If True (default), the parameter ``proposal`` remains untouched.
         Otherwise, ``proposal`` is overwritten by the adapted proposal.
 
+    :param weighted:
+
+        Bool; If True (default), the first column of ``samples`` is interpreted
+        as weights.
+        If False, the first column of ``samples`` is interpreted as the first
+        coordinate.
+
     '''
-    weights = weighted_samples[:,0 ]
-    samples = weighted_samples[:,1:]
-    normalized_weights = weights / weights.sum()
+    if weighted:
+        weights = weighted_samples[:,0 ]
+        samples = weighted_samples[:,1:]
+        normalized_weights = weights / weights.sum()
+    else:
+        samples = weighted_samples
 
     def calculate_rho_rb():
         # if a component is pruned, the other weights must be renormalized
@@ -121,11 +133,17 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
     # -------------- update equations according to (14) in [Cap+08] --------------
 
     # new component weights
-    alpha = _np.einsum('n,nk->k', normalized_weights, rho)
+    if weighted:
+        alpha = _np.einsum('n,nk->k', normalized_weights, rho)
+    else:
+        alpha = _np.einsum('nk->k', rho) / len(samples)
     inv_alpha = 1./regularize(alpha)
 
     # new means
-    mu = _np.einsum('n,nk,nd->kd', normalized_weights, rho, samples)
+    if weighted:
+        mu = _np.einsum('n,nk,nd->kd', normalized_weights, rho, samples)
+    else:
+        mu = _np.einsum('nk,nd->kd', rho, samples) / len(samples)
     mu = _np.einsum('kd,k->kd', mu, inv_alpha)
 
     # new covars
@@ -136,7 +154,12 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
             continue
         else:
             x_minus_mu = samples - mu[k]
-            cov[k] = _np.einsum('n,n,ni,nj->ij', normalized_weights, rho[:,k], x_minus_mu, x_minus_mu) * inv_alpha[k]
+            if weighted:
+                cov[k] = _np.einsum('n,n,ni,nj->ij', normalized_weights, rho[:,k], x_minus_mu, x_minus_mu) * inv_alpha[k]
+            else:
+                cov[k] = _np.einsum('n,ni,nj->ij', rho[:,k], x_minus_mu, x_minus_mu) * inv_alpha[k]
+    if not weighted:
+        cov /= len(samples)
 
     # ----------------------------------------------------------------------------
 

@@ -165,5 +165,31 @@ class TestPMC(unittest.TestCase):
         np.testing.assert_allclose(adapted_sigma1      , pmc_sigma1      )
         np.testing.assert_allclose(adapted_sigma2      , pmc_sigma2      )
 
+    def test_unweighted(self):
+        adapted_prop = gaussian_pmc(samples, prop, weighted=False)
+
+        adapted_comp_weights = adapted_prop.weights
+        adapted_mu1          = adapted_prop.components[0].mu
+        adapted_mu2          = adapted_prop.components[1].mu
+        adapted_sigma1       = adapted_prop.components[0].sigma
+        adapted_sigma2       = adapted_prop.components[1].sigma
+
+        # the values that should be obtained by the pmc algorithm
+        pmc_comp_weights = np.array(( .6, .4 ))
+        pmc_mu1          = np.array([ 10.00569514,  -1.11356905,   8.27908553])
+        pmc_mu2          = np.array([-10.38983286,   7.23392486,   0.4632788 ])
+        pmc_sigma1       = np.array([[ 0.58945043,  0.40729425,  0.03200882],
+                                     [ 0.40729425,  0.33036221, -0.10717408],
+                                     [ 0.03200882, -0.10717408,  0.72221294]])
+        pmc_sigma2       = np.array([[ 0.38545161, -0.19190136,  0.31422734],
+                                     [-0.19190136,  0.29882842,  0.06594038],
+                                     [ 0.31422734,  0.06594038,  1.95479308]])
+
+        np.testing.assert_allclose(adapted_comp_weights, pmc_comp_weights)
+        np.testing.assert_allclose(adapted_mu1         , pmc_mu1         )
+        np.testing.assert_allclose(adapted_mu2         , pmc_mu2         )
+        np.testing.assert_allclose(adapted_sigma1      , pmc_sigma1      )
+        np.testing.assert_allclose(adapted_sigma2      , pmc_sigma2      )
+
 #TODO: create test case such that the result depends on Rao Blackwellized on/off
 #TODO: test if rb is really switched on/of by argument "rb" even if "origin" is provided
