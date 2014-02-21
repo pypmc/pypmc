@@ -40,3 +40,6 @@ doc/_build/*
 
 # backup files
 *.*~
+
+# test images
+*.png
