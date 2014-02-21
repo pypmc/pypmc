@@ -163,6 +163,21 @@ class GaussianInference(object):
 
         return bound
 
+    def posterior2prior(self):
+        '''Return references to posterior values of all variational parameters
+        as dict.
+
+        .. hint::
+            :py:class:`.GaussianInference`\ (`..., **output`) creates a new
+            instance using the inferred posterior as prior.
+
+        .. warning::
+            Results are *not* copied.
+
+        '''
+        return dict(alpha0=self.alpha, beta0=self.beta, nu0=self.nu, m0=self.m,
+                    W0=self.W, components=self.K)
+
     def prior_posterior(self):
         '''Return references to prior and posterior values of all variational
         parameters as dict.

@@ -1,7 +1,6 @@
 """Unit tests for Variational Bayes.
 
 """
-
 from __future__ import print_function
 from .variational import *
 from ..pmc.proposal import MixtureProposal, GaussianComponent
@@ -278,6 +277,33 @@ class TestGaussianInference(unittest.TestCase):
         np.testing.assert_allclose(sampled_mean2[1]   , mean2[1]          , atol=atol) #atol here because target is 0.
         np.testing.assert_allclose(sampled_sigma1     , sigma1            , rtol=rtol_sigma)
         np.testing.assert_allclose(sampled_sigma2     , sigma2            , rtol=rtol_sigma, atol=atol) #target is 0. -> atol
+
+
+        # extract parameters using posterior2prior()
+        posterior_as_prior = clust.posterior2prior()
+        expected_posterior_as_prior = dict(
+                alpha0 = np.array([ 7003.57592618,  2996.42409382]),
+                beta0  = np.array([ 7003.57592618,  2996.42409382]),
+                nu0    = np.array([ 7004.57592618,  2997.42409382]),
+
+                m0     = np.array( [[ -5.00057525e+00,  -2.74867636e-05],
+                                    [  4.99601176e+00,   3.97167712e-03]]),
+
+                W0     = np.array([[[  2.09671405e-02,  -2.34928390e-02],
+                                    [ -2.34928390e-02,   8.22905338e-02]],
+                                   [[  3.38801441e-03,   1.56793445e-06],
+                                    [  1.56793445e-06,   6.54342479e-04]]]),
+                components = 2
+                )
+
+        self.assertEqual(len(posterior_as_prior), len(expected_posterior_as_prior))
+        self.assertEqual(posterior_as_prior["components"], 2)
+
+        for key in expected_posterior_as_prior:
+            np.testing.assert_allclose(posterior_as_prior[key], expected_posterior_as_prior[key])
+
+        # try creation of new GaussianInference instance with these values
+        GaussianInference(samples, **posterior_as_prior)
 
     @attr('slow')
     def test_prune(self):
