@@ -164,7 +164,8 @@ class GaussianInference(object):
         return bound
 
     def prior_posterior(self):
-        '''Return references to prior and posterior values of all variational parameters as dict.
+        '''Return references to prior and posterior values of all variational
+        parameters as dict.
 
         .. warning::
             Results are *not* copied.
@@ -176,7 +177,7 @@ class GaussianInference(object):
                     N=self.N, components=self.K)
 
     def prune(self, threshold=1.):
-        '''Delete components with an effective number of samples
+        r'''Delete components with an effective number of samples
         :math:`\alpha_k` below the threshold.
 
         :param threshold:
@@ -235,8 +236,10 @@ class GaussianInference(object):
             Maximum number of updates.
 
         :param prune:
-            Call :py:meth:`prune` after each update; i.e., remove components whose associated
-            effective number of samples is below the threshold. Set `prune=0` to deactivate. Default: 1 (effective samples).
+            Call :py:meth:`prune` after each update; i.e., remove components
+            whose associated effective number of samples is below the
+            threshold. Set `prune=0` to deactivate.
+            Default: 1 (effective samples).
 
         :param rel_tol:
             Relative tolerance :math:`\epsilon`. If two consecutive values of
@@ -314,8 +317,9 @@ class GaussianInference(object):
         2. It is specified separately for each component as a
         :math:`K` vector.
 
-        The prior and posterior variational distributions of :math:`\boldsymbol{\mu}` and
-        :math:`\boldsymbol{\Lambda}` for each component are given by
+        The prior and posterior variational distributions of
+        :math:`\boldsymbol{\mu}` and :math:`\boldsymbol{\Lambda}` for
+        each component are given by
 
         .. math::
 
