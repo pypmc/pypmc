@@ -28,7 +28,7 @@ class GaussianInference(object):
         :math:`D`-dimensional sample from the probability density to be
         approximated.
 
-    :param K:
+    :param components:
 
         Integer; :math:`K` is the number of Gaussian components in the
         approximating Gaussian mixture.
@@ -845,7 +845,7 @@ class VBMerge(GaussianInference):
         # take mean and covariances from initial guess
         if initial_guess is not None:
 
-            self.W = _np.array([c.inv_sigma for c in initial_guess.components]) #TODO: correct for nu
+            self.W = _np.array([c.inv_sigma / (self.nu[k] - self.dim) for k,c in enumerate(initial_guess.components)])
 
             # copy over the means
             self.m = _np.array([c.mu for c in initial_guess.components])

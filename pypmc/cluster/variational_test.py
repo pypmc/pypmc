@@ -486,7 +486,13 @@ class TestVBMerge(unittest.TestCase):
         input_components = create_mixture(means, cov, N_input)
 
         # first test with only two components to check calculation by hand
-        vb_check = VBMerge(input_components, N=N, initial_guess=create_mixture(means, cov, 2), nu=np.zeros(2) + 13., nu0=3.)
+        initial_guess = create_mixture(means, cov, 2)
+
+        initial_alpha = N * initial_guess.weights
+        initial_m = self.m = np.array([c.mu for c in initial_guess.components])
+        initial_W = np.array([c.inv_sigma for c in initial_guess.components])
+
+        vb_check = VBMerge(input_components, N, 2, alpha=initial_alpha, m=initial_m, W=initial_W, nu=np.zeros(2) + 13., nu0=3.)
 
         vb_check.likelihood_bound()
         self.assertAlmostEqual(vb_check._expectation_log_p_X, -50014387.38992466, 3)
