@@ -40,7 +40,7 @@ class MarkovChain(object):
         Use this function to specify the support of the target.
 
         .. seealso::
-            :py:mod:`pypmc.indicator_factory`
+            :py:mod:`pypmc.tools.indicator_factory`
 
     :param prealloc:
 

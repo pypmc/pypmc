@@ -10,7 +10,6 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   indicator_factory
    tools
    markov_chain
    cluster
