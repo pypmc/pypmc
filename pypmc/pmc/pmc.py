@@ -102,13 +102,11 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
             if proposal.weights[k] == 0.:
                 # skip unneccessary calculation
                 continue
-            elif count[k] < mincount:
+            if count[k] < mincount:
                 proposal.weights[k] = 0.
                 need_renormalize = True
                 print("Component %i died because of too few (%i) samples." %(k, count[k]))
-                continue
-            else:
-                rho[_np.where(origin==k),k] = True
+            rho[origin==k,k] = True
         return rho, need_renormalize
 
     if copy:
