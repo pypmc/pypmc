@@ -1,12 +1,11 @@
 """Functions to handle mixture densities.
 
 """
-from ..pmc.proposal import MixtureProposal, GaussianComponent
+from ..importance_sampling.proposal import MixtureDensity, Gauss
 import numpy as _np
 
 def create_gaussian_mixture(means, covs, weights=None):
-    """Creates a :py:class:`pypmc.pmc.proposal.MixtureProposal`
-    with gaussian (:py:class:`pypmc.pmc.proposal.GaussianComponent`)
+    """Creates a :py:class:`.MixtureDensity` with gaussian (:py:class:`.Gauss`)
     components. The output can be used for the clustering algorithms.
 
     :param means:
@@ -31,22 +30,21 @@ def create_gaussian_mixture(means, covs, weights=None):
     assert len(means) == len(covs), 'number of means (%i) does not match number of covariances (%i)' %(len(means), len(covs) )
     components = []
     for mean, cov in zip(means, covs):
-        components.append(GaussianComponent(mean, cov))
-    return MixtureProposal(components, weights)
+        components.append(Gauss(mean, cov))
+    return MixtureDensity(components, weights)
 
 
 def recover_gaussian_mixture(mixture):
     """Extracts the means, covariances and component weights from a
-    :py:class:`pypmc.pmc.proposal.MixtureProposal`.
+    :py:class:`.MixtureDensity`.
 
     :param mixture:
 
-        :py:class:`pypmc.pmc.proposal.MixtureProposal` with components of
-        :py:class:`pypmc.pmc.proposal.GaussianComponent`; the mixture
-        to be decomposed.
+        :py:class:`.MixtureDensity` with gaussian (:py:class:`.Gauss`) components;
+        the mixture to be decomposed.
 
     """
-    weights = mixture.weights.copy()
+    weights = _np.array(mixture.weights)
 
     dim = mixture.dim
     N   = len(weights)

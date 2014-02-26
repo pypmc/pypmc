@@ -1,6 +1,6 @@
 from sys import version
 from ._plot import *
-from ..pmc.proposal import GaussianComponent, MixtureProposal
+from ..importance_sampling.proposal import Gauss, MixtureDensity
 
 import unittest
 
@@ -11,8 +11,8 @@ class TestPlotMixture(unittest.TestCase):
 
     cov = [np.array([[1, -0.2], [-0.2, 1.]])]*2
     weights = [0.5, 0.5]
-    components = [GaussianComponent(m, c) for m,c in zip(means, cov)]
-    input_components = MixtureProposal(components, weights)
+    components = [Gauss(m, c) for m,c in zip(means, cov)]
+    input_components = MixtureDensity(components, weights)
 
     def test_valid(self):
         plt.figure(figsize=(5,5))
@@ -22,7 +22,7 @@ class TestPlotMixture(unittest.TestCase):
         plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
 
     def test_invalid(self):
-        invalid_mix = MixtureProposal([GaussianComponent(m, c) for m,c in zip(self.means, self.cov)],
+        invalid_mix = MixtureDensity([Gauss(m, c) for m,c in zip(self.means, self.cov)],
                                        self.weights)
 
         # invalid covariance

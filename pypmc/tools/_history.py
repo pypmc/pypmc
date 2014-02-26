@@ -3,7 +3,7 @@
 '''
 
 import numpy as _np
-
+#TODO: include method __len__()
 class History(object):
     """Saves a history 1d-arrays.
     Each call to :py:meth:`.append` is counted as a new "run".

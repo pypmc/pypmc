@@ -3,7 +3,7 @@
 '''
 
 from .pmc import *
-from . import proposal, importance_sampling
+from ..importance_sampling import proposal, sampler
 from ..tools._probability_densities import normalized_pdf_gauss
 from math import log
 import numpy as np
@@ -29,16 +29,16 @@ inv_cov1 = np.linalg.inv(cov1)
 inv_cov2 = np.linalg.inv(cov2)
 
 # target density
-target_abundancies = np.array( (.6, .4) )
-log_target = lambda x:   log(target_abundancies[0] * (normalized_pdf_gauss(x, mu1, inv_cov1)) + \
-                             target_abundancies[1] * (normalized_pdf_gauss(x, mu2, inv_cov2)) ) \
+target_abundances = np.array( (.6, .4) )
+log_target = lambda x:   log(target_abundances[0] * (normalized_pdf_gauss(x, mu1, inv_cov1)) + \
+                             target_abundances[1] * (normalized_pdf_gauss(x, mu2, inv_cov2)) ) \
                        + log(15.) # break normalization
 
 # proposal density
-gauss1 = proposal.GaussianComponent(mu1+.001, cov1+.001)
-gauss2 = proposal.GaussianComponent(mu2-.005, cov2-.005)
-proposal_abundancies = np.array( (.7, .3) )
-prop = proposal.MixtureProposal((gauss1,gauss2), proposal_abundancies)
+gauss1 = proposal.Gauss(mu1+.001, cov1+.001)
+gauss2 = proposal.Gauss(mu2-.005, cov2-.005)
+proposal_abundances = np.array( (.7, .3) )
+prop = proposal.MixtureDensity((gauss1,gauss2), proposal_abundances)
 
 # -----------------------------------------------------------------------------
 
@@ -72,9 +72,9 @@ weighted_samples = np.hstack( (weights.reshape(len(weights),1),samples) )
 
 ## ``origins``, ``weights`` and ``samples`` have been obtained using the following code:
 #np.random.mtrand.seed(rng_seed)
-#sampler = importance_sampling.ImportanceSampler(log_target, prop, rng=np.random.mtrand)
-#new_origins = sampler.run(rng_steps, trace=True)
-#new_weighted_samples = sampler.history[-1]
+#sam = sampler.ImportanceSampler(log_target, prop, rng=np.random.mtrand)
+#new_origins = sam.run(rng_steps, trace=True)
+#new_weighted_samples = sam.history[-1]
 
 class TestPMC(unittest.TestCase):
     def test_invalid_usage(self):

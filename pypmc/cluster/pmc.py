@@ -3,15 +3,15 @@
 """
 
 from __future__ import division
-from .proposal import MixtureProposal, GaussianComponent
+from ..importance_sampling.proposal import MixtureDensity, Gauss
 import numpy as _np
 from math import exp as _exp
 from copy import deepcopy as _cp
 from ..tools._regularize import regularize
 
-def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, copy=True, weighted=True):
-    '''Adapts a ``proposal`` using the (M-)PMC algorithm according to
-    [Cap+08]_.
+def gaussian_pmc(weighted_samples, density, origin=None, rb=True, mincount=0, copy=True, weighted=True):
+    '''Adapts a probability ``density`` using the (M-)PMC algorithm according
+    to [Cap+08]_.
 
     :param weighted_samples:
 
@@ -19,10 +19,10 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
         column is interpreted as (unnormalized) weights unless ``weighted``
         is `False`.
 
-    :param proposal:
+    :param density:
 
-        :py:class:`.MixtureProposal` with :py:class:`.GaussianComponent` s;
-        the proposal which proposed the ``weighted_samples`` and shall be
+        :py:class:`.MixtureDensity` with :py:class:`.Gauss` components;
+        the density which proposed the ``weighted_samples`` and shall be
         updated.
 
     :param origin:
@@ -56,8 +56,8 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
 
     :param copy:
 
-        Bool; If True (default), the parameter ``proposal`` remains untouched.
-        Otherwise, ``proposal`` is overwritten by the adapted proposal.
+        Bool; If True (default), the parameter ``density`` remains untouched.
+        Otherwise, ``density`` is overwritten by the adapted density.
 
     :param weighted:
 
@@ -77,52 +77,52 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
     def calculate_rho_rb():
         # if a component is pruned, the other weights must be renormalized
         need_renormalize = False
-        rho = _np.zeros(( len(weighted_samples),len(proposal.components) ))
-        for k in range(len(proposal.components)):
-            if proposal.weights[k] == 0.:
+        rho = _np.zeros(( len(weighted_samples),len(density.components) ))
+        for k in range(len(density.components)):
+            if density.weights[k] == 0.:
                 # skip unneccessary calculation
                 continue
             elif count[k] < mincount:
-                proposal.weights[k] = 0.
+                density.weights[k] = 0.
                 need_renormalize = True
                 print("Component %i died because of too few (%i) samples." %(k, count[k]))
                 continue
             else:
                 for n, sample in enumerate(samples):
-                    rho[n, k]  = _exp(proposal.components[k].evaluate(sample)) * proposal.weights[k]
+                    rho[n, k]  = _exp(density.components[k].evaluate(sample)) * density.weights[k]
                     # + "tiny" --> avoid division by zero
-                    rho[n, k] /= _exp(proposal.evaluate(sample)) + _np.finfo('d').tiny
+                    rho[n, k] /= _exp(density.evaluate(sample)) + _np.finfo('d').tiny
         return rho, need_renormalize
 
     def calculate_rho_non_rb():
         # if a component is pruned, the other weights must be renormalized
         need_renormalize = False
-        rho = _np.zeros(( len(samples),len(proposal.components) ), dtype=bool)
-        for k in range(len(proposal.components)):
-            if proposal.weights[k] == 0.:
+        rho = _np.zeros(( len(samples),len(density.components) ), dtype=bool)
+        for k in range(len(density.components)):
+            if density.weights[k] == 0.:
                 # skip unneccessary calculation
                 continue
             if count[k] < mincount:
-                proposal.weights[k] = 0.
+                density.weights[k] = 0.
                 need_renormalize = True
                 print("Component %i died because of too few (%i) samples." %(k, count[k]))
             rho[origin==k,k] = True
         return rho, need_renormalize
 
     if copy:
-        proposal = _cp(proposal)
+        density = _cp(density)
 
     if origin is None:
         if mincount > 0:
             raise ValueError('`mincount` must be 0 if `origin` is not provided!')
         if not rb:
             raise ValueError('`rb` must be True if `origin` is not provided!')
-        count = _np.ones(len(proposal.components))
+        count = _np.ones(len(density.components))
         rho, need_renormalize = calculate_rho_rb()
 
 
     else: # if origin is not None
-        count = _np.histogram(origin, bins=len(proposal.components), range=(0,len(proposal.components)))[0]
+        count = _np.histogram(origin, bins=len(density.components), range=(0,len(density.components)))[0]
         if rb:
             rho, need_renormalize = calculate_rho_rb()
         else:
@@ -146,8 +146,8 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
 
     # new covars
     cov = _np.empty(( len(mu),len(samples[0]),len(samples[0]) ))
-    for k in range(len(proposal.components)):
-        if proposal.weights[k] == 0.:
+    for k in range(len(density.components)):
+        if density.weights[k] == 0.:
             # skip unneccessary calculation
             continue
         else:
@@ -162,12 +162,12 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
     # ----------------------------------------------------------------------------
 
     # apply the updated mixture weights, means and covariances
-    for k, component in enumerate(proposal.components):
-        if proposal.weights[k] == 0.:
+    for k, component in enumerate(density.components):
+        if density.weights[k] == 0.:
             # skip unneccessary calculation
             continue
         else:
-            proposal.weights[k] = alpha[k]
+            density.weights[k] = alpha[k]
             # if matrix is not positive definite, the update will fail
             # in that case replug the old values and set its weight to zero
             old_mu    = component.mu    # do not need to copy because .update creates a new array
@@ -177,9 +177,9 @@ def gaussian_pmc(weighted_samples, proposal, origin=None, rb=True, mincount=0, c
             except _np.linalg.LinAlgError:
                 print("Could not update component %i --> weight is set to zero." %k)
                 component.update(old_mu, old_sigma)
-                proposal.weights[k] = 0.
+                density.weights[k] = 0.
                 need_renormalize = True
     if need_renormalize:
-        proposal.normalize()
+        density.normalize()
 
-    return proposal
+    return density

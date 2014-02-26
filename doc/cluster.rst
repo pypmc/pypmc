@@ -1,14 +1,22 @@
 Clustering
 ==========
 
+hierarchical
+------------
+
 .. automodule:: pypmc.cluster.hierarchical
 
-Variational Bayes
-=================
+variational Bayes
+-----------------
 
 .. automodule:: pypmc.cluster.variational
 
-Mixture Factory
-===============
+PMC
+---
+
+.. automodule:: pypmc.cluster.pmc
+
+mixture factory
+---------------
 
 .. automodule:: pypmc.cluster.mixture_factory

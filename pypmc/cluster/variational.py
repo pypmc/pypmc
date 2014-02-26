@@ -8,7 +8,7 @@ import numpy as _np
 from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
-from ..pmc.proposal import MixtureProposal, GaussianComponent
+from ..importance_sampling.proposal import MixtureDensity, Gauss
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 from ..tools._regularize import regularize
 
@@ -131,7 +131,7 @@ class GaussianInference(object):
             try:
                 W = (self.nu[k] - self.dim) * W
                 cov = _np.linalg.inv(W)
-                components.append(GaussianComponent(self.m[k], cov))
+                components.append(Gauss(self.m[k], cov))
             except Exception as error:
                 print("ERROR: Could not create component %i." %k)
                 print("The error was:", repr(error) )
@@ -144,7 +144,7 @@ class GaussianInference(object):
         if skipped:
             print("The following components have been skipped:", skipped)
 
-        return MixtureProposal(components, weights)
+        return MixtureDensity(components, weights)
 
     def likelihood_bound(self):
         '''Compute the lower bound on the true log marginal likelihood
@@ -784,7 +784,7 @@ class VBMerge(GaussianInference):
 
     :param input_mixture:
 
-        MixtureProposal with GaussianComponents, the input to be compressed.
+        MixtureDensity with Gauss components, the input to be compressed.
 
     :param N:
 
@@ -798,7 +798,7 @@ class VBMerge(GaussianInference):
 
     :param initial_guess:
 
-        MixtureProposal with GaussianComponents, optional; the starting point
+        MixtureDensity with Gauss components, optional; the starting point
         for the optimization. If provided, its number of components defines
         the maximum possible and the parameter ``components`` is ignored.
 
@@ -808,9 +808,9 @@ class VBMerge(GaussianInference):
 
     .. seealso::
 
-        :py:class:`pypmc.pmc.proposal.MixtureProposal`
+        :py:class:`pypmc.importance_sampling.proposal.MixtureDensity`
 
-        :py:class:`pypmc.pmc.proposal.GaussianComponent`
+        :py:class:`pypmc.importance_sampling.proposal.Gauss`
 
     '''
 

@@ -1,4 +1,4 @@
-"""Collect PMC proposal densities"""
+"""Collect probability densities"""
 
 import numpy as _np
 from copy import deepcopy as _deepcopy
@@ -6,9 +6,9 @@ from math import exp, log
 from ..markov_chain import proposal as _mc_proposal
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
-class PmcProposal(object):
-    """Abstract Base class for a proposal density for the Population
-    Monte Carlo sampler.
+class ProbabilityDensity(object):
+    """Abstract Base class of a probability density. Can be used as proposal
+    for the importance sampler.
 
     """
     dim = 0
@@ -42,8 +42,6 @@ class PmcProposal(object):
         """
         raise NotImplementedError()
 
-#TODO: find a way to combine this and pypmc.cluster.gaussian_mixture
-
 _msg_expect_normalized_weights = \
     """.. important::
 
@@ -52,12 +50,12 @@ _msg_expect_normalized_weights = \
 
     """
 
-class MixtureProposal(PmcProposal):
-    """Base class for multimodal proposal densities.
+class MixtureDensity(ProbabilityDensity):
+    """Base class for multimodal probability densities.
 
     :param components:
 
-        Iterable of PmcProposals; the Proposal components
+        Iterable of ProbabilityDensities; the mixture's components
 
     :param weights:
 
@@ -126,7 +124,7 @@ class MixtureProposal(PmcProposal):
         return removed_components
 
     @_add_to_docstring(_msg_expect_normalized_weights)
-    @_inherit_docstring(PmcProposal)
+    @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x):
         out = 0.
         for i,weight in enumerate(self.weights):
@@ -147,7 +145,7 @@ class MixtureProposal(PmcProposal):
     @_add_to_docstring("""    .. important::\n
                 ``rng`` must return a numpy array of N samples from the
                 uniform distribution over [0,1) when calling ``rng.rand(N)``.\n\n\n        """)
-    @_add_to_docstring(PmcProposal.propose.__doc__.replace('.mtrand)', '.mtrand, trace=False)', 1))
+    @_add_to_docstring(ProbabilityDensity.propose.__doc__.replace('.mtrand)', '.mtrand, trace=False)', 1))
     def propose(self, N=1, rng=_np.random.mtrand, trace=False):
         ""
         # The Algorithm:
@@ -205,8 +203,9 @@ class MixtureProposal(PmcProposal):
         for i in range(len(self.components)):
             yield self.components[i],self.weights[i]
 
-class GaussianComponent(PmcProposal):
-    r"""A Gaussian component for MixtureProposals
+class Gauss(ProbabilityDensity):
+    r"""A Gaussian probability density. Can be used as component for
+    MixtureDensities.
 
         :param mu:
 
@@ -221,7 +220,7 @@ class GaussianComponent(PmcProposal):
         self.update(mu, sigma)
 
     def update(self, mu, sigma):
-        r"""Re-initiate the proposal with new mean and covariance matrix.
+        r"""Re-initiate the density with new mean and covariance matrix.
 
         :param mu:
 
@@ -244,22 +243,23 @@ class GaussianComponent(PmcProposal):
 
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
-    @_inherit_docstring(PmcProposal)
+    @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x):
         return self.mc_proposal.evaluate(x,self.mu)
 
     @_add_to_docstring("""    .. important::\n
                 ``rng`` must meet the requirements of
                 :py:meth:`pypmc.markov_chain.proposal.MultivariateGaussian.propose`.\n\n""")
-    @_inherit_docstring(PmcProposal)
+    @_inherit_docstring(ProbabilityDensity)
     def propose(self, N=1, rng = _np.random.mtrand):
         output = _np.empty((N,self.dim))
         for i in range(N):
             output[i] = self.mc_proposal.propose(self.mu)
         return output
 
-class StudentTComponent(PmcProposal):
-    r"""A Student T component for MixtureProposals
+class StudentT(ProbabilityDensity):
+    r"""A Student T probability density. Can be used as component for
+    MixtureDensities.
 
         :param mu:
 
@@ -278,7 +278,7 @@ class StudentTComponent(PmcProposal):
         self.update(mu, sigma, dof)
 
     def update(self, mu, sigma, dof):
-        r"""Re-initiate the proposal with new mean, covariance matrix and
+        r"""Re-initiate the density with new mean, covariance matrix and
         degrees of freedom.
 
         :param mu:
@@ -307,14 +307,14 @@ class StudentTComponent(PmcProposal):
 
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
-    @_inherit_docstring(PmcProposal)
+    @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x):
         return self.mc_proposal.evaluate(x,self.mu)
 
     @_add_to_docstring("""    .. important::\n
                 ``rng`` must meet the requirements of
                 :py:meth:`pypmc.markov_chain.proposal.MultivariateStudentT.propose`.\n\n""")
-    @_inherit_docstring(PmcProposal)
+    @_inherit_docstring(ProbabilityDensity)
     def propose(self, N=1, rng=_np.random.mtrand):
         output = _np.empty((N,self.dim))
         for i in range(N):

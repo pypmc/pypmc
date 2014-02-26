@@ -2,7 +2,7 @@
 
 '''
 
-from .importance_sampling import *
+from .sampler import *
 from . import proposal
 from .proposal_test import DummyComponent
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
@@ -33,7 +33,7 @@ target_samples = np.array([[-5.44709992, -2.75569806],
                            [-4.53006187, -2.26075246],
                            [ 8.2430438 ,  0.74320662]])
 
-class FixProposal(proposal.MixtureProposal):
+class FixProposal(proposal.MixtureDensity):
     def __init__(self, *args, **kwargs):
         super(FixProposal, self).__init__(*args, **kwargs)
         self.i = 0
@@ -43,8 +43,8 @@ class FixProposal(proposal.MixtureProposal):
         self.i += N
         return target_samples[i:self.i]
 
-perturbed_prop = FixProposal((proposal.GaussianComponent(mu+.1, cov+.1),))
-perfect_prop   = FixProposal((proposal.GaussianComponent(mu, cov),))
+perturbed_prop = FixProposal((proposal.Gauss(mu+.1, cov+.1),))
+perfect_prop   = FixProposal((proposal.Gauss(mu, cov),))
 
 def raise_not_implemented(x):
     if (x == np.ones(5)).all():
@@ -69,7 +69,7 @@ def unimodal_sampling(instance, ImportanceSamplerClass):
     prop_mean  = np.array([-4.3, 2.9])
     prop_sigma = np.array([[0.007, 0.0   ]
                           ,[0.0  , 0.0023]])
-    prop       = proposal.StudentTComponent(prop_mean, prop_sigma, prop_dof)
+    prop       = proposal.StudentT(prop_mean, prop_sigma, prop_dof)
 
     sam = ImportanceSamplerClass(log_target, prop, prealloc = rng_steps, indicator = None, rng = np.random.mtrand)
     for i in range(10):
@@ -96,7 +96,7 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
     delta_sigma2 = .0051
 
     # target
-    target_abundancies = np.array((.6, .4))
+    target_abundances = np.array((.6, .4))
 
     mean1  = np.array( [-5.  , 0.    ])
     sigma1 = np.array([[0.01 , 0.003 ],
@@ -108,26 +108,26 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
                        [0.0 , 0.5  ]])
     inv_sigma2 = np.linalg.inv(sigma2)
 
-    log_target = lambda x: log( target_abundancies[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
-                                target_abundancies[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) ) + \
+    log_target = lambda x: log( target_abundances[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
+                                target_abundances[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) ) + \
                                 15. # break normalization
 
     # proposal
-    prop_abundancies = np.array((.5, .5))
+    prop_abundances = np.array((.5, .5))
 
     prop_dof1   = 5.
     prop_mean1  = np.array( [-4.9  , 0.01  ])
     prop_sigma1 = np.array([[ 0.007, 0.0   ],
                             [ 0.0  , 0.0023]])
-    prop1       = proposal.StudentTComponent(prop_mean1, prop_sigma1, prop_dof1)
+    prop1       = proposal.StudentT(prop_mean1, prop_sigma1, prop_dof1)
 
     prop_dof2   = 5.
     prop_mean2  = np.array( [+5.08, 0.01])
     prop_sigma2 = np.array([[ 0.14, 0.01],
                             [ 0.01, 0.6 ]])
-    prop2       = proposal.StudentTComponent(prop_mean2, prop_sigma2, prop_dof2)
+    prop2       = proposal.StudentT(prop_mean2, prop_sigma2, prop_dof2)
 
-    prop = proposal.MixtureProposal((prop1, prop2), prop_abundancies)
+    prop = proposal.MixtureDensity((prop1, prop2), prop_abundances)
 
 
     sam = ImportanceSamplerClass(log_target, prop, prealloc = rng_steps, rng = np.random.mtrand)
@@ -145,13 +145,13 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
 
     instance.assertEqual(len(positive_samples) + len(negative_samples), rng_steps)
 
-    # check abundancies
+    # check abundances
     negative_weightsum = negative_samples[:,0].sum()
     positive_weightsum = positive_samples[:,0].sum()
     total_weightsum    = positive_weightsum + negative_weightsum
 
-    instance.assertAlmostEqual(negative_weightsum / total_weightsum, target_abundancies[0], delta = delta_abun)
-    instance.assertAlmostEqual(positive_weightsum / total_weightsum, target_abundancies[1], delta = delta_abun)
+    instance.assertAlmostEqual(negative_weightsum / total_weightsum, target_abundances[0], delta = delta_abun)
+    instance.assertAlmostEqual(positive_weightsum / total_weightsum, target_abundances[1], delta = delta_abun)
 
     # check means
     sampled_mean1 = calculate_mean(negative_samples)
@@ -201,7 +201,7 @@ class TestImportanceSampler(unittest.TestCase):
         components = []
         for i in range(5):
             components.append( DummyComponent(propose=[float(i)]) )
-        prop = proposal.MixtureProposal(components)
+        prop = proposal.MixtureDensity(components)
         sam  = ImportanceSampler(dummy_target, prop)
 
         origins = sam.run(50, trace=True)
@@ -211,7 +211,7 @@ class TestImportanceSampler(unittest.TestCase):
             self.assertAlmostEqual(samples[i][1], origins[i], delta=1.e-15)
 
     def test_indicator(self):
-        prop = proposal.GaussianComponent(np.ones(5), np.eye(5))
+        prop = proposal.Gauss(np.ones(5), np.eye(5))
 
         no_ind = ImportanceSampler(raise_not_implemented, prop)
         self.assertRaises(NotImplementedError, no_ind.run)
@@ -298,7 +298,7 @@ class TestDeterministicIS(unittest.TestCase):
 
     def test_clear(self):
         N = 20
-        prop = proposal.MixtureProposal((proposal.GaussianComponent(mu, cov),))
+        prop = proposal.MixtureDensity((proposal.Gauss(mu, cov),))
         pmc = DeterministicIS(log_target, prop, rng=np.random.mtrand)
         pmc.run(N)
         pmc.history.clear()

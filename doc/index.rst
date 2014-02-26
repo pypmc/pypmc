@@ -8,12 +8,13 @@ Second section
 Contents:
 
 .. toctree::
+   :numbered:
    :maxdepth: 2
 
-   tools
    markov_chain
+   importance_sampling
    cluster
-   pmc
+   tools
    references
 
 Indices and tables

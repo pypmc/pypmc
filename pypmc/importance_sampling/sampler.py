@@ -6,7 +6,8 @@ import numpy as _np
 from math import exp as _exp
 from copy import deepcopy as _cp
 from ..tools._doc import _inherit_docstring
-from ..tools import History as _History, merge_function_with_indicator as _indmerge
+from ..tools import History as _History
+from ..tools.indicator import merge_function_with_indicator as _indmerge
 
 def calculate_expectation(samples, f):
     r'''Calculates the expectation value of function ``f`` using weighted
@@ -75,8 +76,8 @@ _docstring_params_importance_sampler = """:param target:
 
     :param proposal:
 
-        The proposal density `q`.
-        Should be of type :py:class:`pypmc.pmc.proposal.PmcProposal`.
+        The proposal density `q`. Should be of type
+        :py:class:`pypmc.importance_sampling.proposal.ProbabilityDensity`.
 
     :param indicator:
 
@@ -87,7 +88,7 @@ _docstring_params_importance_sampler = """:param target:
         Use this function to specify the support of the target.
 
         .. seealso::
-            :py:mod:`pypmc.tools.indicator_factory`
+            :py:mod:`pypmc.tools.indicator`
 
     :param prealloc:
 
@@ -106,7 +107,7 @@ _docstring_params_importance_sampler = """:param target:
 
         .. important::
             ``rng`` must fulfill the requirements of your proposal
-            :py:meth:`pypmc.pmc.proposal.PmcProposal.propose`
+            :py:meth:`pypmc.importance_sampling.proposal.ProbabilityDensity.propose`
 
     """
 
@@ -144,7 +145,7 @@ class ImportanceSampler(object):
             .. note::
 
                 This option only works for proposals of type
-                :py:class:`pypmc.pmc.proposal.MixtureProposal`
+                :py:class:`pypmc.importance_sampling.proposal.MixtureDensity`
 
         '''
         if trace:
@@ -168,7 +169,7 @@ class ImportanceSampler(object):
 
         Returns a reference to the samples in ``self.history``.
         If trace is True, additionally returns an array indicating
-        the responsible component. (MixtureProposal only)
+        the responsible component. (MixtureDensity only)
 
         """
         # allocate an empty numpy array to store the run and append accept count

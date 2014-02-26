@@ -41,7 +41,8 @@ def log_target(x):
 
 
 # define the initial proposal density
-# In this case a three-modal gaussian used# the initial covariances are set to the unit-matrix
+# In this case a three-modal gaussian used
+# the initial covariances are set to the unit-matrix
 # the initial component weights are set equal
 initial_prop_means = []
 initial_prop_means.append( np.array([ 4.0, 0.0]) )
@@ -51,13 +52,13 @@ initial_prop_covariance = np.eye(2)
 
 initial_prop_components = []
 for i in range(3):
-    initial_prop_components.append(pypmc.pmc.proposal.GaussianComponent(initial_prop_means[i], initial_prop_covariance))
+    initial_prop_components.append(pypmc.importance_sampling.proposal.Gauss(initial_prop_means[i], initial_prop_covariance))
 
-initial_proposal = pypmc.pmc.proposal.MixtureProposal(initial_prop_components)
+initial_proposal = pypmc.importance_sampling.proposal.MixtureDensity(initial_prop_components)
 
 
 # define an ImportanceSampler object
-sampler = pypmc.pmc.importance_sampling.ImportanceSampler(log_target, initial_proposal)
+sampler = pypmc.importance_sampling.sampler.ImportanceSampler(log_target, initial_proposal)
 
 
 # run 100,000 steps adapting the proposal every 10,000 steps
@@ -74,7 +75,7 @@ for i in range(10):
     weighted_samples = sampler.history[-1]
 
     # update the proposal using the pmc-algorithm in the non Rao-Blackwellized form
-    pypmc.pmc.pmc.gaussian_pmc(weighted_samples, sampler.proposal, generating_components[-1], mincount=20, rb=False, copy=False)
+    pypmc.cluster.pmc.gaussian_pmc(weighted_samples, sampler.proposal, generating_components[-1], mincount=20, rb=False, copy=False)
 
 print("\rsampling finished")
 print(  '-----------------')

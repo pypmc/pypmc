@@ -1,9 +1,16 @@
-tools
+Tools
 =====
 
-.. autofunction:: pypmc.tools.merge_function_with_indicator
+history
+-------
+
 .. autoclass:: pypmc.tools.History
 
-.. automodule:: pypmc.tools.indicator_factory
-.. autofunction:: pypmc.tools.indicator_factory.ball
-.. autofunction:: pypmc.tools.indicator_factory.hyperrectangle
+indicator
+---------
+
+.. automodule:: pypmc.tools.indicator
+.. autofunction:: pypmc.tools.indicator.ball
+.. autofunction:: pypmc.tools.indicator.hyperrectangle
+
+.. autofunction:: pypmc.tools.indicator.merge_function_with_indicator

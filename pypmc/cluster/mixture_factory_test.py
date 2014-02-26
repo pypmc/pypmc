@@ -2,7 +2,6 @@
 
 """
 from .mixture_factory import *
-#from ..pmc.proposal import MixtureProposal, GaussianComponent #TODO: remove
 import numpy as np
 import unittest
 

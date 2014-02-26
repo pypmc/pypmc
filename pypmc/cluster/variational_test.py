@@ -3,8 +3,8 @@
 """
 from __future__ import print_function
 from .variational import *
-from ..pmc.proposal import MixtureProposal, GaussianComponent
-from .. import pmc
+from ..importance_sampling.proposal import MixtureDensity, Gauss
+from .. import importance_sampling
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
 import copy
@@ -212,7 +212,7 @@ class TestGaussianInference(unittest.TestCase):
 
         # -------------------------------- generate weighted test data ----------------------------------
         # target
-        target_abundancies = np.array((.7, .3))
+        target_abundances = np.array((.7, .3))
 
         mean1  = np.array( [-5.   , 0.    ])
         sigma1 = np.array([[ 0.01 , 0.003 ],
@@ -224,28 +224,28 @@ class TestGaussianInference(unittest.TestCase):
                            [ 0.0, 0.5  ]])
         inv_sigma2 = np.linalg.inv(sigma2)
 
-        log_target = lambda x: log( target_abundancies[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
-                                    target_abundancies[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) )
+        log_target = lambda x: log( target_abundances[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
+                                    target_abundances[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) )
 
         # proposal
-        prop_abundancies = np.array((.5, .5))
+        prop_abundances = np.array((.5, .5))
 
         prop_dof1   = 5.
         prop_mean1  = np.array( [-4.9  , 0.01  ])
         prop_sigma1 = np.array([[ 0.007, 0.0   ],
                                 [ 0.0  , 0.0023]])
-        prop1       = pmc.proposal.StudentTComponent(prop_mean1, prop_sigma1, prop_dof1)
+        prop1       = importance_sampling.proposal.StudentT(prop_mean1, prop_sigma1, prop_dof1)
 
         prop_dof2   = 5.
         prop_mean2  = np.array( [+5.08, 0.01])
         prop_sigma2 = np.array([[ 0.14, 0.01],
                                 [ 0.01, 0.6 ]])
-        prop2       = pmc.proposal.StudentTComponent(prop_mean2, prop_sigma2, prop_dof2)
+        prop2       = importance_sampling.proposal.StudentT(prop_mean2, prop_sigma2, prop_dof2)
 
-        prop = pmc.proposal.MixtureProposal((prop1, prop2), prop_abundancies)
+        prop = importance_sampling.proposal.MixtureDensity((prop1, prop2), prop_abundances)
 
 
-        sam = pmc.importance_sampling.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
+        sam = importance_sampling.sampler.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
         sam.run(10**4)
 
         weighted_samples = sam.history[:]
@@ -264,19 +264,19 @@ class TestGaussianInference(unittest.TestCase):
 
         resulting_mixture = clust.make_mixture()
 
-        sampled_abundancies = resulting_mixture.weights
+        sampled_abundances  = resulting_mixture.weights
         sampled_mean1       = resulting_mixture.components[0].mu
         sampled_mean2       = resulting_mixture.components[1].mu
         sampled_sigma1      = resulting_mixture.components[0].sigma
         sampled_sigma2      = resulting_mixture.components[1].sigma
 
-        np.testing.assert_allclose(sampled_abundancies, target_abundancies, rtol=rtol)
-        np.testing.assert_allclose(sampled_mean1[0]   , mean1[0]          , rtol=rtol)
-        np.testing.assert_allclose(sampled_mean1[1]   , mean1[1]          , atol=atol) #atol here because target is 0.
-        np.testing.assert_allclose(sampled_mean2[0]   , mean2[0]          , rtol=rtol)
-        np.testing.assert_allclose(sampled_mean2[1]   , mean2[1]          , atol=atol) #atol here because target is 0.
-        np.testing.assert_allclose(sampled_sigma1     , sigma1            , rtol=rtol_sigma)
-        np.testing.assert_allclose(sampled_sigma2     , sigma2            , rtol=rtol_sigma, atol=atol) #target is 0. -> atol
+        np.testing.assert_allclose(sampled_abundances, target_abundances, rtol=rtol)
+        np.testing.assert_allclose(sampled_mean1[0]  , mean1[0]         , rtol=rtol)
+        np.testing.assert_allclose(sampled_mean1[1]  , mean1[1]         , atol=atol) #atol here because target is 0.
+        np.testing.assert_allclose(sampled_mean2[0]  , mean2[0]         , rtol=rtol)
+        np.testing.assert_allclose(sampled_mean2[1]  , mean2[1]         , atol=atol) #atol here because target is 0.
+        np.testing.assert_allclose(sampled_sigma1    , sigma1           , rtol=rtol_sigma)
+        np.testing.assert_allclose(sampled_sigma2    , sigma2           , rtol=rtol_sigma, atol=atol) #target is 0. -> atol
 
 
         # extract parameters using posterior2prior()
@@ -356,7 +356,7 @@ def create_mixture(means, cov, ncomp):
     for mu in means[1:]:
         random_centers = np.vstack((random_centers, np.random.multivariate_normal(mu, cov, size=ncomp)))
 
-    return MixtureProposal([GaussianComponent(mu, cov) for mu in random_centers])
+    return MixtureDensity([Gauss(mu, cov) for mu in random_centers])
 
 class TestVBMerge(unittest.TestCase):
     def setUp(self):
@@ -537,8 +537,8 @@ class TestVBMerge(unittest.TestCase):
                  np.array([[ 0.00969403,  0.00292157],
                            [ 0.00292157,  0.00247721]]))
         weights = np.array([ 0.12644431,  0.87355569])
-        components = [GaussianComponent(m, c) for m,c in zip(means, cov)]
-        input_components = MixtureProposal(components, weights)
+        components = [Gauss(m, c) for m,c in zip(means, cov)]
+        input_components = MixtureDensity(components, weights)
         vb = VBMerge(input_components, N=1e4,  components=2)
         # compute (43) and (44) manually
         S = np.array([[ 0.01022336,  0.00301026],

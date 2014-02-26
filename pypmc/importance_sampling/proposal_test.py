@@ -12,7 +12,7 @@ rng_steps = 50000
 # dummy proposal component (convenient for testing):
 #   - evaluates to exactly the input
 #   - proposes always the same
-class DummyComponent(PmcProposal):
+class DummyComponent(ProbabilityDensity):
     def __init__(self, propose = [0.], eval_to = 42.):
         self.to_propose = np.array(propose)
         self.dim = len(self.to_propose)
@@ -33,16 +33,16 @@ class TestMixtureProposal(unittest.TestCase):
         comp_instances = [DummyComponent() for i in range(self.ncomp)]
 
         # should not raise an error
-        MixtureProposal(comp_instances)
+        MixtureDensity(comp_instances)
 
         # blow one dim
         comp_instances[2].dim = 100
 
         with self.assertRaises(AssertionError):
-            MixtureProposal(comp_instances)
+            MixtureDensity(comp_instances)
 
     def test_normalize(self):
-        mix = MixtureProposal(self.components)
+        mix = MixtureDensity(self.components)
 
         # automatic normalization
         self.assertTrue(mix.normalized())
@@ -58,7 +58,7 @@ class TestMixtureProposal(unittest.TestCase):
 
     def test_prune(self):
         # range(self.ncomp) makes the first weight equal to zero
-        mix = MixtureProposal(self.components, range(self.ncomp))
+        mix = MixtureDensity(self.components, range(self.ncomp))
 
         # removing elements
         self.assertEqual(mix.prune(), [(0,DummyComponent,0.)])
@@ -66,7 +66,7 @@ class TestMixtureProposal(unittest.TestCase):
         self.assertTrue(mix.normalized())
 
     def test_access(self):
-        mix = MixtureProposal(self.components, np.arange(self.ncomp))
+        mix = MixtureDensity(self.components, np.arange(self.ncomp))
 
         normalized_weights  = np.arange(self.ncomp, dtype=float)
         normalized_weights /= normalized_weights.sum()
@@ -94,7 +94,7 @@ class TestMixtureProposal(unittest.TestCase):
         # .evaluate shall return the log of the proposal
         target = np.log(target)
 
-        mix = MixtureProposal(proposals, weights)
+        mix = MixtureDensity(proposals, weights)
 
         self.assertEqual(target,mix.evaluate(evaluate_at))
 
@@ -106,7 +106,7 @@ class TestMixtureProposal(unittest.TestCase):
         proposals   = (DummyComponent(proposes[0]),DummyComponent(proposes[1]))
         delta       = 2. * np.sqrt(np.cov(proposes.reshape(1,2),ddof=0) / rng_steps) # 2-sigma-interval
 
-        mix = MixtureProposal(proposals, weights)
+        mix = MixtureDensity(proposals, weights)
         # mix should propose values from ``proposals[0]`` with abundance 80% and
         # from ``proposals[1]`` with abundance 20% (i.e. according to ``weights``)
 
@@ -125,7 +125,7 @@ class TestMixtureProposal(unittest.TestCase):
         components = []
         for i in range(5):
             components.append( DummyComponent(propose=[float(i)]) )
-        prop = MixtureProposal(components)
+        prop = MixtureDensity(components)
         samples, origins = prop.propose(50, trace=True)
         for i in range(50):
             self.assertAlmostEqual(samples[i], origins[i], delta=1.e-15)
@@ -138,7 +138,7 @@ class TestGaussianComponent(unittest.TestCase):
     def test_dim_mismatch(self):
         mu    = np.ones(2)
         sigma = np.eye (3)
-        self.assertRaisesRegexp(AssertionError, 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!', GaussianComponent, mu, sigma)
+        self.assertRaisesRegexp(AssertionError, 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!', Gauss, mu, sigma)
 
     def test_evaluate(self):
         sigma = np.array([[0.01 , 0.003 ]
@@ -149,7 +149,7 @@ class TestGaussianComponent(unittest.TestCase):
         mean  = np.array([4.3 , 1.1])
         point = np.array([4.35, 1.2])
 
-        comp = GaussianComponent(mean, sigma=sigma)
+        comp = Gauss(mean, sigma=sigma)
 
         target = 1.30077135
 
@@ -166,7 +166,7 @@ class TestGaussianComponent(unittest.TestCase):
         delta_cov_01 = .00003
         delta_cov_11 = .00003
 
-        comp = GaussianComponent(mu=mean, sigma=offdiag_sigma)
+        comp = Gauss(mu=mean, sigma=offdiag_sigma)
 
         np.random.seed(rng_seed)
 
@@ -204,7 +204,7 @@ class TestStudentTComponent(unittest.TestCase):
         dof   = 4.
         self.assertRaisesRegexp(AssertionError,
                 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!',
-                StudentTComponent, mu, sigma, dof)
+                StudentT, mu, sigma, dof)
 
     def test_evaluate(self):
         mean  = np.array( [1.25, 4.3   ] )
@@ -213,7 +213,7 @@ class TestStudentTComponent(unittest.TestCase):
         dof   = 5.
         delta = 1e-9
 
-        t = StudentTComponent(mean, sigma, dof)
+        t = StudentT(mean, sigma, dof)
 
         point1 = np.array([1.3 , 4.4  ])
         point2 = np.array([1.26, 4.424])
@@ -233,7 +233,7 @@ class TestStudentTComponent(unittest.TestCase):
         target_mean = mean
         target_cov  = dof / (dof - 2.) * sigma
 
-        comp = StudentTComponent(mu = mean, sigma = sigma, dof = dof)
+        comp = StudentT(mu = mean, sigma = sigma, dof = dof)
 
         np.random.seed(rng_seed)
 

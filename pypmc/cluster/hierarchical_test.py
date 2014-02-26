@@ -3,7 +3,7 @@
 """
 from __future__ import division
 from .hierarchical import *
-from ..pmc.proposal import MixtureProposal, GaussianComponent
+from ..importance_sampling.proposal import MixtureDensity, Gauss
 import numpy as np
 import unittest
 
@@ -21,12 +21,11 @@ class TestHierarchical(unittest.TestCase):
     random_centers1 = np.random.multivariate_normal(means[0], cov, size=(ncomp // 2))
     random_centers2 = np.vstack((random_centers1, np.random.multivariate_normal(means[1], cov, size=ncomp // 2)))
     #input_components = GaussianMixture([GaussianMixture.Component(mu, cov) for mu in random_centers]) --> does not work in python3
-    input_components1 = MixtureProposal([GaussianComponent(mu, hierarchical_cov) for mu in random_centers1])
-    input_components2 = MixtureProposal([GaussianComponent(mu, hierarchical_cov) for mu in random_centers2])
-    initial_guess1 = MixtureProposal([GaussianComponent(np.zeros(2) + 1e10, cov*3),
-                      GaussianComponent(np.zeros(2) - 0.1, cov*3),])
-    initial_guess2 = MixtureProposal([GaussianComponent(np.zeros(2) + 0.1, cov*3),
-                      GaussianComponent(np.zeros(2) - 0.1, cov*3),])
+    input_components1 = MixtureDensity([Gauss(mu, hierarchical_cov) for mu in random_centers1])
+    input_components2 = MixtureDensity([Gauss(mu, hierarchical_cov) for mu in random_centers2])
+    initial_guess1 = MixtureDensity([Gauss(np.zeros(2) + 1e10, cov*3),
+                      Gauss(np.zeros(2) - 0.1, cov*3),])
+    initial_guess2 = MixtureDensity([Gauss(np.zeros(2) + 0.1, cov*3), Gauss(np.zeros(2) - 0.1, cov*3),])
 
     def test_prune(self):
         h = Hierarchical(self.input_components1, self.initial_guess1, verbose=True)
@@ -69,13 +68,13 @@ class TestKL(unittest.TestCase):
         mu2 = np.zeros(d)
         cov = np.eye(d)
 
-        c1 = GaussianComponent(mu1, cov)
-        c2 = GaussianComponent(mu2, cov)
+        c1 = Gauss(mu1, cov)
+        c2 = Gauss(mu2, cov)
 
         self.assertAlmostEqual(kullback_leibler(c1, c2), 0.5 * mu1.dot(mu1), 15)
 
         # now add correlation, matrix inverse not trivial anymore
         cov2 = np.eye(d)
         cov2[0,1] = cov2[1,0] = 0.2
-        c2 = GaussianComponent(mu2, cov2)
+        c2 = Gauss(mu2, cov2)
         self.assertAlmostEqual(kullback_leibler(c1, c2), 4.6045890027398722, 15)

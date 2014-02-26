@@ -2,7 +2,8 @@
 
 from __future__ import division as _div
 import numpy as _np
-from ..tools import History as _History, merge_function_with_indicator as _indmerge
+from ..tools import History as _History
+from ..tools.indicator import merge_function_with_indicator as _indmerge
 from ..tools._doc import _inherit_docstring
 
 class MarkovChain(object):
@@ -40,7 +41,7 @@ class MarkovChain(object):
         Use this function to specify the support of the target.
 
         .. seealso::
-            :py:mod:`pypmc.tools.indicator_factory`
+            :py:mod:`pypmc.tools.indicator`
 
     :param prealloc:
 
