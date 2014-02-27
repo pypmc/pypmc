@@ -3,7 +3,7 @@
 '''
 
 import numpy as _np
-#TODO: include method __len__()
+
 class History(object):
     """Saves a history 1d-arrays.
     Each call to :py:meth:`.append` is counted as a new "run".
@@ -44,14 +44,8 @@ class History(object):
         self.clear()
         # the first line in clear() will raise an error if dim or prealloc is invalid
 
-    def clear(self):
-        """Deletes the history"""
-        self._points = _np.empty( (self.prealloc,self.dim) )
-        self._slice_for_run_nr = []
-        self.memleft = self.prealloc
-
     def __getitem__(self, item):
-        if (not self._slice_for_run_nr) or (not self._slice_for_run_nr[item]):
+        if not self._slice_for_run_nr[item]:
             return _np.array(())
         if type(item) == slice:
             if item.step is not None:
@@ -62,6 +56,9 @@ class History(object):
         else:
             return self._points[self._slice_for_run_nr[item][0] : self._slice_for_run_nr[item][-1]]
 
+    def __len__(self):
+        return len(self._slice_for_run_nr)
+
     def append(self, new_points_len):
         '''Allocate memory for a new run and return a reference to that memory
 
@@ -70,6 +67,9 @@ class History(object):
             Integer; the number of points to be stored in the target memory
 
         '''
+        new_points_len = int(new_points_len)
+        assert new_points_len >= 1, "Must at least append one point!"
+
         # find out start and stop index of the new memory
         try:
             new_points_start = self._slice_for_run_nr[-1][-1]
@@ -89,3 +89,9 @@ class History(object):
 
         # return reference to the new points
         return self._points[new_points_start:new_points_stop]
+
+    def clear(self):
+        """Deletes the history"""
+        self._points = _np.empty( (self.prealloc,self.dim) )
+        self._slice_for_run_nr = []
+        self.memleft = self.prealloc

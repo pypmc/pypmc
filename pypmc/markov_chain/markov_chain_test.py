@@ -79,7 +79,7 @@ class TestMarkovChain(unittest.TestCase):
         mc.run(int(NumberOfRandomSteps/10))
         self.assertEqual(len(mc.history[-1]), NumberOfRandomSteps//10)
         mc.history.clear()
-        self.assertEqual(len(mc.history[-1]), 0)
+        self.assertEqual(len(mc.history), 0)
 
         mc.run(NumberOfRandomSteps)
 
