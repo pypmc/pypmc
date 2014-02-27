@@ -14,3 +14,8 @@ indicator
 .. autofunction:: pypmc.tools.indicator.hyperrectangle
 
 .. autofunction:: pypmc.tools.indicator.merge_function_with_indicator
+
+plot
+----
+
+.. autofunction:: pypmc.tools.plot_mixture

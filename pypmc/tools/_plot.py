@@ -1,8 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-#TODO: include in documentation
-
 def plot_mixture(mixture, i, j, center_style=dict(s=0.15),
                        cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
                        solid_edge=True):
