@@ -84,19 +84,15 @@ class TestMixtureProposal(unittest.TestCase):
         self.assertEqual(item_output,target_output)
 
     def test_evaluate(self):
-        proposals   = (DummyComponent(),DummyComponent())
+        proposals   = (DummyComponent(eval_to=10.),DummyComponent())
         weights     = (.9,.1)
         evaluate_at = np.array( (-5.,) )
 
-        target = 0.
-        for i in range(len(weights)):
-            target += weights[i] * np.exp(proposals[i].evaluate(evaluate_at))
-        # .evaluate shall return the log of the proposal
-        target = np.log(target)
+        target = 39.69741490700607
 
         mix = MixtureDensity(proposals, weights)
 
-        self.assertEqual(target,mix.evaluate(evaluate_at))
+        self.assertAlmostEqual(target,mix.evaluate(evaluate_at))
 
     def test_propose(self):
         np.random.seed(rng_seed)

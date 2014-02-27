@@ -2,7 +2,7 @@
 
 import numpy as _np
 from copy import deepcopy as _deepcopy
-from math import exp, log
+from scipy.misc import logsumexp as _lse
 from ..markov_chain import proposal as _mc_proposal
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
@@ -126,13 +126,11 @@ class MixtureDensity(ProbabilityDensity):
     @_add_to_docstring(_msg_expect_normalized_weights)
     @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x):
-        out = 0.
-        for i,weight in enumerate(self.weights):
-            out += weight * exp(self.components[i].evaluate(x))
-        if out == 0.:
-            return -_np.inf
-        else:
-            return log(out)
+        components_evaluated = _np.empty(len(self.components))
+        for i,comp in enumerate(self.components):
+            components_evaluated[i] = comp.evaluate(x)
+        # avoid direct exponentiation --> use scipy.misc.logsumexp (_lse)
+        return _lse(a=components_evaluated, b=self.weights)
 
     @_add_to_docstring("""    .. warning::\n
             The returned samples are ordered by components. When disordered
