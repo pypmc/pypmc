@@ -125,7 +125,7 @@ class ImportanceSampler(object):
         self.target   = _indmerge(target, indicator, -_np.inf)
         self.history  = _History(proposal.dim + 1, prealloc)
 
-    def run(self, N=1, trace=False):
+    def run(self, N=1, trace_sort=False):
         '''Runs the sampler and stores the history of visited points into
         the member variable ``self.history``
 
@@ -136,7 +136,7 @@ class ImportanceSampler(object):
 
             An int which defines the number of steps to run the chain.
 
-        :param trace:
+        :param trace_sort:
 
             Bool; if True, return an array containing the responsible
             component of ``self.proposal`` for each sample generated
@@ -147,13 +147,17 @@ class ImportanceSampler(object):
                 This option only works for proposals of type
                 :py:class:`pypmc.importance_sampling.proposal.MixtureDensity`
 
+            .. note::
+
+                If True, the samples will be ordered by the components.
+
         '''
-        if trace:
-            this_run, origin = self._get_samples(N, trace=True)
+        if trace_sort:
+            this_run, origin = self._get_samples(N, trace_sort=True)
             self._calculate_weights(this_run, N)
             return origin
         else:
-            this_run = self._get_samples(N, trace=False)
+            this_run = self._get_samples(N, trace_sort=False)
             self._calculate_weights(this_run, N)
 
     def _calculate_weights(self, this_run, N):
@@ -163,7 +167,7 @@ class ImportanceSampler(object):
             tmp = self.target(tmp) - self.proposal.evaluate(tmp)
             this_run[i,0] = _exp(tmp)
 
-    def _get_samples(self, N, trace):
+    def _get_samples(self, N, trace_sort):
         """Saves N samples from ``self.proposal`` to ``self.history``
         Does NOT calculate the weights.
 
@@ -177,8 +181,8 @@ class ImportanceSampler(object):
         this_run = self.history.append(N)
 
         # store the proposed points (weights are still to be calculated)
-        if trace:
-            this_run[:,1:], origin = self.proposal.propose(N, self.rng, trace=True)
+        if trace_sort:
+            this_run[:,1:], origin = self.proposal.propose(N, self.rng, trace=True, shuffle=False)
             return this_run, origin
         else:
             this_run[:,1:] = self.proposal.propose(N, self.rng)

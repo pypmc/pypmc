@@ -93,7 +93,7 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
     delta_abun   = .02
     delta_mean   = .02
     delta_sigma1 = .0005
-    delta_sigma2 = .0051
+    delta_sigma2 = .02
 
     # target
     target_abundances = np.array((.6, .4))
@@ -204,7 +204,7 @@ class TestImportanceSampler(unittest.TestCase):
         prop = proposal.MixtureDensity(components)
         sam  = ImportanceSampler(dummy_target, prop)
 
-        origins = sam.run(50, trace=True)
+        origins = sam.run(50, trace_sort=True)
         samples = sam.history[-1]
 
         for i in range(50):

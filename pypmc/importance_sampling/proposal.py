@@ -132,48 +132,25 @@ class MixtureDensity(ProbabilityDensity):
         # avoid direct exponentiation --> use scipy.misc.logsumexp (_lse)
         return _lse(a=components_evaluated, b=self.weights)
 
-    @_add_to_docstring("""    .. warning::\n
-            The returned samples are ordered by components. When disordered
-            samples are needed use ``numpy.random.shuffle``\n\n""")
     @_add_to_docstring(_msg_expect_normalized_weights)
+    @_add_to_docstring(""":param shuffle:\n
+            bool; if True (default), the samples are disordered. Otherwise,
+            the samples are ordered by the components.\n\n        """)
     @_add_to_docstring(""":param trace:\n
             bool; if True, return the proposed samples and an array containing
             the number of the component responsible for each sample, otherwise
             just return the samples.\n\n        """)
     @_add_to_docstring("""    .. important::\n
-                ``rng`` must return a numpy array of N samples from the
-                uniform distribution over [0,1) when calling ``rng.rand(N)``.\n\n\n        """)
+                ``rng`` must return a numpy array of N samples from the multinomial
+                distribution with probabilities `pvals` when calling
+                ``rng.multinomial(N, pvals)``.\n\n\n        """)
     @_add_to_docstring(ProbabilityDensity.propose.__doc__.replace('.mtrand)', '.mtrand, trace=False)', 1))
-    def propose(self, N=1, rng=_np.random.mtrand, trace=False):
+    def propose(self, N=1, rng=_np.random.mtrand, trace=False, shuffle=True):
         ""
-        # The Algorithm:
-        # 1. Draw N samples from standard uniform distribution
-        # 2. The first weight is the probability to get a sample from
-        #    the first component, i.e. take as many samples from the
-        #    first component as there are random numbers < first weight.
-        #    Equivalently count how often (random numbers - first weight) < 0
-        # 3. For the next component count how often
-        #    a) random numbers >= first weight
-        #    and
-        #    b) random numbers < second weight
-        #    For b), as before, count how often (random numbers - second weight) < 0
-        #    For a) substract the number of samples which already counted in step 2
-        # 4. Subsequently count how often (random numbers - weight i) < 0
-        #    and substract the number of samples which have already been counted
-        #    for a previous component
+        if trace and shuffle:
+            raise ValueError('Either ``shuffle`` or ``trace`` must be ``False``!')
 
-        samples    = rng.rand(N)
-        to_get     = _np.empty(len(self.weights), dtype=int)
-        to_get[-1] = 0 # for first step in for loop
-        previous   = 0
-
-        for i, weight in enumerate(self.weights):
-            samples  -= weight
-            total     = (samples < 0.).sum()
-            to_get[i] = total - previous
-            previous += total - previous
-
-        assert total == N, 'Are the weights normalized?'
+        to_get = rng.multinomial(N, self.weights)
 
         current_write_start = 0
         output_samples = _np.empty((N,self.dim))
@@ -192,6 +169,8 @@ class MixtureDensity(ProbabilityDensity):
                 current_write_start += to_get[i]
             return output_samples, output_origin
         else: # if not trace
+            if shuffle:
+                _np.random.shuffle(output_samples)
             return output_samples
 
     def __getitem__(self, i):

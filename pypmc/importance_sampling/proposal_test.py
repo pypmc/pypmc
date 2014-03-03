@@ -6,7 +6,7 @@ from .proposal import *
 import numpy as np
 import unittest
 
-rng_seed  = 128501257
+rng_seed  = 12850419774
 rng_steps = 50000
 
 # dummy proposal component (convenient for testing):
@@ -122,9 +122,18 @@ class TestMixtureProposal(unittest.TestCase):
         for i in range(5):
             components.append( DummyComponent(propose=[float(i)]) )
         prop = MixtureDensity(components)
-        samples, origins = prop.propose(50, trace=True)
+        samples, origins = prop.propose(50, trace=True, shuffle=False)
         for i in range(50):
             self.assertAlmostEqual(samples[i], origins[i], delta=1.e-15)
+
+    def test_shuffle(self):
+        components = [DummyComponent(propose=[-1., 0.]), DummyComponent(propose=[+1.,5.])]
+        prop = MixtureDensity(components)
+        samples = prop.propose(50, shuffle=True)
+
+        # make sure there is "+1" and "-1" within the first few samples
+        self.assertAlmostEqual(samples[0][0], -1., delta=1.e-15)
+        self.assertAlmostEqual(samples[1][0], +1., delta=1.e-15)
 
 class TestGaussianComponent(unittest.TestCase):
     def setUp(self):

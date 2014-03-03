@@ -69,7 +69,7 @@ for i in range(10):
     print("\rstep", i, "...\n\t", end='')
 
     # run 10,000 steps and save the generating component
-    generating_components.append(sampler.run(10**4, trace=True))
+    generating_components.append(sampler.run(10**4, trace_sort=True))
 
     # get the weighted samples that have just been generated
     weighted_samples = sampler.history[-1]
