@@ -464,8 +464,8 @@ class TestVBMerge(unittest.TestCase):
         self.assertEqual(len(output.components), len(initial_guess.components))
 
         # restart, should converge immediately
-        params = vb.prior_posterior()
-        vb2 = VBMerge(input_components, **params)
+        pripos = vb.prior_posterior()
+        vb2 = VBMerge(input_components, vb.N, **pripos)
         nsteps = vb2.run(verbose=True)
         self.assertEqual(nsteps, 1)
         self.assertEqual(vb2.likelihood_bound(), vb.likelihood_bound())
@@ -473,7 +473,7 @@ class TestVBMerge(unittest.TestCase):
         # parameters should be identical at fixed point
         params2 = vb2.prior_posterior()
         for k, v in params2.items():
-            np.testing.assert_array_equal(v, params[k])
+            np.testing.assert_array_equal(v, pripos[k])
 
     @attr('slow')
     def test_large_prune(self):

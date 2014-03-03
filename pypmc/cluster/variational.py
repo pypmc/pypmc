@@ -171,25 +171,19 @@ class GaussianInference(object):
             :py:class:`.GaussianInference`\ (`..., **output`) creates a new
             instance using the inferred posterior as prior.
 
-        .. warning::
-            Results are *not* copied.
-
         '''
-        return dict(alpha0=self.alpha, beta0=self.beta, nu0=self.nu, m0=self.m,
-                    W0=self.W, components=self.K)
+        return dict(alpha0=self.alpha.copy(), beta0=self.beta.copy(), nu0=self.nu.copy(),
+                    m0=self.m.copy(), W0=self.W.copy(), components=self.K)
 
     def prior_posterior(self):
         '''Return references to prior and posterior values of all variational
         parameters as dict.
 
-        .. warning::
-            Results are *not* copied.
-
         '''
 
-        return dict(alpha0=self.alpha0, beta0=self.beta0, m0=self.m0, nu0=self.nu0, W0=self.W0,
-                    alpha=self.alpha, beta=self.beta, m=self.m, nu=self.nu, W=self.W,
-                    N=self.N, components=self.K)
+        return dict(alpha0=self.alpha0.copy(), beta0=self.beta0.copy(), m0=self.m0.copy(),
+                    nu0=self.nu0.copy(), W0=self.W0.copy(), alpha=self.alpha.copy(), beta=self.beta.copy(),
+                    m=self.m.copy(), nu=self.nu.copy(), W=self.W.copy(), components=self.K)
 
     def prune(self, threshold=1.):
         r'''Delete components with an effective number of samples
@@ -357,10 +351,10 @@ class GaussianInference(object):
 
         .. note::
 
-            For good performance, it is strongly recommended to explicitly
-            initialize ``m`` to values close to the bulk of the target
-            distribution. For all other parameters, consult chapter 10
-            in [Bis06]_ when considering to modify the defaults.
+            For good results, it is strongly recommended to NOT initialize
+            ``m`` to values close to the bulk of the target distribution.
+            For all other parameters, consult chapter 10 in [Bis06]_ when
+            considering to modify the defaults.
 
         :param alpha0, alpha:
 
@@ -442,26 +436,29 @@ class GaussianInference(object):
             Default: identity matrix in :math:`D` dimensions for every
             component.
 
-        .. warning::
-            Inputs are *not* copied.
-
         '''
         if args: raise TypeError('keyword args only')
 
         self.alpha0 = kwargs.pop('alpha0', 1e-5)
         if not _np.iterable(self.alpha0):
             self.alpha0 =  self.alpha0 * _np.ones(self.K)
+        else:
+            self.alpha0 = _np.array(self.alpha0)
         self._check_K_vector('alpha0')
         self.alpha = kwargs.pop('alpha', _np.ones(self.K) * self.alpha0)
         self._check_K_vector('alpha')
+        self.alpha = _np.array(self.alpha)
 
         # in the limit beta --> 0: uniform prior
         self.beta0 = kwargs.pop('beta0', 1e-5)
         if not _np.iterable(self.beta0):
             self.beta0 =  self.beta0 * _np.ones(self.K)
+        else:
+            self.beta0 = _np.array(self.beta0)
         self._check_K_vector('beta0')
         self.beta = kwargs.pop('beta', _np.ones(self.K) * self.beta0)
         self._check_K_vector('beta')
+        self.beta = _np.array(self.beta)
 
         # smallest possible nu such that the Wishart pdf does not diverge at 0 is self.dim + 1
         # smallest possible nu such that the Gauss-Wishart pdf does not diverge is self.dim
@@ -470,18 +467,25 @@ class GaussianInference(object):
         self.nu0 = kwargs.pop('nu0', nu_min + 1e-5)
         if not _np.iterable(self.nu0):
             self.nu0 = self.nu0 * _np.ones(self.K)
+        else:
+            self.nu0 = _np.array(self.nu0)
         self._check_K_vector('nu0', min=nu_min)
         self.nu = kwargs.pop('nu', self.nu0 * _np.ones(self.K))
         self._check_K_vector('nu', min=nu_min)
+        self.nu = _np.array(self.nu)
 
-        self.m0 = kwargs.pop('m0', _np.zeros(self.dim))
+        self.m0 = _np.array( kwargs.pop('m0', _np.zeros(self.dim)) )
         if len(self.m0) == self.dim:
             # vector or matrix?
             if len(self.m0.shape) == 1:
                 self.m0 = _np.vstack(tuple([self.m0] * self.K))
 
         # If the initial means are identical, the K remain identical in all updates.
-        self.m      = kwargs.pop('m'     , _np.linspace(-1.,1., self.K*self.dim).reshape((self.K, self.dim)))
+        self.m      = kwargs.pop('m'     , None)
+        if self.m is None:
+            self.m = _np.linspace(-1.,1., self.K*self.dim).reshape((self.K, self.dim))
+        else:
+            self.m = _np.array(self.m)
         for name in ('m0', 'm'):
             if getattr(self, name).shape != (self.K, self.dim):
                 raise ValueError('Shape of %s %s does not match (K,d)=%s' % (name, self.m.shape, (self.K, self.dim)))
@@ -492,6 +496,7 @@ class GaussianInference(object):
             self.W0     = _np.eye(self.dim)
             self.inv_W0 = self.W0.copy()
         elif self.W0.shape == (self.dim, self.dim):
+            self.W0     = _np.array(self.W0)
             self.inv_W0 = _np.linalg.inv(self.W0)
         # handle both above cases
         if self.W0.shape == (self.dim, self.dim):
@@ -850,7 +855,7 @@ class VBMerge(GaussianInference):
             # copy over the means
             self.m = _np.array([c.mu for c in initial_guess.components])
 
-            self.alpha = N * initial_guess.weights
+            self.alpha = N * _np.array(initial_guess.weights)
 
         self.E_step()
 
