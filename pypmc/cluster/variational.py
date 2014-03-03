@@ -187,7 +187,7 @@ class GaussianInference(object):
 
     def prune(self, threshold=1.):
         r'''Delete components with an effective number of samples
-        :math:`\alpha_k` below the threshold.
+        :math:`N_k` below the threshold.
 
         :param threshold:
 
@@ -200,7 +200,7 @@ class GaussianInference(object):
         if not threshold:
             return
 
-        components_to_survive = _np.where(self.alpha >= threshold)[0]
+        components_to_survive = _np.where(self.N_comp >= threshold)[0]
         self.K = len(components_to_survive)
 
         # list all vector and matrix vmembers
