@@ -70,11 +70,14 @@ class MarkovChain(object):
     def __init__(self, target, proposal, start, indicator=None,
                  prealloc=0, rng=_np.random.mtrand):
         # store input into instance
-        self.current   = _np.array(start)                      # call array constructor to make sure to have a copy
-        self.history   = _History(len(self.current), prealloc) # initialize history
-        self.proposal  = proposal
-        self.rng       = rng
-        self.target    = _indmerge(target, indicator, -_np.inf)
+        self.current_point        = _np.array(start) # call array constructor to make sure to have a copy
+        self.history              = _History(len(self.current_point), prealloc) # initialize history
+        self.proposal             = proposal
+        self.rng                  = rng
+        self.target               = _indmerge(target, indicator, -_np.inf)
+        self.current_target_eval  = self.target(self.current_point)
+        if not _np.isfinite(self.current_target_eval):
+            raise ValueError('``target(start)`` must evaluate to a finite value and ``indicator(start)`` must be ``True``')
 
     def run(self, N=1):
         '''Runs the chain and stores the history of visited points into
@@ -101,10 +104,11 @@ class MarkovChain(object):
 
         for i_N in range(N):
             # propose new point
-            proposed_point = self.proposal.propose(self.current, self.rng)
+            proposed_point = self.proposal.propose(self.current_point, self.rng)
+            proposed_eval  = self.target(proposed_point)
 
             # log_rho := log(probability to accept point), where log_rho > 0 is meant to imply rho = 1
-            log_rho = get_log_rho(proposed_point)
+            log_rho = get_log_rho(proposed_point, proposed_eval)
 
             # check for NaN
             if _np.isnan(log_rho): raise ValueError('encountered NaN')
@@ -113,32 +117,34 @@ class MarkovChain(object):
             # accept if rho = 1
             if log_rho >=0:
                 accept_count += 1
-                this_run[i_N] = proposed_point
-                self.current  = proposed_point
+                this_run[i_N]            = proposed_point
+                self.current_point       = proposed_point
+                self.current_target_eval = proposed_eval
 
             # accept with probability rho
             elif log_rho >= _np.log(self.rng.rand()):
                 accept_count += 1
-                this_run[i_N] = proposed_point
-                self.current  = proposed_point
+                this_run[i_N]            = proposed_point
+                self.current_point       = proposed_point
+                self.current_target_eval = proposed_eval
 
             # reject if not accepted
             else:
-                this_run[i_N] = self.current
+                this_run[i_N] = self.current_point
                 #do not need to update self.current
                 #self.current = self.current
         # ---------------------- end for --------------------------------
 
         return accept_count
 
-    def _get_log_rho_metropolis(self, proposed_point):
+    def _get_log_rho_metropolis(self, proposed_point, proposed_eval):
         """calculate the log of the metropolis ratio"""
-        return self.target(proposed_point) - self.target(self.current)
+        return proposed_eval - self.current_target_eval
 
-    def _get_log_rho_metropolis_hastings(self, proposed_point):
+    def _get_log_rho_metropolis_hastings(self, proposed_point, proposed_eval):
         """calculate log(metropolis ratio times hastings factor)"""
-        return self._get_log_rho_metropolis(proposed_point)\
-             - self.proposal.evaluate      (proposed_point, self.current)\
+        return self._get_log_rho_metropolis(proposed_point, proposed_eval)\
+             - self.proposal.evaluate      (proposed_point, self.current) \
              + self.proposal.evaluate      (self.current, proposed_point)
 
 class AdaptiveMarkovChain(MarkovChain):
@@ -170,7 +176,7 @@ class AdaptiveMarkovChain(MarkovChain):
         super(AdaptiveMarkovChain, self).__init__(*args, **kwargs)
 
         if self.covar_scale_factor is None:
-            self.covar_scale_factor = 2.38**2/len(self.current)
+            self.covar_scale_factor = 2.38**2/len(self.current_point)
 
         # initialize unscaled sigma
         self.unscaled_sigma = self.proposal.sigma / self.covar_scale_factor

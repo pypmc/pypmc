@@ -22,6 +22,12 @@ def raise_not_implemented(x):
         return 1.
     raise NotImplementedError()
 
+def infinite(x):
+    return np.inf
+
+def nan(x):
+    return np.nan
+
 class MultivariateNonEvaluable(density.gauss.LocalGauss):
     def evaluate(self, x, y):
         raise NotImplementedError()
@@ -29,6 +35,16 @@ class MultivariateNonEvaluable(density.gauss.LocalGauss):
 class TestMarkovChain(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
+
+    def test_invalid_start(self):
+        prop = density.gauss.LocalGauss(offdiag_sigma)
+        start = np.array((0.,1.))
+
+        with self.assertRaises(ValueError):
+            mc = MarkovChain(nan, prop, start)
+
+        with self.assertRaises(ValueError):
+            mc = MarkovChain(infinite, prop, start)
 
     def test_indicator(self):
         prop = density.gauss.LocalGauss(offdiag_sigma)
@@ -100,7 +116,7 @@ class TestMarkovChain(unittest.TestCase):
         self.assertAlmostEqual(var1 , target_sigma[1,1], delta=delta_var1)
 
     def test_run_notices_NaN(self):
-        bad_target = lambda x: np.nan
+        bad_target = lambda x: 0. if (x==start).all() else np.nan
         prop       = density.gauss.LocalGauss(offdiag_sigma)
         start      = np.array([4.3, 1.1])
 
