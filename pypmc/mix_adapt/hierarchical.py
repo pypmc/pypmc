@@ -18,15 +18,19 @@ class Hierarchical(object):
 
     :param input_components:
 
-        :py:class:`pypmc.pmc.proposal.MixtureDensity` with Gaussian
-        (:py:class:`pypmc.pmc.proposal.Gauss`) components; the Gaussian
+        :py:class:`pypmc.density.mixture.MixtureDensity` with Gaussian
+        (:py:class:`pypmc.density.gauss.Gauss`) components; the Gaussian
         mixture to be reduced.
 
     :param initial_guess:
 
-        :py:class:`pypmc.pmc.proposal.MixtureDensity` with Gaussian
-        (:py:class:`pypmc.pmc.proposal.Gauss`) components; initial guess
+        :py:class:`pypmc.density.mixture.MixtureDensity` with Gaussian
+        (:py:class:`pypmc.density.gauss.Gauss`) components; initial guess
         for the EM algorithm.
+
+    .. seealso::
+
+        :py:func:`pypmc.density.mixture.create_gaussian_mixture`
 
     :param verbose:
 

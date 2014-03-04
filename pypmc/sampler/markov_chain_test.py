@@ -3,13 +3,15 @@
 """
 
 from .markov_chain import *
-from . import proposal
+from .. import density
 from ..tools._probability_densities import unnormalized_log_pdf_gauss
 import numpy as np
 import unittest
 
-offdiagSigma  = np.array([[0.01 , 0.003 ]
-                         ,[0.003, 0.0025]])
+zero_mean      = np.zeros(2)
+
+offdiag_sigma  = np.array([[0.01 , 0.003 ]
+                          ,[0.003, 0.0025]])
 
 rng_seed = 215135153
 
@@ -20,7 +22,7 @@ def raise_not_implemented(x):
         return 1.
     raise NotImplementedError()
 
-class MultivariateNonEvaluable(proposal.MultivariateGaussian):
+class MultivariateNonEvaluable(density.gauss.LocalGauss):
     def evaluate(self, x, y):
         raise NotImplementedError()
 
@@ -29,7 +31,7 @@ class TestMarkovChain(unittest.TestCase):
         np.random.mtrand.seed(rng_seed)
 
     def test_indicator(self):
-        prop = proposal.MultivariateGaussian(offdiagSigma)
+        prop = density.gauss.LocalGauss(offdiag_sigma)
         start = np.array((0.,1.))
         indicator = lambda x: (x == start).all()
 
@@ -46,7 +48,7 @@ class TestMarkovChain(unittest.TestCase):
         # TODO: extend this test to sample from non-symmetric proposal
 
         # proposal.evaluate should never be called if proposal.symmetric == True
-        prop = MultivariateNonEvaluable(offdiagSigma)
+        prop = MultivariateNonEvaluable(offdiag_sigma)
         start = np.array((0.,1.))
 
         mc = MarkovChain(lambda x: 1., prop, start)
@@ -64,11 +66,11 @@ class TestMarkovChain(unittest.TestCase):
         prop_sigma = np.array([[0.1 , 0.  ]
                                ,[0.  , 0.02]])
 
-        prop = proposal.MultivariateStudentT(prop_sigma, prop_dof)
+        prop = density.student_t.LocalStudentT(prop_sigma, prop_dof)
 
-        target_sigma = offdiagSigma
+        target_sigma = offdiag_sigma
         target_mean  = np.array([4.3, 1.1])
-        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiagSigma))
+        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiag_sigma))
 
         #extremely bad starting values
         start = np.array([-3.7, 10.6])
@@ -99,7 +101,7 @@ class TestMarkovChain(unittest.TestCase):
 
     def test_run_notices_NaN(self):
         bad_target = lambda x: np.nan
-        prop       = proposal.MultivariateGaussian(offdiagSigma)
+        prop       = density.gauss.LocalGauss(offdiag_sigma)
         start      = np.array([4.3, 1.1])
 
         mc = MarkovChain(bad_target, prop, start)
@@ -108,7 +110,7 @@ class TestMarkovChain(unittest.TestCase):
 
     def test_history(self):
         # dummy; not a real proposal
-        class ProposalPlusOne(proposal.ProposalDensity):
+        class ProposalPlusOne(density.base.ProbabilityDensity):
             symmetric = True
             def __init__(self):
                 pass
@@ -123,7 +125,7 @@ class TestMarkovChain(unittest.TestCase):
 
         # preallocate for half of the planned sampling length to check both,
         # use of preallocated memory and dynamically reallocated memory
-        mc = MarkovChain(target, ProposalPlusOne(), start, prealloc = 50)
+        mc = MarkovChain(target, ProposalPlusOne(), start, prealloc=50)
 
         # the above configuration creates an ever accepting markov chain
         # the visited points will be 0., 1., 2., 3., 4., ...
@@ -159,11 +161,11 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
         prop_sigma = np.array([[0.1 , 0.  ]
                                ,[0.  , 0.02]])
 
-        prop = proposal.MultivariateStudentT(prop_sigma, prop_dof)
+        prop = density.student_t.LocalStudentT(prop_sigma, prop_dof)
 
-        target_sigma = offdiagSigma
+        target_sigma = offdiag_sigma
         target_mean  = np.array([4.3, 1.1])
-        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiagSigma))
+        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiag_sigma))
 
         #good starting values; prerun is already tested in TestMarkovChain
         start = np.array([4.2, 1.])
@@ -203,10 +205,10 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
         self.assertTrue(scale_down_visited)
 
     def test_set_adapt_parameters(self):
-        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiagSigma))
+        log_target = lambda x: unnormalized_log_pdf_gauss(x, zero_mean, np.linalg.inv(offdiag_sigma))
         prop_sigma = np.array([[1. , 0.  ]
                               ,[0. , 1.  ]])
-        prop = proposal.MultivariateGaussian(prop_sigma)
+        prop = density.gauss.LocalGauss(prop_sigma)
         start = np.array([4.2, 1.])
 
         test_value = 4.

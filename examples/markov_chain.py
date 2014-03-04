@@ -8,7 +8,7 @@ import pypmc
 prop_dof   = 50.
 prop_sigma = np.array([[0.1 , 0.  ]
                       ,[0.  , 0.02]])
-prop = pypmc.markov_chain.proposal.MultivariateStudentT(prop_sigma, prop_dof)
+prop = pypmc.density.student_t.LocalStudentT(prop_sigma, prop_dof)
 
 # define the target; i.e., the function you want to sample from.
 # In this case, it is a Gaussian with mean "target_mean" and
@@ -31,7 +31,7 @@ log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, inv_target_sig
 start = np.array([-2., 10.])
 
 # define the markov chain object
-mc = pypmc.markov_chain.markov_chain.AdaptiveMarkovChain(log_target, prop, start)
+mc = pypmc.sampler.markov_chain.AdaptiveMarkovChain(log_target, prop, start)
 
 # run burn-in
 mc.run(10**4)

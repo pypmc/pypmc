@@ -1,12 +1,14 @@
 Tools
 =====
 
-history
+.. automodule:: pypmc.tools
+
+History
 -------
 
 .. autoclass:: pypmc.tools.History
 
-indicator
+Indicator
 ---------
 
 .. automodule:: pypmc.tools.indicator
@@ -15,7 +17,7 @@ indicator
 
 .. autofunction:: pypmc.tools.indicator.merge_function_with_indicator
 
-plot
+Plot
 ----
 
 .. autofunction:: pypmc.tools.plot_mixture

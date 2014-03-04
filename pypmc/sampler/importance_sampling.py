@@ -77,7 +77,7 @@ _docstring_params_importance_sampler = """:param target:
     :param proposal:
 
         The proposal density `q`. Should be of type
-        :py:class:`pypmc.importance_sampling.proposal.ProbabilityDensity`.
+        :py:class:`pypmc.density.base.ProbabilityDensity`.
 
     :param indicator:
 
@@ -107,7 +107,7 @@ _docstring_params_importance_sampler = """:param target:
 
         .. important::
             ``rng`` must fulfill the requirements of your proposal
-            :py:meth:`pypmc.importance_sampling.proposal.ProbabilityDensity.propose`
+            :py:meth:`pypmc.density.base.ProbabilityDensity.propose`
 
     """
 
@@ -145,7 +145,7 @@ class ImportanceSampler(object):
             .. note::
 
                 This option only works for proposals of type
-                :py:class:`pypmc.importance_sampling.proposal.MixtureDensity`
+                :py:class:`pypmc.density.mixture.MixtureDensity`
 
             .. note::
 

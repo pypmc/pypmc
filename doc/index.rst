@@ -1,19 +1,16 @@
 pypmc
 =====
 
-
-Second section
-==============
-
-Contents:
+Contents
+--------
 
 .. toctree::
    :numbered:
    :maxdepth: 2
 
-   markov_chain
-   importance_sampling
-   cluster
+   density
+   sampler
+   mix_adapt
    tools
    references
 

@@ -1,8 +1,8 @@
-"""Unit tests for the PMC proposal functions.
+"""Unit tests for the mixture probability densities
 
 """
 
-from .proposal import *
+from .mixture import *
 import numpy as np
 import unittest
 
@@ -22,7 +22,7 @@ class DummyComponent(ProbabilityDensity):
     def propose(self, N=1):
         return np.array([self.to_propose for i in range(N)])
 
-class TestMixtureProposal(unittest.TestCase):
+class TestMixtureDensity(unittest.TestCase):
     ncomp          = 5
     components     = [DummyComponent   for i in range(ncomp)]
 
@@ -135,127 +135,62 @@ class TestMixtureProposal(unittest.TestCase):
         self.assertAlmostEqual(samples[0][0], -1., delta=1.e-15)
         self.assertAlmostEqual(samples[1][0], +1., delta=1.e-15)
 
-class TestGaussianComponent(unittest.TestCase):
+means = np.array([[ 1.0,  5.4, -3.1],
+                  [-3.8,  2.5,  0.4],
+                  [ 4.1, -3.3, 19.8],
+                  [-9.1, 25.4,  1.0]])
+
+covs  = np.array([[[ 3.7,  0.7, -0.6],
+                   [ 0.7,  4.5,  0.5],
+                   [-0.6,  0.5,  0.6]],
+
+                  [[ 7.0,  1.2,  0.6],
+                   [ 1.2,  1.3,  1.5],
+                   [ 0.6,  1.5,  4.1]],
+
+                  [[ 1.3,  0.9, -0.3],
+                   [ 0.9,  4.1, -0.2],
+                   [-0.3, -0.2,  2.2]],
+
+                  [[ 1.6, -0.3, -0.6],
+                   [-0.3,  6.6, -0.5],
+                   [-0.6, -0.5,  9.4]]])
+
+weights = np.array([ 2.7,  0.4, 1.6, 4.8])
+
+normalized_weights = weights/weights.sum()
+
+class TestCreateGaussian(unittest.TestCase):
+    def test_invalid_input(self):
+        self.assertRaisesRegexp(AssertionError, 'number of means.*?not match.*?number of cov',
+                                create_gaussian_mixture, means    , covs[:2]   )
+        self.assertRaisesRegexp(AssertionError, 'number of means.*?not match.*?number of cov',
+                                create_gaussian_mixture, means[:2], covs       )
+
+    def test_create_no_weights(self):
+        mix = create_gaussian_mixture(means, covs)
+
+        for i, (component, weight) in enumerate(mix):
+            self.assertAlmostEqual(weight, .25)
+            np.testing.assert_equal(component.mu   , means[i])
+            np.testing.assert_equal(component.sigma, covs [i])
+
+    def test_create_with_weights(self):
+        mix = create_gaussian_mixture(means, covs, weights)
+
+        for i, (component, weight) in enumerate(mix):
+            self.assertAlmostEqual(weight, normalized_weights[i])
+            np.testing.assert_equal(component.mu   , means[i])
+            np.testing.assert_equal(component.sigma, covs [i])
+
+class TestRecoverGaussian(unittest.TestCase):
     def setUp(self):
-        print('"GaussianComponent" is a wrapper of ..markov_chain.proposal.MultivariateGaussian.')
-        print('When this test fails, first make sure that ..markov_chain.proposal.MultivariateGaussian works.')
+        print('when this test fails, first make sure that "create_gaussian_mixture" works')
 
-    def test_dim_mismatch(self):
-        mu    = np.ones(2)
-        sigma = np.eye (3)
-        self.assertRaisesRegexp(AssertionError, 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!', Gauss, mu, sigma)
-
-    def test_evaluate(self):
-        sigma = np.array([[0.01 , 0.003 ]
-                         ,[0.003, 0.0025]])
-
-        delta = 1e-8
-
-        mean  = np.array([4.3 , 1.1])
-        point = np.array([4.35, 1.2])
-
-        comp = Gauss(mean, sigma=sigma)
-
-        target = 1.30077135
-
-        self.assertAlmostEqual(comp.evaluate(point), target, delta=delta)
-
-    def test_propose(self):
-        mean           = np.array([-3.   ,+3.    ])
-
-        offdiag_sigma  = np.array([[0.01 , 0.003 ]
-                                  ,[0.003, 0.0025]])
-
-        delta_mean   = .001
-        delta_cov_00 = .0001
-        delta_cov_01 = .00003
-        delta_cov_11 = .00003
-
-        comp = Gauss(mu=mean, sigma=offdiag_sigma)
-
-        np.random.seed(rng_seed)
-
-        # test if value for rng can be omitted
-        proposed1 = comp.propose(rng_steps//2)
-        # test if value for rng can be set
-        proposed2 = comp.propose(rng_steps//2, np.random.mtrand)
-
-        # test standard value for parameter N
-        proposed3 = comp.propose()
-        self.assertEqual(len(proposed3),1)
-
-
-        proposed = np.vstack((proposed1, proposed2, proposed3))
-
-        sampled_mean = proposed.mean(axis=0)
-        sampled_cov  = np.cov(proposed,rowvar=0)
-
-
-        self.assertAlmostEqual(sampled_mean[0], mean[0], delta=delta_mean)
-        self.assertAlmostEqual(sampled_mean[1], mean[1], delta=delta_mean)
-
-        self.assertAlmostEqual(sampled_cov[0,0] , offdiag_sigma[0,0] , delta=delta_cov_00)
-        self.assertAlmostEqual(sampled_cov[0,1] , offdiag_sigma[0,1] , delta=delta_cov_01)
-        self.assertAlmostEqual(sampled_cov[1,1] , offdiag_sigma[1,1] , delta=delta_cov_11)
-
-class TestStudentTComponent(unittest.TestCase):
-    def setUp(self):
-        print('"StudentTComponent" is a wrapper of ..markov_chain.proposal.MultivariateStudentT.')
-        print('When this test fails, first make sure that ..markov_chain.proposal.MultivariateStudentT works.')
-
-    def test_dim_mismatch(self):
-        mu    = np.ones(2)
-        sigma = np.eye (3)
-        dof   = 4.
-        self.assertRaisesRegexp(AssertionError,
-                'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!',
-                StudentT, mu, sigma, dof)
-
-    def test_evaluate(self):
-        mean  = np.array( [1.25, 4.3   ] )
-        sigma = np.array([[0.0049, 0.  ]
-                         ,[0.    ,  .01]])
-        dof   = 5.
-        delta = 1e-9
-
-        t = StudentT(mean, sigma, dof)
-
-        point1 = np.array([1.3 , 4.4  ])
-        point2 = np.array([1.26, 4.424])
-
-        target1 = 2.200202941
-        target2 = 2.174596526
-
-        self.assertAlmostEqual(t.evaluate(point1), target1, delta=delta)
-        self.assertAlmostEqual(t.evaluate(point2), target2, delta=delta)
-
-    def test_propose(self):
-        mean  = np.array( [8.] )
-        sigma = np.array([[.2]])
-        dof   = 5.
-
-        delta       = 0.005
-        target_mean = mean
-        target_cov  = dof / (dof - 2.) * sigma
-
-        comp = StudentT(mu = mean, sigma = sigma, dof = dof)
-
-        np.random.seed(rng_seed)
-
-
-        # test if value for rng can be omitted
-        proposed1 = comp.propose(rng_steps//2)
-        # test if value for rng can be set
-        proposed2 = comp.propose(rng_steps//2, np.random.mtrand)
-
-        # test standard value for parameter N
-        proposed3 = comp.propose()
-        self.assertEqual(len(proposed3),1)
-
-        proposed = np.vstack((proposed1, proposed2, proposed3))
-
-        sampled_mean = proposed.mean(axis=0)
-        sampled_cov  = np.cov(proposed, rowvar=0)
-
-        self.assertAlmostEqual(sampled_mean, target_mean, delta=delta)
-        self.assertAlmostEqual(sampled_cov , target_cov , delta=delta)
+    def test_recover(self):
+        mix = create_gaussian_mixture(means, covs, weights)
+        o_means, o_covs, o_weights = recover_gaussian_mixture(mix)
+        for i, (component, weight) in enumerate(mix):
+            self.assertAlmostEqual(o_weights[i], weight)
+            np.testing.assert_equal(o_means[i], component.mu   )
+            np.testing.assert_equal(o_covs [i], component.sigma)

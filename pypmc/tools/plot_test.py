@@ -1,6 +1,7 @@
 from sys import version
 from ._plot import *
-from ..importance_sampling.proposal import Gauss, MixtureDensity
+from ..density.gauss import Gauss
+from ..density.mixture import MixtureDensity
 
 import unittest
 

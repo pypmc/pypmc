@@ -3,7 +3,8 @@
 """
 from __future__ import division
 from .hierarchical import *
-from ..importance_sampling.proposal import MixtureDensity, Gauss
+from ..density.gauss import Gauss
+from ..density.mixture import MixtureDensity
 import numpy as np
 import unittest
 

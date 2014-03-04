@@ -1,12 +1,12 @@
-"""Unit tests for the MCMC proposal functions.
+"""Unit tests for the StuentT probability densities
 
 """
 
-from .proposal import *
+from .student_t import *
 import numpy as np
 import unittest
 
-rng_seed = 128501257
+rng_seed  = 12850419274
 rng_steps = 50000
 
 singular_sigma = np.array([[0.0, 0.0   , 0.0]
@@ -19,83 +19,14 @@ asymmetric_sigma  = np.array([[0.01 , 0.003 ]
 offdiag_sigma  = np.array([[0.01 , 0.003 ]
                           ,[0.003, 0.0025]])
 
-class TestGaussian(unittest.TestCase):
+class TestLocalStudentT(unittest.TestCase):
+    def setUp(self):
+        print('"StudentT" needs .LocalGauss.')
+        print('When this test fails, first make sure that .LocalGauss works.')
+
     def test_badCovarianceInput(self):
-        sigma = singular_sigma
-        self.assertRaises(np.linalg.LinAlgError, MultivariateGaussian, (singular_sigma))
-        self.assertRaises(np.linalg.LinAlgError, MultivariateGaussian, (asymmetric_sigma))
-
-    def test_evaluate(self):
-        sigma = offdiag_sigma
-        delta = 1e-8
-
-        t = MultivariateGaussian(sigma=sigma)
-
-        x = np.array([4.3, 1.1])
-        y = np.array([4.35, 1.2])
-
-        target = 1.30077135
-
-        self.assertAlmostEqual(t.evaluate(x, y), target, delta=delta)
-        self.assertAlmostEqual(t.evaluate(y, x), target, delta=delta)
-
-    def test_propose(self):
-        sigma = offdiag_sigma
-        delta_chisq = .005
-        delta_mean  = .001
-        delta_var0  = .0001
-        delta_var1  = .00003
-
-        t = MultivariateGaussian(sigma=sigma)
-
-        np.random.seed(rng_seed)
-        current = np.array([4.3, 1.1])
-        target_mean0 = current[0]
-        target_var0  = offdiag_sigma[0,0]
-        target_mean1 = current[1]
-        target_var1  = offdiag_sigma[1,1]
-        target_chisq = 2.0
-        log_normalization = -np.log(2. * np.pi) - 0.5 * np.log(1.6e-5)
-
-        values0 = []
-        values1 = []
-        chisq = 0.
-
-        for i in range(rng_steps-1):
-            proposal = t.propose(current, np.random)
-            values0 += [proposal[0]]
-            values1 += [proposal[1]]
-            chisq += -2.0 * (t.evaluate(proposal, current) - log_normalization)
-
-        # test if value for rng can be omitted
-        proposal = t.propose(current)
-        values0 += [proposal[0]]
-        values1 += [proposal[1]]
-        chisq += -2.0 * (t.evaluate(proposal, current) - log_normalization)
-
-        chisq /= rng_steps
-
-        values0 = np.array(values0)
-        values1 = np.array(values1)
-
-        mean0 = values0.mean()
-        mean1 = values1.mean()
-        var0  = values0.var()
-        var1  = values1.var()
-
-
-        self.assertAlmostEqual(chisq, target_chisq, delta=delta_chisq)
-
-        self.assertAlmostEqual(mean0, target_mean0, delta=delta_mean)
-        self.assertAlmostEqual(mean1, target_mean1, delta=delta_mean)
-
-        self.assertAlmostEqual(var0 , target_var0 , delta=delta_var0)
-        self.assertAlmostEqual(var1 , target_var1 , delta=delta_var1)
-
-class TestStudentT(unittest.TestCase):
-    def test_badCovarianceInput(self):
-        self.assertRaises(np.linalg.LinAlgError, lambda: MultivariateStudentT(singular_sigma, 10) )
-        self.assertRaises(np.linalg.LinAlgError, lambda: MultivariateStudentT(asymmetric_sigma,10) )
+        self.assertRaises(np.linalg.LinAlgError, lambda: LocalStudentT(singular_sigma, 10) )
+        self.assertRaises(np.linalg.LinAlgError, lambda: LocalStudentT(asymmetric_sigma,10) )
 
     def test_evaluate(self):
         sigma = np.array([[0.0049, 0.  ]
@@ -103,7 +34,7 @@ class TestStudentT(unittest.TestCase):
         delta = 1e-9
         dof   = 5.
 
-        t = MultivariateStudentT(sigma=sigma, dof=dof)
+        t = LocalStudentT(sigma=sigma, dof=dof)
 
         x0 = np.array([1.25, 4.3  ])
         x1 = np.array([1.3 , 4.4  ])
@@ -123,7 +54,7 @@ class TestStudentT(unittest.TestCase):
         dof   = 5.
         delta = 0.005
 
-        t = MultivariateStudentT(sigma = sigma, dof = dof)
+        t = LocalStudentT(sigma = sigma, dof = dof)
 
         np.random.seed(rng_seed)
         current = np.array([0.])
@@ -154,10 +85,10 @@ class TestStudentT(unittest.TestCase):
         sigma      = offdiag_sigma
         dof        = 5.
         delta_mean = .001
-        delta_var0 = .0001
-        delta_var1 = .00003
+        delta_var0 = .0006
+        delta_var1 = .00004
 
-        t = MultivariateStudentT(sigma=sigma, dof=dof)
+        t = LocalStudentT(sigma=sigma, dof=dof)
 
         np.random.seed(rng_seed)
         current = np.array([4.3, 1.1])
@@ -191,3 +122,66 @@ class TestStudentT(unittest.TestCase):
         self.assertAlmostEqual(var0 , target_var0 , delta=delta_var0)
         self.assertAlmostEqual(mean1, target_mean1, delta=delta_mean)
         self.assertAlmostEqual(var1 , target_var1 , delta=delta_var1)
+
+
+class TestStudentT(unittest.TestCase):
+    def setUp(self):
+        print('"StudentT" needs .LocalStudentT.')
+        print('When this test fails, first make sure that .LocalStudentT works.')
+
+    def test_dim_mismatch(self):
+        mu    = np.ones(2)
+        sigma = np.eye (3)
+        dof   = 4.
+        self.assertRaisesRegexp(AssertionError,
+                'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!',
+                StudentT, mu, sigma, dof)
+
+    def test_evaluate(self):
+        mean  = np.array( [1.25, 4.3   ] )
+        sigma = np.array([[0.0049, 0.  ]
+                         ,[0.    ,  .01]])
+        dof   = 5.
+        delta = 1e-9
+
+        t = StudentT(mean, sigma, dof)
+
+        point1 = np.array([1.3 , 4.4  ])
+        point2 = np.array([1.26, 4.424])
+
+        target1 = 2.200202941
+        target2 = 2.174596526
+
+        self.assertAlmostEqual(t.evaluate(point1), target1, delta=delta)
+        self.assertAlmostEqual(t.evaluate(point2), target2, delta=delta)
+
+    def test_propose(self):
+        mean  = np.array( [8.] )
+        sigma = np.array([[.2]])
+        dof   = 5.
+
+        delta       = 0.005
+        target_mean = mean
+        target_cov  = dof / (dof - 2.) * sigma
+
+        comp = StudentT(mu = mean, sigma = sigma, dof = dof)
+
+        np.random.seed(rng_seed)
+
+
+        # test if value for rng can be omitted
+        proposed1 = comp.propose(rng_steps//2)
+        # test if value for rng can be set
+        proposed2 = comp.propose(rng_steps//2, np.random.mtrand)
+
+        # test standard value for parameter N
+        proposed3 = comp.propose()
+        self.assertEqual(len(proposed3),1)
+
+        proposed = np.vstack((proposed1, proposed2, proposed3))
+
+        sampled_mean = proposed.mean(axis=0)
+        sampled_cov  = np.cov(proposed, rowvar=0)
+
+        self.assertAlmostEqual(sampled_mean, target_mean, delta=delta)
+        self.assertAlmostEqual(sampled_cov , target_cov , delta=delta)

@@ -3,8 +3,10 @@
 """
 from __future__ import print_function
 from .variational import *
-from ..importance_sampling.proposal import MixtureDensity, Gauss
-from .. import importance_sampling
+from ..density.gauss import Gauss
+from ..density.student_t import StudentT
+from ..density.mixture import MixtureDensity
+from ..sampler import importance_sampling
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
 import copy
@@ -234,18 +236,18 @@ class TestGaussianInference(unittest.TestCase):
         prop_mean1  = np.array( [-4.9  , 0.01  ])
         prop_sigma1 = np.array([[ 0.007, 0.0   ],
                                 [ 0.0  , 0.0023]])
-        prop1       = importance_sampling.proposal.StudentT(prop_mean1, prop_sigma1, prop_dof1)
+        prop1       = StudentT(prop_mean1, prop_sigma1, prop_dof1)
 
         prop_dof2   = 5.
         prop_mean2  = np.array( [+5.08, 0.01])
         prop_sigma2 = np.array([[ 0.14, 0.01],
                                 [ 0.01, 0.6 ]])
-        prop2       = importance_sampling.proposal.StudentT(prop_mean2, prop_sigma2, prop_dof2)
+        prop2       = StudentT(prop_mean2, prop_sigma2, prop_dof2)
 
-        prop = importance_sampling.proposal.MixtureDensity((prop1, prop2), prop_abundances)
+        prop = MixtureDensity((prop1, prop2), prop_abundances)
 
 
-        sam = importance_sampling.sampler.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
+        sam = importance_sampling.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
         sam.run(10**4)
 
         weighted_samples = sam.history[:]

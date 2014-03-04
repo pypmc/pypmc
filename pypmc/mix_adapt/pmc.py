@@ -3,7 +3,8 @@
 """
 
 from __future__ import division
-from ..importance_sampling.proposal import MixtureDensity, Gauss
+from ..density.gauss import Gauss
+from ..density.mixture import MixtureDensity
 import numpy as _np
 from math import exp as _exp
 from copy import deepcopy as _cp

@@ -21,7 +21,7 @@ class MarkovChain(object):
     :param proposal:
 
         The proposal density `q`.
-        Should be of type :py:class:`pypmc.markov_chain.proposal.ProposalDensity`.
+        Should be of type :py:class:`pypmc.density.base.LocalDensity`.
 
         .. hint::
             If your proposal density is symmetric, define the member
@@ -64,11 +64,11 @@ class MarkovChain(object):
 
         .. seealso::
             ``rng`` must also fulfill the requirements of your proposal
-            :py:meth:`pypmc.markov_chain.proposal.ProposalDensity.propose`
+            :py:meth:`pypmc.density.base.LocalDensity.propose`
 
     """
-    def __init__(self, target, proposal, start, indicator = None,
-                 prealloc = 0, rng = _np.random.mtrand):
+    def __init__(self, target, proposal, start, indicator=None,
+                 prealloc=0, rng=_np.random.mtrand):
         # store input into instance
         self.current   = _np.array(start)                      # call array constructor to make sure to have a copy
         self.history   = _History(len(self.current), prealloc) # initialize history
@@ -311,7 +311,7 @@ class AdaptiveMarkovChain(MarkovChain):
     def adapt(self):
         """Update the proposal's covariance matrix using the points
         stored in ``self.points`` and the parameters which can be set via
-        :py:mod:`pypmc.markov_chain.markov_chain.AdaptiveMarkovChain.set_adapt_params`.
+        :py:meth:`.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
         described in detail.
 
@@ -337,7 +337,7 @@ class AdaptiveMarkovChain(MarkovChain):
                                + time_dependent_damping_factor  * covar_estimator
         self._update_scale_factor(accept_rate)
 
-        self.proposal.update_sigma(self.covar_scale_factor * self.unscaled_sigma)
+        self.proposal.update(self.covar_scale_factor * self.unscaled_sigma)
 
     def _update_scale_factor(self, accept_rate):
         '''Private function.

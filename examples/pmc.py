@@ -52,13 +52,13 @@ initial_prop_covariance = np.eye(2)
 
 initial_prop_components = []
 for i in range(3):
-    initial_prop_components.append(pypmc.importance_sampling.proposal.Gauss(initial_prop_means[i], initial_prop_covariance))
+    initial_prop_components.append(pypmc.density.gauss.Gauss(initial_prop_means[i], initial_prop_covariance))
 
-initial_proposal = pypmc.importance_sampling.proposal.MixtureDensity(initial_prop_components)
+initial_proposal = pypmc.density.mixture.MixtureDensity(initial_prop_components)
 
 
 # define an ImportanceSampler object
-sampler = pypmc.importance_sampling.sampler.ImportanceSampler(log_target, initial_proposal)
+sampler = pypmc.sampler.importance_sampling.ImportanceSampler(log_target, initial_proposal)
 
 
 # run 100,000 steps adapting the proposal every 10,000 steps
@@ -75,7 +75,7 @@ for i in range(10):
     weighted_samples = sampler.history[-1]
 
     # update the proposal using the pmc-algorithm in the non Rao-Blackwellized form
-    pypmc.cluster.pmc.gaussian_pmc(weighted_samples, sampler.proposal, generating_components[-1], mincount=20, rb=False, copy=False)
+    pypmc.mix_adapt.pmc.gaussian_pmc(weighted_samples, sampler.proposal, generating_components[-1], mincount=20, rb=False, copy=False)
 
 print("\rsampling finished")
 print(  '-----------------')

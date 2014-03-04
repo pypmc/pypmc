@@ -3,7 +3,8 @@
 '''
 
 from .pmc import *
-from ..importance_sampling import proposal, sampler
+from ..sampler import importance_sampling
+from .. import density
 from ..tools._probability_densities import normalized_pdf_gauss
 from math import log
 import numpy as np
@@ -35,10 +36,10 @@ log_target = lambda x:   log(target_abundances[0] * (normalized_pdf_gauss(x, mu1
                        + log(15.) # break normalization
 
 # proposal density
-gauss1 = proposal.Gauss(mu1+.001, cov1+.001)
-gauss2 = proposal.Gauss(mu2-.005, cov2-.005)
+gauss1 = density.gauss.Gauss(mu1+.001, cov1+.001)
+gauss2 = density.gauss.Gauss(mu2-.005, cov2-.005)
 proposal_abundances = np.array( (.7, .3) )
-prop = proposal.MixtureDensity((gauss1,gauss2), proposal_abundances)
+prop = density.mixture.MixtureDensity((gauss1,gauss2), proposal_abundances)
 
 # -----------------------------------------------------------------------------
 

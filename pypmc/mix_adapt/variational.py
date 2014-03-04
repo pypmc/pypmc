@@ -8,7 +8,8 @@ import numpy as _np
 from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
-from ..importance_sampling.proposal import MixtureDensity, Gauss
+from ..density.gauss import Gauss
+from ..density.mixture import MixtureDensity
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 from ..tools._regularize import regularize
 
@@ -347,7 +348,7 @@ class GaussianInference(object):
 
         .. warning ::
 
-            This function may delete results obtained by ``self.update``.
+            This function may delete results obtained by :py:meth:`.update`.
 
         .. note::
 
@@ -813,9 +814,11 @@ class VBMerge(GaussianInference):
 
     .. seealso::
 
-        :py:class:`pypmc.importance_sampling.proposal.MixtureDensity`
+        :py:class:`pypmc.density.gauss.Gauss`
 
-        :py:class:`pypmc.importance_sampling.proposal.Gauss`
+        :py:class:`pypmc.density.mixture.MixtureDensity`
+
+        :py:func:`pypmc.density.mixture.create_gaussian_mixture`
 
     '''
 
