@@ -5,6 +5,12 @@ from ..density.mixture import MixtureDensity
 
 import unittest
 
+def setUpModule():
+    try:
+        import matplotlib
+    except ImportError:
+        raise unittest.SkipTest("Can't test plot without matplotlib")
+
 class TestPlotMixture(unittest.TestCase):
 
     means  = (np.array([ -1,  -1]),
