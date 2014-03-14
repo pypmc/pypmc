@@ -208,6 +208,7 @@ class TestGaussianInference(unittest.TestCase):
         W     = np.linalg.inv(inv_W)
         np.testing.assert_allclose(infer.W[0], W)
 
+    @attr('slow')
     def test_weighted(self):
         # this test uses pypmc.pmc.importance_sampling --> before debugging here,
         # first make sure that importance_sampling works

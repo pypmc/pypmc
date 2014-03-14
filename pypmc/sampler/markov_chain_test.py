@@ -5,6 +5,7 @@
 from .markov_chain import *
 from .. import density
 from ..tools._probability_densities import unnormalized_log_pdf_gauss
+from nose.plugins.attrib import attr
 import numpy as np
 import unittest
 
@@ -73,6 +74,7 @@ class TestMarkovChain(unittest.TestCase):
 
         self.assertRaises(NotImplementedError, lambda: prop.evaluate(1.,2.))
 
+    @attr('slow')
     def test_sampling(self):
         delta_mean   = .002
         delta_var0   = .0003
@@ -168,6 +170,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
 
+    @attr('slow')
     def test_adapt(self):
         delta_mean   = .005
 

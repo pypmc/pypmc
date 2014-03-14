@@ -6,6 +6,7 @@ from .importance_sampling import *
 from .. import density
 from ..density.mixture_test import DummyComponent
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
+from nose.plugins.attrib import attr
 import numpy as np
 import unittest
 from math import log
@@ -226,9 +227,11 @@ class TestImportanceSampler(unittest.TestCase):
         # samples out of support should have zero weight
         np.testing.assert_allclose(weights, 0.)
 
+    @attr('slow')
     def test_unimodal_sampling(self):
         unimodal_sampling(self, ImportanceSampler)
 
+    @attr('slow')
     def test_bimodal_sampling(self):
         bimodal_sampling(self, ImportanceSampler)
 
@@ -253,9 +256,11 @@ class TestDeterministicIS(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
 
+    @attr('slow')
     def test_unimodal_sampling(self):
         unimodal_sampling(self, DeterministicIS)
 
+    @attr('slow')
     def test_bimodal_sampling(self):
         bimodal_sampling(self, DeterministicIS)
 
