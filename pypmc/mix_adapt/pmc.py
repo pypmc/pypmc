@@ -10,84 +10,81 @@ from math import exp as _exp
 from copy import deepcopy as _cp
 from ..tools._regularize import regularize
 
-def gaussian_pmc(weighted_samples, density, origin=None, rb=True, mincount=0, copy=True, weighted=True):
-    '''Adapts a probability ``density`` using the (M-)PMC algorithm according
+def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=0, copy=True, ):
+    '''Adapt a mixture ``density`` using the (M-)PMC algorithm according
     to [Cap+08]_.
 
-    :param weighted_samples:
+    :param samples:
 
-        Matrix-like array; the samples to be used for the pmc-run. The first
-        column is interpreted as (unnormalized) weights unless ``weighted``
-        is `False`.
+        Matrix-like array; the samples to be used for the PMC run.
 
     :param density:
 
         :py:class:`.MixtureDensity` with :py:class:`.Gauss` components;
-        the density which proposed the ``weighted_samples`` and shall be
+        the density which proposed the ``samples`` and shall be
         updated.
 
-    :param origin:
+    :param weights:
 
-        Vector-like array of integers, optional; the indices of the responsible
-        components for each sample.
+        Vector-like array of floats; The (unnormalized) importance
+        weights. If not given, assume all samples have equal weight.
+
+    :param latent:
+
+        Vector-like array of integers, optional; the latent variables
+        (indices) of the generating components for each sample.
 
     :param rb:
 
         Bool;
         If True, the component which proposed a sample is considered
-        as latent variable (unknown). This implements the Rao-Blackwellized
+        as a latent variable (unknown). This implements the Rao-Blackwellized
         algorithm.
         If False, each sample only updates its responsible component. This
         non-Rao-Blackwellized scheme is faster but only an approximation.
 
     :param mincount:
 
-        Integer; The minimum number of samples a component must have proposed
-        in order to not get weight zero. A value of zero (default) disables
-        this feature.
+        Integer; The minimum number of samples a component has to
+        generate in order not to be ignored during updates. A value of
+        zero (default) disables this feature. The motivation is that
+        components with very small weight generate few samples, so the
+        updates become unstable and it is more efficient to simply assign
+        weight zero.
 
         .. important::
 
-            Only possible if ``origin`` is provided.
+            Only possible if ``latent`` is provided.
 
-        .. hint::
+        .. seealso::
 
-            For those components, no calculations are performed which
-            results in speed up.
+            :py:meth:`.MixtureDensity.prune`
 
     :param copy:
 
         Bool; If True (default), the parameter ``density`` remains untouched.
         Otherwise, ``density`` is overwritten by the adapted density.
 
-    :param weighted:
-
-        Bool; If True (default), the first column of ``samples`` is interpreted
-        as weights.
-        If False, the first column of ``samples`` is interpreted as the first
-        coordinate.
-
     '''
-    if weighted:
-        weights = weighted_samples[:,0 ]
-        samples = weighted_samples[:,1:]
+    if weights is not None:
+        weights = _np.asarray(weights)
+        assert len(weights.shape) == 1, 'Weights must be one-dimensional.'
+        assert len(weights) == len(samples), \
+            "Number of weights (%s) does not match the number of samples (%s)." % (len(weights), len(samples))
         normalized_weights = weights / weights.sum()
-    else:
-        samples = weighted_samples
 
     def calculate_rho_rb():
         # if a component is pruned, the other weights must be renormalized
         need_renormalize = False
-        rho = _np.zeros(( len(weighted_samples),len(density.components) ))
+        rho = _np.zeros(( len(samples),len(density.components) ))
         for k in range(len(density.components)):
             if density.weights[k] == 0.:
                 # skip unneccessary calculation
-                continue
+                pass
             elif count[k] < mincount:
                 density.weights[k] = 0.
                 need_renormalize = True
                 print("Component %i died because of too few (%i) samples." %(k, count[k]))
-                continue
             else:
                 for n, sample in enumerate(samples):
                     rho[n, k]  = _exp(density.components[k].evaluate(sample)) * density.weights[k]
@@ -107,23 +104,23 @@ def gaussian_pmc(weighted_samples, density, origin=None, rb=True, mincount=0, co
                 density.weights[k] = 0.
                 need_renormalize = True
                 print("Component %i died because of too few (%i) samples." %(k, count[k]))
-            rho[origin==k,k] = True
+            rho[latent==k,k] = True
         return rho, need_renormalize
 
     if copy:
         density = _cp(density)
 
-    if origin is None:
+    if latent is None:
         if mincount > 0:
-            raise ValueError('`mincount` must be 0 if `origin` is not provided!')
+            raise ValueError('`mincount` must be 0 if `latent` is not provided!')
         if not rb:
-            raise ValueError('`rb` must be True if `origin` is not provided!')
+            raise ValueError('`rb` must be True if `latent` is not provided!')
         count = _np.ones(len(density.components))
         rho, need_renormalize = calculate_rho_rb()
 
 
-    else: # if origin is not None
-        count = _np.histogram(origin, bins=len(density.components), range=(0,len(density.components)))[0]
+    else: # if latent is not None
+        count = _np.histogram(latent, bins=len(density.components), range=(0,len(density.components)))[0]
         if rb:
             rho, need_renormalize = calculate_rho_rb()
         else:
@@ -132,32 +129,35 @@ def gaussian_pmc(weighted_samples, density, origin=None, rb=True, mincount=0, co
     # -------------- update equations according to (14) in [Cap+08] --------------
 
     # new component weights
-    if weighted:
+    if weights is not None:
         alpha = _np.einsum('n,nk->k', normalized_weights, rho)
     else:
         alpha = _np.einsum('nk->k', rho) / len(samples)
-    inv_alpha = 1./regularize(alpha)
+    inv_alpha = 1. / regularize(alpha)
 
     # new means
-    if weighted:
-        mu = _np.einsum('n,nk,nd->kd', normalized_weights, rho, samples)
+    if weights is not None:
+        mu = _np.einsum('n,nk,ni->ki', normalized_weights, rho, samples)
     else:
-        mu = _np.einsum('nk,nd->kd', rho, samples) / len(samples)
-    mu = _np.einsum('kd,k->kd', mu, inv_alpha)
+        mu = _np.einsum('nk,ni->ki', rho, samples) / len(samples)
+    mu = _np.einsum('ki,k->ki', mu, inv_alpha)
 
     # new covars
     cov = _np.empty(( len(mu),len(samples[0]),len(samples[0]) ))
+    x_minus_mu = _np.empty((len(samples), len(samples[0])))
     for k in range(len(density.components)):
         if density.weights[k] == 0.:
             # skip unneccessary calculation
             continue
         else:
-            x_minus_mu = samples - mu[k]
-            if weighted:
-                cov[k] = _np.einsum('n,n,ni,nj->ij', normalized_weights, rho[:,k], x_minus_mu, x_minus_mu) * inv_alpha[k]
+            x_minus_mu[:] = samples
+            x_minus_mu -= mu[k]
+            if weights is not None:
+                _np.einsum('n,n,ni,nj->ij', normalized_weights, rho[:,k], x_minus_mu, x_minus_mu, out=cov[k])
             else:
-                cov[k] = _np.einsum('n,ni,nj->ij', rho[:,k], x_minus_mu, x_minus_mu) * inv_alpha[k]
-    if not weighted:
+                _np.einsum('n,ni,nj->ij', rho[:,k], x_minus_mu, x_minus_mu, out=cov[k])
+            cov[k] *= inv_alpha[k]
+    if weights is None:
         cov /= len(samples)
 
     # ----------------------------------------------------------------------------

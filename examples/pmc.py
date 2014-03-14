@@ -71,11 +71,13 @@ for i in range(10):
     # run 10,000 steps and save the generating component
     generating_components.append(sampler.run(10**4, trace_sort=True))
 
-    # get the weighted samples that have just been generated
+    # get a reference to the weights and samples that have just been generated
     weighted_samples = sampler.history[-1]
+    weights = weighted_samples[:, 0]
+    samples = weighted_samples[:,1:]
 
     # update the proposal using the pmc-algorithm in the non Rao-Blackwellized form
-    pypmc.mix_adapt.pmc.gaussian_pmc(weighted_samples, sampler.proposal, generating_components[-1], mincount=20, rb=False, copy=False)
+    pypmc.mix_adapt.pmc.gaussian_pmc(samples, sampler.proposal, weights, generating_components[-1], mincount=20, rb=False, copy=False)
 
 print("\rsampling finished")
 print(  '-----------------')
