@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-def plot_mixture(mixture, i, j, center_style=dict(s=0.15),
+def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
                        cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
                        solid_edge=True):
     '''Plot the (Gaussian) components of the ``mixture`` density as
