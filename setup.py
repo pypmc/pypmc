@@ -1,9 +1,10 @@
 try:
     from setuptools import setup
-    setup
 except ImportError:
     from distutils.core import setup
-    setup
+setup
+
+from Cython.Build import cythonize
 
 # set the version number
 with open('pypmc/_version.py') as f:
@@ -19,4 +20,5 @@ setup(
     author_email='Frederik.Beaujean@lmu.de',
     license='GPLv2',
     install_requires=['numpy', 'scipy'],
+    ext_modules=cythonize('pypmc/mix_adapt/*.pyx')
     )

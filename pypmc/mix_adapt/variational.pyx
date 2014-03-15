@@ -1,8 +1,10 @@
+# cython: profile=True
 """Variational clustering as described in [Bis06]_
 
 """
 
 from __future__ import division, print_function
+
 from math import log
 import numpy as _np
 from scipy.special import gamma as _gamma
@@ -12,6 +14,15 @@ from ..density.gauss import Gauss
 from ..density.mixture import MixtureDensity
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 from ..tools._regularize import regularize
+
+cimport cython
+cimport numpy as _np
+import scipy.linalg.blas
+# import tokyo
+# cimport tokyo
+
+DTYPE = _np.float64
+ctypedef _np.double_t DTYPE_t
 
 class GaussianInference(object):
     '''Approximate a probability density by a Gaussian mixture with a variational
@@ -42,10 +53,17 @@ class GaussianInference(object):
     All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
     '''
-    def __init__(self, data, components, weights=None, **kwargs):
+
+#     cdef np.ndarray data
+#     cdef Py_ssize_t K
+#     cdef Py_ssize_t N
+#     cdef Py_ssize_t dim
+
+    def __init__(self, _np.ndarray data, int components, weights=None, **kwargs):
         self.data = data
         self.K = components
-        self.N, self.dim = self.data.shape
+        self.N = data.shape[0]
+        self.dim = data.shape[1]
         if weights is not None:
             assert weights.shape == (self.N,), \
                     "The number of samples (%s) does not match the number of weights (%s)" %(self.N, weights.shape[0])
@@ -611,16 +629,41 @@ class GaussianInference(object):
 
         self.expectation_det_ln_lambda = res
 
+    @cython.boundscheck(False)
     def _update_expectation_gauss_exponent(self):
         # (10.64)
 
-        tmp = _np.zeros_like(self.data[0])
+        cdef _np.ndarray[DTYPE_t, ndim=1] tmp  = _np.zeros_like(self.data[0], dtype=DTYPE)
+        # todo once the members like self.K are cdef'ed, don't repeat it here
+        cdef _np.ndarray[DTYPE_t, ndim=1] beta = self.beta
+        cdef _np.ndarray[DTYPE_t, ndim=2] data  =  self.data
+        cdef _np.ndarray[DTYPE_t, ndim=2] m  =  self.m
+        cdef _np.ndarray[DTYPE_t, ndim=1] nu  =  self.nu
+        cdef _np.ndarray[DTYPE_t, ndim=2] expectation_gauss_exponent = self.expectation_gauss_exponent
+        cdef _np.ndarray[DTYPE_t, ndim=2] W = _np.empty_like(self.W[0])
+        cdef Py_ssize_t K = self.K
+        cdef Py_ssize_t N = self.N
+        cdef Py_ssize_t dim = self.dim
+        cdef Py_ssize_t k,n,i,j
+        cdef DTYPE_t chi2
 
-        for k in range(self.K):
-            for n in range(self.N):
-                tmp[:] = self.data[n]
-                tmp   -= self.m[k]
-                self.expectation_gauss_exponent[n,k] = self.dim / self.beta[k] + self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
+        for k in range(K):
+            W[:] = self.W[k]
+            for n in range(N):
+                for i in range(dim):
+                    tmp[i] = data[n,i] - m[k,i]
+
+                # compute bilinear form with symmetric matrix by hand
+                # SIMD-amenable
+                chi2 = 0.
+                for i in range(dim):
+                    # diagonal contribution
+                    chi2 += tmp[i] * tmp[i] * W[i,i]
+                    # off-diagonal elements come twice
+                    for j in range(i):
+                        chi2 += 2. * tmp[i] * tmp[j] * W[i,j]
+                expectation_gauss_exponent[n,k] = dim / beta[k] + nu[k] * chi2
+        self.expectation_gauss_exponent = expectation_gauss_exponent
 
     def _update_expectation_ln_pi(self):
         # (10.66)
@@ -637,43 +680,76 @@ class GaussianInference(object):
 
         _np.einsum('k,nk,ni->ki', self.inv_N_comp, self.r, self.data, out=self.x_mean_comp)
 
+    @cython.boundscheck(False) # turn of bounds-checking for entire function
     def _update_S_weighted(self):
         # modified (10.53)
 
         # temp vector and matrix to store outer product
-        tmpv = _np.empty_like(self.data[0])
-        outer = _np.empty_like(self.S[0])
+        cdef _np.ndarray[DTYPE_t, ndim=1] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
+        cdef _np.ndarray[DTYPE_t, ndim=3] S = _np.zeros_like(self.S, dtype=DTYPE)
+        cdef _np.ndarray[DTYPE_t, ndim=2] data  =  self.data
+        cdef _np.ndarray[DTYPE_t, ndim=2] x_mean_comp =  self.x_mean_comp
+        cdef _np.ndarray[DTYPE_t, ndim=2] r =  self.r
+        cdef _np.ndarray[DTYPE_t, ndim=1] inv_N_comp =  self.inv_N_comp
+        cdef _np.ndarray[DTYPE_t, ndim=1] weights =  self.weights
 
-        # use outer product to guarantee a positive definite symmetric S
-        # expanding it into four terms, then using einsum failed numerically for large N
-        for k in range(self.K):
-            self.S[k,:,:] = 0
-            for n, x in enumerate(self.data):
-                tmpv[:] = x
-                tmpv -= self.x_mean_comp[k]
-                _np.einsum('i,j', tmpv, tmpv, out=outer)
-                outer *= self.r[n,k] * self.weights[n]
-                self.S[k] += outer
-            self.S[k] *= self.inv_N_comp[k]
+        cdef Py_ssize_t K = self.K
+        cdef Py_ssize_t N = self.N
+        cdef Py_ssize_t dim = self.dim
+        cdef Py_ssize_t k,n,i,j
 
+        for k in range(K):
+            for n in range(N):
+                # copy vector and subtract mean
+                for i in range(dim):
+                    tmpv[i] = data[n,i] - x_mean_comp[k,i]
+
+                # outer product on triagonal part
+                for i in range(dim):
+                    for j in range(i + 1):
+                        S[k,i,j] += weights[n] * r[n,k] * tmpv[i] * tmpv[j]
+            # divide by N and restore symmetry
+            for i in range(dim):
+                for j in range(i + 1):
+                    S[k,i,j] *= inv_N_comp[k]
+                    S[k,j,i] = S[k,i,j]
+
+        self.S = S
+
+    @cython.boundscheck(False) # turn of bounds-checking for entire function
     def _update_S(self):
         # (10.53)
 
         # temp vector and matrix to store outer product
-        tmpv = _np.empty_like(self.data[0])
-        outer = _np.empty_like(self.S[0])
+        cdef _np.ndarray[DTYPE_t, ndim=1] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
+        cdef _np.ndarray[DTYPE_t, ndim=3] S = _np.zeros_like(self.S, dtype=DTYPE)
+        cdef _np.ndarray[DTYPE_t, ndim=2] data  =  self.data
+        cdef _np.ndarray[DTYPE_t, ndim=2] x_mean_comp =  self.x_mean_comp
+        cdef _np.ndarray[DTYPE_t, ndim=2] r =  self.r
+        cdef _np.ndarray[DTYPE_t, ndim=1] inv_N_comp =  self.inv_N_comp
 
-        # use outer product to guarantee a positive definite symmetric S
-        # expanding it into four terms, then using einsum failed numerically for large N
-        for k in range(self.K):
-            self.S[k,:,:] = 0
-            for n, x in enumerate(self.data):
-                tmpv[:] = x
-                tmpv -= self.x_mean_comp[k]
-                _np.einsum('i,j', tmpv, tmpv, out=outer)
-                outer *= self.r[n,k]
-                self.S[k] += outer
-            self.S[k] *= self.inv_N_comp[k]
+        cdef Py_ssize_t K = self.K
+        cdef Py_ssize_t N = self.N
+        cdef Py_ssize_t dim = self.dim
+        cdef Py_ssize_t k,n,i,j
+
+        for k in range(K):
+            for n in range(N):
+                # copy vector and subtract mean
+                for i in range(dim):
+                    tmpv[i] = data[n,i] - x_mean_comp[k,i]
+
+                # outer product on triagonal part
+                for i in range(dim):
+                    for j in range(i + 1):
+                        S[k,i,j] += r[n,k] * tmpv[i] * tmpv[j]
+            # divide by N and restore symmetry
+            for i in range(dim):
+                for j in range(i + 1):
+                    S[k,i,j] *= inv_N_comp[k]
+                    S[k,j,i] = S[k,i,j]
+
+        self.S = S
 
     def _update_W(self):
         # (10.62)
