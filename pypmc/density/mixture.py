@@ -2,10 +2,10 @@
 
 import numpy as _np
 from copy import deepcopy as _deepcopy
-from scipy.misc import logsumexp as _lse
 from .base import ProbabilityDensity
 from .gauss import Gauss
 from ..tools._doc import _inherit_docstring, _add_to_docstring
+from ..tools._regularize import logsumexp as _lse
 
 _msg_expect_normalized_weights = \
     """.. important::
@@ -16,7 +16,7 @@ _msg_expect_normalized_weights = \
     """
 
 class MixtureDensity(ProbabilityDensity):
-    """Base class for multimodal probability densities.
+    """Base class for mixture probability densities.
 
     :param components:
 
@@ -89,13 +89,19 @@ class MixtureDensity(ProbabilityDensity):
         return removed_components
 
     @_add_to_docstring(_msg_expect_normalized_weights)
+    @_add_to_docstring(''':param individual:\n
+        bool; If true, return the evaluation of each component at ``x`` as an array.\n\n''')
     @_inherit_docstring(ProbabilityDensity)
-    def evaluate(self, x):
+    def evaluate(self, x, individual=False):
         components_evaluated = _np.empty(len(self.components))
         for i,comp in enumerate(self.components):
             components_evaluated[i] = comp.evaluate(x)
         # avoid direct exponentiation --> use scipy.misc.logsumexp (_lse)
-        return _lse(a=components_evaluated, b=self.weights)
+        res =  _lse(a=components_evaluated, b=self.weights)
+        if individual:
+            return res, components_evaluated
+        else:
+            return res
 
     @_add_to_docstring(_msg_expect_normalized_weights)
     @_add_to_docstring(""":param shuffle:\n
@@ -142,11 +148,11 @@ class MixtureDensity(ProbabilityDensity):
             return output_samples
 
     def __getitem__(self, i):
-        return self.components[i] , self.weights[i]
+        return self.components[i], self.weights[i]
 
     def __iter__(self):
         for i in range(len(self.components)):
-            yield self.components[i],self.weights[i]
+            yield self.components[i], self.weights[i]
 
 def create_gaussian_mixture(means, covs, weights=None):
     """Creates a :py:class:`.MixtureDensity` with gaussian (:py:class:`.Gauss`)
