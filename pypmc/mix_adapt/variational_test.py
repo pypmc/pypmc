@@ -158,11 +158,6 @@ class TestGaussianInference(unittest.TestCase):
         exp_ln_pi = digamma(1e-5) - digamma(2e-5)
         self.assertAlmostEqual(infer.expectation_ln_pi[0], exp_ln_pi, delta = float64_acc*exp_ln_pi)
 
-        # check self._update_r()
-        # log_rho
-        log_rho = exp_ln_pi + .5*exp_det_ln_lambda - np.log(2*np.pi) - .5*exp_gauss_expo
-        self.assertAlmostEqual(infer.log_rho[0,0], log_rho)
-
         # check r
         r = 1.3336148155022614e-34
         self.assertAlmostEqual(infer.r[0,1], r)
@@ -227,7 +222,7 @@ class TestGaussianInference(unittest.TestCase):
                            [ 0.0, 0.5  ]])
         inv_sigma2 = np.linalg.inv(sigma2)
 
-        log_target = lambda x: log( target_abundances[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
+        log_target = lambda x: np.log( target_abundances[0] * normalized_pdf_gauss(x, mean1, inv_sigma1) +
                                     target_abundances[1] * normalized_pdf_gauss(x, mean2, inv_sigma2) )
 
         # proposal
@@ -401,7 +396,8 @@ class TestVBMerge(unittest.TestCase):
         self.assertAlmostEqual(vb.expectation_ln_pi[0], vb.expectation_ln_pi[1])
 
         # painful calculation by hand
-        self.assertAlmostEqual(vb.log_rho[0,0], -18750628.396350645, delta=1e-5)
+        # was correct unnormalized value
+#         self.assertAlmostEqual(vb.log_rho[0,0], -18750628.396350645, delta=1e-5)
 
         old_bound = vb.likelihood_bound()
 
@@ -507,7 +503,7 @@ class TestVBMerge(unittest.TestCase):
         self.assertAlmostEqual(vb_check._expectation_log_q_mu_lambda, -41.029712289)
 
         # now let lots of components die out
-        N_output_initial = 50
+        N_output_initial = 15
         initial_guess = create_mixture(means, cov, N_output_initial)
 
         nu = np.zeros(N_output_initial) + 3. + 10.
@@ -526,6 +522,12 @@ class TestVBMerge(unittest.TestCase):
 
         self.assertTrue(check_bound(self, vb_prune, 20))
         self.assertEqual(vb_prune.K, 1)
+
+        # not calculated by hand, but checks number of steps and result at once
+        self.assertAlmostEqual(vb_prune.likelihood_bound(), -1816.5215612408278503)
+
+        # since one comp. is optimal, the bound must be higher
+        self.assertGreater(vb_prune.likelihood_bound(), vb.likelihood_bound())
 
     def test_bound(self):
         # a Gaussian target, should combine both components

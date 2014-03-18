@@ -1,11 +1,14 @@
-# cython: profile=True
+# cython: profile=False
+# cython: boundscheck=False
+# cython: wraparound=False
+# cython: cdivision=True
+
 """Variational clustering as described in [Bis06]_
 
 """
 
 from __future__ import division, print_function
 
-from math import log
 import numpy as _np
 from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
@@ -17,9 +20,7 @@ from ..tools._regularize import regularize
 
 cimport cython
 cimport numpy as _np
-import scipy.linalg.blas
-# import tokyo
-# cimport tokyo
+from libc.math cimport exp, log
 
 DTYPE = _np.float64
 ctypedef _np.double_t DTYPE_t
@@ -54,11 +55,6 @@ class GaussianInference(object):
 
     '''
 
-#     cdef np.ndarray data
-#     cdef Py_ssize_t K
-#     cdef Py_ssize_t N
-#     cdef Py_ssize_t dim
-
     def __init__(self, _np.ndarray data, int components, weights=None, **kwargs):
         self.data = data
         self.K = components
@@ -78,9 +74,7 @@ class GaussianInference(object):
 
         self.set_variational_parameters(**kwargs)
 
-        self._initialize_output()
-        # initialize manually so subclasses can save memory
-        self.expectation_gauss_exponent = _np.zeros((self.N, self.K))
+        self._initialize_intermediate(self.N)
 
         # compute expectation values for the initial parameter values
         # so a valid bound can be computed after object is initialized
@@ -225,7 +219,7 @@ class GaussianInference(object):
         # list all vector and matrix vmembers
         vmembers = ('alpha0', 'alpha', 'beta0', 'beta', 'expectation_det_ln_lambda',
                    'expectation_ln_pi', 'N_comp', 'nu0', 'nu', 'm0', 'm', 'S', 'W0', 'inv_W0', 'W', 'x_mean_comp')
-        mmembers = ('expectation_gauss_exponent', 'r')
+        mmembers = ('expectation_gauss_exponent', 'log_rho', 'r')
 
         # shift surviving across dead components
         k_new = 0
@@ -550,24 +544,44 @@ class GaussianInference(object):
         if not (v > min).all():
             raise ValueError('All elements of %s must exceed %g. %s=%s' % (name, min, name, v))
 
-    def _initialize_output(self):
-        '''Create all variables needed for the iteration in ``self.update``'''
+    def _initialize_intermediate(self, N_samples):
+        '''Create all intermediate quantities needed for the iteration in ``self.update``.
+        :param N_samples:
+
+            Int; The effective number of samples for which, for example, the responsibility
+            needs to be computed. Note that this may differ from ``self.N`` for `:class:VBMerge:`.
+
+        '''
+
+        self.expectation_gauss_exponent = _np.zeros((N_samples, self.K))
+        self.log_rho = _np.zeros_like(self.expectation_gauss_exponent)
+        self.r = _np.zeros_like(self.expectation_gauss_exponent)
+
         self.x_mean_comp = _np.zeros((self.K, self.dim))
-        self.N_comp = _np.zeros(self.K)
         self.S = _np.empty_like(self.W)
+        self.N_comp = _np.zeros(self.K)
+        self.expectation_det_ln_lambda = _np.zeros_like(self.N_comp)
+        self.expectation_ln_pi = _np.zeros_like(self.N_comp)
 
     def _update_log_rho(self):
         # (10.46)
 
-        # writing it out improves numerical precision from 1e-13 to machine precision
+        cdef:
+            DTYPE_t dlog
+            DTYPE_t [:] expectation_ln_pi = self.expectation_ln_pi
+            DTYPE_t [:] expectation_det_ln_lambda = self.expectation_det_ln_lambda
+            DTYPE_t [:,:] log_rho = self.log_rho
+            DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
 
-        # (NxK) matrix
-        self.log_rho  = -0.5 * self.expectation_gauss_exponent
-        # adding a K vector to (NxK) matrix adds to every row. That's what we want.
-        self.log_rho += self.expectation_ln_pi
-        self.log_rho += 0.5 * self.expectation_det_ln_lambda
-        # adding a scalar to every element
-        self.log_rho -= 0.5 * self.dim * log(2. * _np.pi)
+            Py_ssize_t K = self.K
+            Py_ssize_t N = len(log_rho)
+            Py_ssize_t k,n
+
+        dlog = self.dim * log(2. * _np.pi)
+
+        for n in range(N):
+            for k in range(K):
+                log_rho[n,k] = expectation_ln_pi[k] + 0.5 * (expectation_det_ln_lambda[k] - dlog - expectation_gauss_exponent[n,k])
 
     def _update_m(self):
         # (10.61)
@@ -592,20 +606,46 @@ class GaussianInference(object):
 
         self._update_log_rho()
 
-        # rescale log to avoid division by zero:
-        # find largest log for fixed comp. k
-        # and subtract it s.t. largest value at 0 (or 1 on linear scale)
-        rho = self.log_rho - self.log_rho.max(axis=1).reshape((len(self.log_rho), 1))
-        rho = _np.exp(rho)
+        cdef:
+            DTYPE_t [:,:] log_rho = self.log_rho
+            DTYPE_t [:,:] r = self.r
 
-        # compute normalization for each comp. k
-        normalization_rho = rho.sum(axis=1).reshape((len(rho), 1))
+            DTYPE_t max = 0.0
+            DTYPE_t tiny = _np.finfo('d').tiny
+            DTYPE_t norm, norm_inv, log_norm_inv
 
-        # in the division, the extra scale factor drops out automagically
-        self.r = rho / normalization_rho
+            cdef Py_ssize_t K = self.K
+            cdef Py_ssize_t N = len(log_rho)
+            cdef Py_ssize_t k,n
 
-        # avoid overflows and nans when taking the log of 0
-        regularize(self.r)
+        for n in range(N):
+            max = log_rho[n,0]
+
+            # find largest responsibility
+            for k in range(1, K):
+                if log_rho[n,k] > max:
+                    max = log_rho[n,k]
+
+            # rescale relative to largest value, so values in [0,1] (linear scale)
+            # in the division, the extra scale factor drops out automagically
+            # through the normalization
+            norm = 0.0
+            for k in range(K):
+                log_rho[n,k] -= max
+                r[n,k] = exp(log_rho[n,k])
+                norm += r[n,k]
+
+            # normalize to unity
+            # MUL faster than DIV :)
+            # store the properly normalized log(rho) for bound calculation
+            norm_inv = 1. / norm
+            log_norm_inv = log(norm_inv)
+            for k in range(K):
+                r[n,k] *= norm_inv
+                # avoid overflows and nans when taking the log of 0
+                if r[n,k] == 0.0:
+                    r[n,k] = tiny
+                log_rho[n,k] += log_norm_inv
 
     def _update_expectation_det_ln_lambda(self):
         # (10.65)
@@ -615,40 +655,37 @@ class GaussianInference(object):
         dets = _np.array([_np.linalg.det(W) for W in self.W])
         assert (dets > 0).all(), 'Some precision matrix is not positive definite in\n %s' % self.W
 
-        res = _np.zeros_like(self.nu)
+        self.expectation_det_ln_lambda[:] = 0.0
         tmp = _np.zeros_like(self.nu)
         for i in range(1, self.dim + 1):
             tmp[:] = self.nu
             tmp += 1. - i
             tmp *= 0.5
             # digamma aware of vector input
-            res += _digamma(tmp)
+            self.expectation_det_ln_lambda += _digamma(tmp)
 
-        res += self.dim * log(2.)
-        res += _np.log(dets)
+        self.expectation_det_ln_lambda += self.dim * log(2.)
+        self.expectation_det_ln_lambda += _np.log(dets)
 
-        self.expectation_det_ln_lambda = res
-
-    @cython.boundscheck(False)
     def _update_expectation_gauss_exponent(self):
         # (10.64)
 
-        cdef _np.ndarray[DTYPE_t, ndim=1] tmp  = _np.zeros_like(self.data[0], dtype=DTYPE)
-        # todo once the members like self.K are cdef'ed, don't repeat it here
-        cdef _np.ndarray[DTYPE_t, ndim=1] beta = self.beta
-        cdef _np.ndarray[DTYPE_t, ndim=2] data  =  self.data
-        cdef _np.ndarray[DTYPE_t, ndim=2] m  =  self.m
-        cdef _np.ndarray[DTYPE_t, ndim=1] nu  =  self.nu
-        cdef _np.ndarray[DTYPE_t, ndim=2] expectation_gauss_exponent = self.expectation_gauss_exponent
-        cdef _np.ndarray[DTYPE_t, ndim=2] W = _np.empty_like(self.W[0])
-        cdef Py_ssize_t K = self.K
-        cdef Py_ssize_t N = self.N
-        cdef Py_ssize_t dim = self.dim
-        cdef Py_ssize_t k,n,i,j
-        cdef DTYPE_t chi2
+        cdef:
+            DTYPE_t [:] tmp  = _np.zeros_like(self.data[0], dtype=DTYPE)
+            DTYPE_t [:] beta = self.beta
+            DTYPE_t [:,:] data  =  self.data
+            DTYPE_t [:,:] m  =  self.m
+            DTYPE_t [:] nu  =  self.nu
+            DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
+            DTYPE_t [:,:] W = _np.empty_like(self.W[0])
+            Py_ssize_t K = self.K
+            Py_ssize_t N = len(expectation_gauss_exponent)
+            Py_ssize_t dim = self.dim
+            Py_ssize_t k,n,i,j
+            DTYPE_t chi2
 
         for k in range(K):
-            W[:] = self.W[k]
+            W = self.W[k]
             for n in range(N):
                 for i in range(dim):
                     tmp[i] = data[n,i] - m[k,i]
@@ -663,75 +700,118 @@ class GaussianInference(object):
                     for j in range(i):
                         chi2 += 2. * tmp[i] * tmp[j] * W[i,j]
                 expectation_gauss_exponent[n,k] = dim / beta[k] + nu[k] * chi2
-        self.expectation_gauss_exponent = expectation_gauss_exponent
 
     def _update_expectation_ln_pi(self):
         # (10.66)
 
-        self.expectation_ln_pi = _digamma(self.alpha) - _digamma(self.alpha.sum())
+        self.expectation_ln_pi[:] = _digamma(self.alpha)
+        self.expectation_ln_pi   -= _digamma(self.alpha.sum())
 
     def _update_x_mean_comp_weighted(self):
         # modified (10.52)
 
-        _np.einsum('k,n,nk,ni->ki', self.inv_N_comp, self.weights, self.r, self.data, out=self.x_mean_comp)
+        cdef:
+            DTYPE_t w
+            DTYPE_t [:] inv_N_comp = self.inv_N_comp
+            DTYPE_t [:] weights = self.weights
+            DTYPE_t [:,:] r = self.r
+            DTYPE_t [:,:] data = self.data
+            DTYPE_t [:,:] x_mean_comp = self.x_mean_comp
+
+            cdef Py_ssize_t K = self.K
+            cdef Py_ssize_t N = len(r)
+            cdef Py_ssize_t dim = self.dim
+            cdef Py_ssize_t k,n,i
+
+        x_mean_comp[:,:] = 0.0
+
+        for k in range(K):
+            for n in range(N):
+                w = weights[n] * r[n,k]
+                for i in range(dim):
+                    x_mean_comp[k,i] += w * data[n,i]
+            for i in range(dim):
+                x_mean_comp[k,i] *= inv_N_comp[k]
 
     def _update_x_mean_comp(self):
         # (10.52)
 
-        _np.einsum('k,nk,ni->ki', self.inv_N_comp, self.r, self.data, out=self.x_mean_comp)
+        cdef:
+            DTYPE_t [:] inv_N_comp = self.inv_N_comp
+            DTYPE_t [:,:] r = self.r
+            DTYPE_t [:,:] data = self.data
+            DTYPE_t [:,:] x_mean_comp = self.x_mean_comp
 
-    @cython.boundscheck(False) # turn of bounds-checking for entire function
+            cdef Py_ssize_t K = self.K
+            cdef Py_ssize_t N = len(r)
+            cdef Py_ssize_t dim = self.dim
+            cdef Py_ssize_t k,n,i
+
+        x_mean_comp[:,:] = 0.0
+
+        for k in range(K):
+            for n in range(N):
+                for i in range(dim):
+                    x_mean_comp[k,i] += r[n,k] * data[n,i]
+            for i in range(dim):
+                x_mean_comp[k,i] *= inv_N_comp[k]
+
     def _update_S_weighted(self):
         # modified (10.53)
 
-        # temp vector and matrix to store outer product
-        cdef _np.ndarray[DTYPE_t, ndim=1] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
-        cdef _np.ndarray[DTYPE_t, ndim=3] S = _np.zeros_like(self.S, dtype=DTYPE)
-        cdef _np.ndarray[DTYPE_t, ndim=2] data  =  self.data
-        cdef _np.ndarray[DTYPE_t, ndim=2] x_mean_comp =  self.x_mean_comp
-        cdef _np.ndarray[DTYPE_t, ndim=2] r =  self.r
-        cdef _np.ndarray[DTYPE_t, ndim=1] inv_N_comp =  self.inv_N_comp
-        cdef _np.ndarray[DTYPE_t, ndim=1] weights =  self.weights
+        cdef:
+            DTYPE_t w
+            DTYPE_t [:] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
+            DTYPE_t [:] inv_N_comp =  self.inv_N_comp
+            DTYPE_t [:] weights =  self.weights
+            DTYPE_t [:,:] data  = self.data
+            DTYPE_t [:,:] x_mean_comp =  self.x_mean_comp
+            DTYPE_t [:,:] r =  self.r
+            DTYPE_t [:,:,:] S = self.S
 
-        cdef Py_ssize_t K = self.K
-        cdef Py_ssize_t N = self.N
-        cdef Py_ssize_t dim = self.dim
-        cdef Py_ssize_t k,n,i,j
+            Py_ssize_t K = self.K
+            Py_ssize_t N = len(r)
+            Py_ssize_t dim = self.dim
+            Py_ssize_t k,n,i,j
+
+        # start with a clean slate
+        S[:,:,:] = 0.0
 
         for k in range(K):
             for n in range(N):
                 # copy vector and subtract mean
                 for i in range(dim):
                     tmpv[i] = data[n,i] - x_mean_comp[k,i]
-
+                w = weights[n] * r[n,k]
                 # outer product on triagonal part
                 for i in range(dim):
                     for j in range(i + 1):
-                        S[k,i,j] += weights[n] * r[n,k] * tmpv[i] * tmpv[j]
+                        S[k,i,j] += w * tmpv[i] * tmpv[j]
             # divide by N and restore symmetry
             for i in range(dim):
                 for j in range(i + 1):
                     S[k,i,j] *= inv_N_comp[k]
                     S[k,j,i] = S[k,i,j]
 
-        self.S = S
-
-    @cython.boundscheck(False) # turn of bounds-checking for entire function
     def _update_S(self):
         # (10.53)
 
         # temp vector and matrix to store outer product
-        cdef _np.ndarray[DTYPE_t, ndim=1] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
-        cdef _np.ndarray[DTYPE_t, ndim=3] S = _np.zeros_like(self.S, dtype=DTYPE)
-        cdef _np.ndarray[DTYPE_t, ndim=2] data  =  self.data
-        cdef _np.ndarray[DTYPE_t, ndim=2] x_mean_comp =  self.x_mean_comp
-        cdef _np.ndarray[DTYPE_t, ndim=2] r =  self.r
-        cdef _np.ndarray[DTYPE_t, ndim=1] inv_N_comp =  self.inv_N_comp
+        cdef:
+            DTYPE_t [:] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
+            DTYPE_t [:,:,:] S = self.S
+            DTYPE_t [:,:] data  = self.data
+            DTYPE_t [:,:] x_mean_comp =  self.x_mean_comp
+            DTYPE_t [:,:] r =  self.r
+            DTYPE_t [:] inv_N_comp =  self.inv_N_comp
 
-        cdef Py_ssize_t K = self.K
-        cdef Py_ssize_t N = self.N
-        cdef Py_ssize_t dim = self.dim
-        cdef Py_ssize_t k,n,i,j
+            Py_ssize_t K = self.K
+            Py_ssize_t N = len(r)
+            Py_ssize_t dim = self.dim
+            Py_ssize_t k,n,i,j
+
+        # start with a clean slate
+        S[:,:,:] = 0.0
 
         for k in range(K):
             for n in range(N):
@@ -748,8 +828,6 @@ class GaussianInference(object):
                 for j in range(i + 1):
                     S[k,i,j] *= inv_N_comp[k]
                     S[k,j,i] = S[k,i,j]
-
-        self.S = S
 
     def _update_W(self):
         # (10.62)
@@ -822,13 +900,13 @@ class GaussianInference(object):
     def _update_expectation_log_q_Z_weighted(self):
         # modified (10.75)
 
-        self._expectation_log_q_Z = _np.einsum('n,nk,nk', self.weights, self.r, _np.log(self.r))
+        self._expectation_log_q_Z = _np.einsum('n,nk,nk', self.weights, self.r, self.log_rho)
         return self._expectation_log_q_Z
 
     def _update_expectation_log_q_Z(self):
         # (10.75)
 
-        self._expectation_log_q_Z = _np.einsum('nk,nk', self.r, _np.log(self.r))
+        self._expectation_log_q_Z = _np.einsum('nk,nk', self.r, self.log_rho)
         return self._expectation_log_q_Z
 
     def _update_expectation_log_q_pi(self):
@@ -916,6 +994,8 @@ class VBMerge(GaussianInference):
             raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
 
         self.dim = len(input_mixture[0][0].mu)
+
+        # need this many responsibilities
         self.N = N
 
         # effective number of samples per input component
@@ -924,7 +1004,7 @@ class VBMerge(GaussianInference):
 
         self.set_variational_parameters(**kwargs)
 
-        self._initialize_output()
+        self._initialize_intermediate(self.L)
 
         # take mean and covariances from initial guess
         if initial_guess is not None:
@@ -938,24 +1018,49 @@ class VBMerge(GaussianInference):
 
         self.E_step()
 
-    def _initialize_output(self):
-        GaussianInference._initialize_output(self)
-        self.expectation_gauss_exponent = _np.zeros((self.L, self.K))
-
     def _update_expectation_gauss_exponent(self):
         # after (40) in [BGP10]
-        for k, W in enumerate(self.W):
-            for l, comp in enumerate(self.input.components):
-                tmp = comp.mu - self.m[k]
-                self.expectation_gauss_exponent[l,k] = self.dim / self.beta[k] + self.nu[k] * \
-                                                       (_np.trace(W.dot(comp.sigma)) + tmp.dot(W).dot(tmp))
+
+        cdef:
+            DTYPE_t [:] tmp  = _np.zeros(self.dim, dtype=DTYPE)
+            DTYPE_t [:] beta = self.beta
+            DTYPE_t [:,:] m  =  self.m
+            DTYPE_t [:] nu  =  self.nu
+            DTYPE_t [:,:] mu = self.mu
+            DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
+            DTYPE_t [:,:] W, sigma
+            Py_ssize_t K = self.K
+            Py_ssize_t L = len(expectation_gauss_exponent)
+            Py_ssize_t dim = self.dim
+            Py_ssize_t k,l,i,j
+            DTYPE_t chi2
+
+        for k in range(K):
+            W = self.W[k]
+            for l in range(L):
+                sigma = self.input.components[l].sigma
+                for i in range(dim):
+                    tmp[i] = mu[l,i] - m[k,i]
+
+                # compute bilinear form with symmetric matrix by hand
+                # trace of product of symmetric matrices simplifies in the same manner
+                # x^T A x = \sum_i x_i^2  A_{ii} + 2 \sum_{i<j} x_i x_j A_{ij}
+                # Tr(A B) = \sum_i A_{ii} B_{ii} + 2 \sum_{i<j} A_{ij}  B_{ji}
+                chi2 = 0.
+                for i in range(dim):
+                    # diagonal contribution
+                    chi2 += (tmp[i] * tmp[i] + sigma[i,i]) * W[i,i]
+                    # off-diagonal elements come twice
+                    for j in range(i):
+                        chi2 += 2. * (tmp[i] * tmp[j] + sigma[j,i]) * W[i,j]
+                expectation_gauss_exponent[l,k] = dim / beta[k] + nu[k] * chi2
 
     def _update_log_rho(self):
         # (40) in [BGP10]
         # first line: compute k vector
-        tmp_k  = 2 * self.expectation_ln_pi
+        tmp_k  = 2. * self.expectation_ln_pi
         tmp_k += self.expectation_det_ln_lambda
-        tmp_k -= self.dim * _np.log(2 * _np.pi)
+        tmp_k -= self.dim * _np.log(2. * _np.pi)
 
         # turn into lk matrix
         self.log_rho = _np.einsum('l,k->lk', self.Nomega, tmp_k)
@@ -963,7 +1068,7 @@ class VBMerge(GaussianInference):
         # add second line
         self.log_rho -= _np.einsum('l,lk->lk', self.Nomega, self.expectation_gauss_exponent)
 
-        self.log_rho /= 2.0
+        self.log_rho *= 0.5
 
     def _update_N_comp(self):
         # (41)
@@ -978,13 +1083,41 @@ class VBMerge(GaussianInference):
     def _update_S(self):
         # combine (43) and (44), since only ever need sum of S and C
 
-        for k in range(self.K):
-            self.S[k,:] = 0.0
-            for l in range(self.L):
-                tmp        = self.mu[l] - self.x_mean_comp[k]
-                self.S[k] += self.Nomega[l] * self.r[l,k] * (_np.outer(tmp, tmp) + self.input.components[l].sigma)
+        cdef:
+            DTYPE_t [:] tmpv  = _np.empty(self.dim, dtype=DTYPE)
+            DTYPE_t [:,:,:] S = self.S
+            DTYPE_t [:,:] x_mean_comp =  self.x_mean_comp
+            DTYPE_t [:,:] mu =  self.mu
+            DTYPE_t [:,:] r =  self.r
+            DTYPE_t [:,:] sigma
+            DTYPE_t [:] inv_N_comp =  self.inv_N_comp
+            DTYPE_t [:] Nomega = self.Nomega
 
-            self.S[k] *= self.inv_N_comp[k]
+            Py_ssize_t K = self.K
+            Py_ssize_t L = self.L
+            Py_ssize_t dim = self.dim
+            Py_ssize_t k,l,i,j
+
+        # start with a clean slate
+        S[:,:,:] = 0.0
+
+        for k in range(K):
+            for l in range(L):
+                # copy vector and subtract mean
+                for i in range(dim):
+                    tmpv[i] = mu[l,i] - x_mean_comp[k,i]
+
+                sigma = self.input.components[l].sigma
+
+                # outer product on triagonal part
+                for i in range(dim):
+                    for j in range(i + 1):
+                        S[k,i,j] += Nomega[l] * r[l,k] * (tmpv[i] * tmpv[j] + sigma[i,j])
+            # divide by N_comp and restore symmetry
+            for i in range(dim):
+                for j in range(i + 1):
+                    S[k,i,j] *= inv_N_comp[k]
+                    S[k,j,i] = S[k,i,j]
 
 # todo move Wishart stuff to separate class, file?
 # todo doesn't check that nu > D - 1
