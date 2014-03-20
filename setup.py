@@ -2,7 +2,6 @@ try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
-setup
 
 from Cython.Build import cythonize
 
@@ -16,9 +15,9 @@ setup(
     name=n,
     packages=[n],
     version=__version__,
-    author='Frederik Beaujean',
-    author_email='Frederik.Beaujean@lmu.de',
+    author='Frederik Beaujean, Stephan Jahn',
+    author_email='Frederik.Beaujean@lmu.de, stephan.jahn@mytum.de',
     license='GPLv2',
-    install_requires=['numpy', 'scipy'],
+    install_requires=['numpy', 'scipy', 'cython'],
     ext_modules=cythonize('pypmc/mix_adapt/*.pyx')
     )

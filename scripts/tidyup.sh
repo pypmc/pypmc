@@ -7,6 +7,21 @@ find -P .. -name *.pyc -delete
 #remove .pyc files crated by python 3
 find -P .. -name __pycache__ -delete
 
+#remove build folder in root directory
+rm -rf ../build
+
+#remove variational.c
+rm -rf ../pypmc/mix_adapt/variational.c
+
+#remove variational binaries only if command line argument specified
+if [ "$1" = "bin" ]
+then
+  rm -rf ../pypmc/mix_adapt/variational.so
+  rm -rf ../pypmc/mix_adapt/variational.cpython-33m.so
+else
+  echo 'type "./tidyup bin" to delete the compiled cython objects'
+fi
+
 #remove backup files
 find -P -name *~ -delete
 find -P .. -name *~ -delete
