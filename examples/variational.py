@@ -1,48 +1,102 @@
+'''This example shows how to generate a "best fit" Gaussian mixture density
+from data using variational Bayes.
+
+'''
+
+## in this example, we will:
+## 1. Define a Gaussian mixture
+## 2. Generate demo data from that Gaussian mixture
+## 3. Generate a Gaussian mixture out of the data
+## 4. Plot the original and the generated mixture
+
+
 from __future__ import print_function
+import matplotlib.pyplot as plt
 import numpy as np
 import pypmc
 
-def run(plot=False):
-    np.random.seed(12345)
 
-    # define the target; i.e., the function you want to sample from.
-    # In this case, it is a bimodal Gaussian
 
-    target_weights = np.array([0.7, 0.3])
+# -------------------- 1. Define a Gaussian mixture --------------------
 
-    mean0       = np.array ([ 5.0  , 0.01  ])
-    covariance0 = np.array([[ 0.01 , 0.003 ],
-                            [ 0.003, 0.0025]])
+component_weights = np.array([0.3, 0.7])
 
-    mean1       = np.array ([-4.0  , 1.0   ])
-    covariance1 = np.array([[ 0.1  , 0.    ],
-                            [ 0.   , 0.02  ]])
+mean0       = np.array ([ 5.0  , 0.01  ])
+covariance0 = np.array([[ 0.01 , 0.003 ],
+                        [ 0.003, 0.0025]])
 
-    target_means = [mean0, mean1]
-    target_covariances = [covariance0, covariance1]
+mean1       = np.array ([-4.0  , 1.0   ])
+covariance1 = np.array([[ 0.1  , 0.    ],
+                        [ 0.   , 0.02  ]])
 
-    # number of samples
-    N = 500
+component_means = [mean0, mean1]
+component_covariances = [covariance0, covariance1]
 
-    # maximum number of components
-    K = 20
+target_mix = pypmc.density.mixture.create_gaussian_mixture(component_means, component_covariances, component_weights)
 
-    # create the mixture and draw sample data
-    mix = pypmc.density.mixture.create_gaussian_mixture(target_means, target_covariances, target_weights)
-    data = mix.propose(N=N)
-    vb = pypmc.mix_adapt.variational.GaussianInference(data, K)
-    vb.run(iterations=100, verbose=True)
-    res = vb.make_mixture()
 
-    if plot:
-        try:
-            import matplotlib.pyplot as plt
-            from pypmc.tools._plot import plot_mixture
-            plot_mixture(mix, cmap='jet')
-            plot_mixture(vb.make_mixture())
-            plt.show()
-        except ImportError:
-            pass
 
-if __name__ == '__main__':
-    run()
+# -------------------- 2. Generate demo data ---------------------------
+
+data = target_mix.propose(500)
+
+
+
+# -------------------- 3. Adapt a Gaussian mixture ---------------------
+
+# maximum number of components
+K = 20
+
+# Create a "GaussianInference" object.
+# The following command passes just the two essential arguments to "GaussianInference":
+# The ``data`` and a maximum number of ``components``.
+# For reasonable results in more complicated settings, an intial guess for some
+# parameters (especially ``m``) may be important. In this simple case however,
+# the default initialization is good enough.
+vb = pypmc.mix_adapt.variational.GaussianInference(data, K)
+
+# adapt the variational parameters
+converged = vb.run(50, verbose=True)
+print('-----------------------------')
+
+# generate a Gaussian mixture with the most probable parameters
+fit_mixture = vb.make_mixture()
+
+
+# -------------------- 4. Plot/print results ---------------------------
+
+
+if converged is None:
+    print('\nThe adaptation did not converge.\n')
+else:
+    print('\nConverged after %i iterations.\n' %converged)
+
+print("final  component weights: " + str(fit_mixture.weights))
+print("target component weights: " + str( target_mix.weights))
+
+def set_axlimits():
+    plt.xlim(-6.0, +6.000)
+    plt.ylim(-0.2, +1.401)
+
+plt.subplot(221)
+plt.title('target mixture')
+pypmc.tools.plot_mixture(target_mix)
+set_axlimits()
+
+plt.subplot(222)
+plt.title('"best fit"')
+pypmc.tools.plot_mixture(fit_mixture)
+set_axlimits()
+
+plt.subplot(223)
+plt.title('target mixture and "best fit"')
+pypmc.tools.plot_mixture(target_mix)
+pypmc.tools.plot_mixture(fit_mixture)
+set_axlimits()
+
+plt.subplot(224)
+plt.title('data')
+plt.hexbin(data[:,0], data[:,1], cmap='gray_r')
+set_axlimits()
+
+plt.show()
