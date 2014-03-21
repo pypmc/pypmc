@@ -152,13 +152,6 @@ class MixtureDensity(ProbabilityDensity):
                 rng.shuffle(output_samples)
             return output_samples
 
-    def __getitem__(self, i):
-        return self.components[i], self.weights[i]
-
-    def __iter__(self):
-        for i in range(len(self.components)):
-            yield self.components[i], self.weights[i]
-
 def create_gaussian_mixture(means, covs, weights=None):
     """Creates a :py:class:`.MixtureDensity` with gaussian (:py:class:`.Gauss`)
     components. The output can be used for the clustering algorithms.

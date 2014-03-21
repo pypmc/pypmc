@@ -993,7 +993,7 @@ class VBMerge(GaussianInference):
         else:
             raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
 
-        self.dim = len(input_mixture[0][0].mu)
+        self.dim = len(input_mixture.components[0].mu)
 
         # need this many responsibilities
         self.N = N

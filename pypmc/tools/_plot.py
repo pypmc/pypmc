@@ -48,7 +48,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
         if w < cutoff:
             continue
 
-        cov = mixture[k][0].sigma
+        cov = mixture.components[k].sigma
         submatrix = np.array([[cov[i,i], cov[i,j]], \
                               [cov[j,i], cov[j,j]]])
 

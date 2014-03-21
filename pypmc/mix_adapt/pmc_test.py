@@ -268,11 +268,11 @@ class TestPMCWithOverlap(unittest.TestCase):
         # the values that should be obtained by the pmc algorithm
         pmc_comp_weights = np.array( [  1., 0.])
         pmc_mu1          = np.array( [ 10.4920552 ,   1.11735768,   7.66532057])
-        pmc_mu2          = self.prop[1][0].mu
+        pmc_mu2          = self.prop.components[1].mu
         pmc_sigma1       = np.array([[ 11.54562717,   8.79011745,   3.21516184],
                                      [  8.79011745,   6.8816927 ,   1.41711901],
                                      [  3.21516184,   1.41711901,   8.52875733]]) / 10.
-        pmc_sigma2       = self.prop[1][0].sigma
+        pmc_sigma2       = self.prop.components[1].sigma
 
         np.testing.assert_allclose(adapted_comp_weights, pmc_comp_weights)
         np.testing.assert_allclose(adapted_mu1         , pmc_mu1         )
@@ -293,11 +293,11 @@ class TestPMCWithOverlap(unittest.TestCase):
         # the values that should be obtained by the pmc algorithm
         pmc_comp_weights = np.array([1., 0.])
         pmc_mu1          = np.array( [ 10.53906274,   1.19431695,   7.49161822])
-        pmc_mu2          = self.prop[1][0].mu
+        pmc_mu2          = self.prop.components[1].mu
         pmc_sigma1       = np.array([[ 12.97533036,   9.79558822,   4.01021926],
                                      [  9.79558822,   7.49336426,   2.38326823],
                                      [  4.01021926,   2.38326823,   7.63180987]]) / 10.
-        pmc_sigma2       = self.prop[1][0].sigma
+        pmc_sigma2       = self.prop.components[1].sigma
 
         np.testing.assert_allclose(adapted_comp_weights, pmc_comp_weights)
         np.testing.assert_allclose(adapted_mu1         , pmc_mu1         )

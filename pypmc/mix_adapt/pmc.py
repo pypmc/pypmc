@@ -179,7 +179,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
 
     # apply the updated mixture weights, means and covariances
     for k in live_components:
-        component = density[k][0]
+        component = density.components[k]
         density.weights[k] = alpha[k]
         # if matrix is not positive definite, the update will fail
         # in that case replug the old values and set its weight to zero

@@ -65,24 +65,6 @@ class TestMixtureDensity(unittest.TestCase):
         self.assertEqual(len(mix.weights), self.ncomp - 1)
         self.assertTrue(mix.normalized())
 
-    def test_access(self):
-        mix = MixtureDensity(self.components, np.arange(self.ncomp))
-
-        normalized_weights  = np.arange(self.ncomp, dtype=float)
-        normalized_weights /= normalized_weights.sum()
-
-        target_output = [(self.components[i],normalized_weights[i]) for i in range(self.ncomp)]
-
-        # test iteration
-        iter_output = []
-        for tup in mix:
-            iter_output.append(tup)
-        self.assertEqual(iter_output,target_output)
-
-        # test item access
-        item_output = [mix[i] for i in range(self.ncomp)]
-        self.assertEqual(item_output,target_output)
-
     def test_evaluate(self):
         proposals   = (DummyComponent(eval_to=10.),DummyComponent())
         weights     = (.9,.1)
@@ -170,18 +152,24 @@ class TestCreateGaussian(unittest.TestCase):
     def test_create_no_weights(self):
         mix = create_gaussian_mixture(means, covs)
 
-        for i, (component, weight) in enumerate(mix):
-            self.assertAlmostEqual(weight, .25)
-            np.testing.assert_equal(component.mu   , means[i])
-            np.testing.assert_equal(component.sigma, covs [i])
+        self.assertEqual(len(mix.components), 4)
+        self.assertEqual(len(mix.weights)   , 4)
+
+        for i in range(4):
+            self.assertAlmostEqual(mix.weights[i], .25)
+            np.testing.assert_equal(mix.components[i].mu   , means[i])
+            np.testing.assert_equal(mix.components[i].sigma, covs [i])
 
     def test_create_with_weights(self):
         mix = create_gaussian_mixture(means, covs, weights)
 
-        for i, (component, weight) in enumerate(mix):
-            self.assertAlmostEqual(weight, normalized_weights[i])
-            np.testing.assert_equal(component.mu   , means[i])
-            np.testing.assert_equal(component.sigma, covs [i])
+        self.assertEqual(len(mix.components), 4)
+        self.assertEqual(len(mix.weights)   , 4)
+
+        for i in range(4):
+            self.assertAlmostEqual(mix.weights[i], normalized_weights[i])
+            np.testing.assert_equal(mix.components[i].mu   , means[i])
+            np.testing.assert_equal(mix.components[i].sigma, covs [i])
 
 class TestRecoverGaussian(unittest.TestCase):
     def setUp(self):
@@ -190,7 +178,7 @@ class TestRecoverGaussian(unittest.TestCase):
     def test_recover(self):
         mix = create_gaussian_mixture(means, covs, weights)
         o_means, o_covs, o_weights = recover_gaussian_mixture(mix)
-        for i, (component, weight) in enumerate(mix):
-            self.assertAlmostEqual(o_weights[i], weight)
-            np.testing.assert_equal(o_means[i], component.mu   )
-            np.testing.assert_equal(o_covs [i], component.sigma)
+        for i in range(4):
+            self.assertAlmostEqual (o_weights[i], mix.weights   [i]      )
+            np.testing.assert_equal(o_means  [i], mix.components[i].mu   )
+            np.testing.assert_equal(o_covs   [i], mix.components[i].sigma)
