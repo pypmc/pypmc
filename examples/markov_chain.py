@@ -1,6 +1,5 @@
 '''This example illustrates how to run a Markov Chain using pypmc'''
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pypmc
 
@@ -52,5 +51,11 @@ accept_rate = float(accept_count) / len(values)
 print("The chain accepted %4.2f%% of the proposed points" % (accept_rate * 100) )
 
 # plot the result
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    print('For plotting "matplotlib" needs to be installed')
+    exit(1)
+
 plt.hexbin(values[:,0], values[:,1], gridsize = 40, cmap='gray_r')
 plt.show()

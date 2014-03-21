@@ -11,7 +11,6 @@ from data using variational Bayes.
 
 
 from __future__ import print_function
-import matplotlib.pyplot as plt
 import numpy as np
 import pypmc
 
@@ -65,7 +64,6 @@ fit_mixture = vb.make_mixture()
 
 # -------------------- 4. Plot/print results ---------------------------
 
-
 if converged is None:
     print('\nThe adaptation did not converge.\n')
 else:
@@ -74,24 +72,30 @@ else:
 print("final  component weights: " + str(fit_mixture.weights))
 print("target component weights: " + str( target_mix.weights))
 
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    print('For plotting "matplotlib" needs to be installed')
+    exit(1)
+
 def set_axlimits():
     plt.xlim(-6.0, +6.000)
     plt.ylim(-0.2, +1.401)
 
 plt.subplot(221)
 plt.title('target mixture')
-pypmc.tools.plot_mixture(target_mix)
+pypmc.tools.plot_mixture(target_mix, cmap='winter')
 set_axlimits()
 
 plt.subplot(222)
 plt.title('"best fit"')
-pypmc.tools.plot_mixture(fit_mixture)
+pypmc.tools.plot_mixture(fit_mixture, cmap='spectral')
 set_axlimits()
 
 plt.subplot(223)
 plt.title('target mixture and "best fit"')
-pypmc.tools.plot_mixture(target_mix)
-pypmc.tools.plot_mixture(fit_mixture)
+pypmc.tools.plot_mixture(target_mix, cmap='winter')
+pypmc.tools.plot_mixture(fit_mixture, cmap='spectral')
 set_axlimits()
 
 plt.subplot(224)

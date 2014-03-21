@@ -8,12 +8,13 @@ import numpy as np
 import pypmc
 from pypmc.tools._probability_densities import normalized_pdf_gauss
 
+
 # define the target; i.e., the function you want to sample from.
 # In this case, it is a bimodal Gaussian
 #
 # Note that the target function "log_target" returns the log of the
 # target function and that the target is not normalized.
-component_weights = np.array([0.7, 0.3])
+component_weights = np.array([0.3, 0.7])
 
 mean0       = np.array ([ 5.0  , 0.01  ])
 covariance0 = np.array([[ 0.01 , 0.003 ],
@@ -25,19 +26,12 @@ covariance1 = np.array([[ 0.1  , 0.    ],
                         [ 0.   , 0.02  ]])
 inv_covariance1 = np.linalg.inv(covariance1)
 
-component_means = [mean0, mean1, None]
-component_covariances = [covariance0, covariance1, None]
+component_means = [mean0, mean1]
+component_covariances = [covariance0, covariance1]
 
-def log_target(x):
-    target_function_evaluated = component_weights[0] * normalized_pdf_gauss(x, mean0, inv_covariance0) + \
-                                component_weights[1] * normalized_pdf_gauss(x, mean1, inv_covariance1)
-    # break normalization
-    target_function_evaluated *= 10.
-    # return the log of the target function; explicitly catch zeros to avoid the call np.log(0)
-    if target_function_evaluated == 0.:
-        return -np.inf
-    else:
-        return np.log(target_function_evaluated)
+target_mixture = pypmc.density.mixture.create_gaussian_mixture(component_means, component_covariances, component_weights)
+
+log_target = target_mixture.evaluate
 
 
 # define the initial proposal density
@@ -61,22 +55,23 @@ initial_proposal = pypmc.density.mixture.MixtureDensity(initial_prop_components)
 sampler = pypmc.sampler.importance_sampling.ImportanceSampler(log_target, initial_proposal)
 
 
-# run 100,000 steps adapting the proposal every 10,000 steps
+# draw 10,000 samples adapting the proposal every 1,000 samples
 # hereby save the generating proposal component for each sample which is
 # returned by mc.run
+# Note: With too few samples components may die out.
 generating_components = []
 for i in range(10):
     print("\rstep", i, "...\n\t", end='')
 
-    # run 10,000 steps and save the generating component
-    generating_components.append(sampler.run(10**4, trace_sort=True))
+    # draw 1,000 samples and save the generating component
+    generating_components.append(sampler.run(10**3, trace_sort=True))
 
     # get a reference to the weights and samples that have just been generated
     weighted_samples = sampler.history[-1]
     weights = weighted_samples[:, 0]
     samples = weighted_samples[:,1:]
 
-    # update the proposal using the pmc-algorithm in the non Rao-Blackwellized form
+    # update the proposal using the pmc algorithm in the non Rao-Blackwellized form
     pypmc.mix_adapt.pmc.gaussian_pmc(samples, sampler.proposal, weights, generating_components[-1], mincount=20, rb=False, copy=False)
 
 print("\rsampling finished")
@@ -88,16 +83,51 @@ print('initial component weights:', initial_proposal.weights)
 print('final   component weights:', sampler.proposal.weights)
 print('target  component weights:', component_weights)
 print()
-for k in range(3):
+for k, m in enumerate([mean0, mean1, None]):
     print('initial mean of component %i:' %k, initial_proposal.components[k].mu)
     print('final   mean of component %i:' %k, sampler.proposal.components[k].mu)
-    print('target  mean of component %i:' %k, component_means[k])
+    print('target  mean of component %i:' %k, m)
     print()
 print()
-for k in range(3):
+for k, c in enumerate([covariance0, covariance1, None]):
     print('initial covariance of component %i:\n' %k, initial_proposal.components[k].sigma, sep='')
     print()
     print('final   covariance of component %i:\n' %k, sampler.proposal.components[k].sigma, sep='')
     print()
-    print('target  covariance of component %i:\n' %k, component_covariances[k], sep='')
+    print('target  covariance of component %i:\n' %k, c, sep='')
     print('\n')
+
+
+# plot results
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    print('For plotting "matplotlib" needs to be installed')
+    exit(1)
+
+def set_axlimits():
+    plt.xlim(-6.0, +6.000)
+    plt.ylim(-0.2, +1.401)
+
+plt.subplot(221)
+plt.title('target mixture')
+pypmc.tools.plot_mixture(target_mixture, cmap='jet')
+set_axlimits()
+
+plt.subplot(222)
+plt.title('pmc fit')
+pypmc.tools.plot_mixture(sampler.proposal, cmap='spectral', cutoff=0.01)
+set_axlimits()
+
+plt.subplot(223)
+plt.title('target mixture and pmc fit')
+pypmc.tools.plot_mixture(target_mixture, cmap='jet')
+pypmc.tools.plot_mixture(sampler.proposal, cmap='spectral', cutoff=0.01)
+set_axlimits()
+
+plt.subplot(224)
+plt.title('data')
+plt.hist2d(sampler.history[-1][:,1], sampler.history[-1][:,2], weights=sampler.history[-1][:,0], cmap='gray_r', bins=200)
+set_axlimits()
+
+plt.show()
