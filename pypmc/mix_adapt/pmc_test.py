@@ -304,3 +304,19 @@ class TestPMCWithOverlap(unittest.TestCase):
         np.testing.assert_allclose(adapted_mu2         , pmc_mu2         )
         np.testing.assert_allclose(adapted_sigma1      , pmc_sigma1      )
         np.testing.assert_allclose(adapted_sigma2      , pmc_sigma2      )
+
+    def test_invalid_cov(self):
+        # cannot build covariance from only one sample
+        latent = np.zeros(len(self.samples))
+        latent[-1] = 1
+
+        adapted_prop = gaussian_pmc(self.samples, self.prop, latent=latent, rb=False)
+        self.assertEqual(adapted_prop.weights[0], 1.)
+        self.assertEqual(adapted_prop.weights[1], 0.)
+
+        # samples are shared with RB, so all components should survive
+        adapted_prop = gaussian_pmc(self.samples, self.prop, latent=latent, rb=True)
+        self.assertLess(adapted_prop.weights[0], 1.)
+        self.assertGreater(adapted_prop.weights[0], 0.)
+        self.assertLess(adapted_prop.weights[1], 1.)
+        self.assertGreater(adapted_prop.weights[1], 0.)
