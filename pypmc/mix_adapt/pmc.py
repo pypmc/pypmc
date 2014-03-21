@@ -73,10 +73,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
 
     def calculate_rho_rb():
         rho = _np.zeros(( len(samples),len(density.components) ))
-        for k in range(len(density.components)):
-            if density.weights[k] == 0.:
-                # skip unneccessary calculation
-                continue
+        for k in live_components:
             for n, sample in enumerate(samples):
                 rho[n, k]  = _exp(density.components[k].evaluate(sample)) * density.weights[k]
                 # + "tiny" --> avoid division by zero
@@ -85,10 +82,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
 
     def calculate_rho_non_rb():
         rho = _np.zeros(( len(samples),len(density.components) ))
-        for k in range(len(density.components)):
-            if density.weights[k] == 0.:
-                # skip unneccessary calculation
-                continue
+        for k in live_components:
             rho[latent==k,k] = 1.
         return rho
 
@@ -104,17 +98,35 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
             raise ValueError('`mincount` must be 0 if `latent` is not provided!')
         if not rb:
             raise ValueError('`rb` must be True if `latent` is not provided!')
+
+        # set up list of live_components
+        live_components = []
+        for k in range(len(density)):
+            if density.weights[k] != 0:
+                live_components.append(k)
+
         rho = calculate_rho_rb()
 
+
     else: # if latent is not None
+        count = _np.histogram(latent, bins=len(density.components), range=(0,len(density.components)))[0]
+
+        # set up list of live_components
+        live_components = []
+        for k in range(len(density)):
+            if (density.weights[k] == 0.) or (count[k] < mincount):
+                # components with weight zero or less than ``mincount`` samples are not alive
+                continue
+            live_components.append(k)
+
         if rb:
             rho = calculate_rho_rb()
         else:
             rho = calculate_rho_non_rb()
+
         # prune components with less samples than ``mincount`` AFTER rho has been calculated
-        count = _np.histogram(latent, bins=len(density.components), range=(0,len(density.components)))[0]
-        for k in range(len(density.components)):
-            if count[k] < mincount:
+        for k in range(len(density)):
+            if (density.weights[k] != 0.) and (count[k] < mincount):
                 density.weights[k] = 0.
                 # when a component is pruned, the other weights must be renormalized
                 need_renormalize = True
@@ -138,10 +150,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
         mu = _np.einsum('ki,k->ki', mu, inv_alpha)
 
         # new covars
-        for k in range(len(density.components)):
-            if density.weights[k] == 0.:
-                # skip unneccessary calculation
-                continue
+        for k in live_components:
             x_minus_mu[:] = samples
             x_minus_mu -= mu[k]
             _np.einsum('n,n,ni,nj->ij', normalized_weights, rho[:,k], x_minus_mu, x_minus_mu, out=cov[k])
@@ -158,10 +167,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
         mu = _np.einsum('ki,k->ki', mu, inv_alpha)
 
         # new covars
-        for k in range(len(density.components)):
-            if density.weights[k] == 0.:
-                # skip unneccessary calculation
-                continue
+        for k in live_components:
             x_minus_mu[:] = samples
             x_minus_mu -= mu[k]
             _np.einsum('n,ni,nj->ij', rho[:,k], x_minus_mu, x_minus_mu, out=cov[k])
@@ -172,24 +178,22 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
     # ----------------------------------------------------------------------------
 
     # apply the updated mixture weights, means and covariances
-    for k, component in enumerate(density.components):
-        if density.weights[k] == 0.:
-            # skip unneccessary calculation
-            continue
-        else:
-            density.weights[k] = alpha[k]
-            # if matrix is not positive definite, the update will fail
-            # in that case replug the old values and set its weight to zero
-            old_mu    = component.mu    # do not need to copy because .update creates a new array
-            old_sigma = component.sigma # do not need to copy because .update creates a new array
-            try:
-                component.update(mu[k], cov[k])
-            except _np.linalg.LinAlgError:
-                print("Could not update component %i --> weight is set to zero." %k)
-                component.update(old_mu, old_sigma)
-                density.weights[k] = 0.
-                # when a component is pruned, the other weights must be renormalized
-                need_renormalize = True
+    for k in live_components:
+        component = density[k][0]
+        density.weights[k] = alpha[k]
+        # if matrix is not positive definite, the update will fail
+        # in that case replug the old values and set its weight to zero
+        old_mu    = component.mu    # do not need to copy because .update creates a new array
+        old_sigma = component.sigma # do not need to copy because .update creates a new array
+        try:
+            component.update(mu[k], cov[k])
+        except _np.linalg.LinAlgError:
+            print("Could not update component %i --> weight is set to zero." %k)
+            component.update(old_mu, old_sigma)
+            density.weights[k] = 0.
+            # when a component is pruned, the other weights must be renormalized
+            need_renormalize = True
+
     if need_renormalize:
         density.normalize()
 
