@@ -49,6 +49,11 @@ class MixtureDensity(ProbabilityDensity):
 
         self.normalize()
 
+    def __len__(self):
+        number_of_components = len(self.components)
+        assert number_of_components == len(self.weights)
+        return number_of_components
+
     def normalize(self):
         """Normalize the component weights to sum up to 1."""
         self.weights /= self.weights.sum()
