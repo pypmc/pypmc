@@ -6,7 +6,6 @@ adapt the proposal density using the pmc algorithm.
 from __future__ import print_function
 import numpy as np
 import pypmc
-from pypmc.tools._probability_densities import normalized_pdf_gauss
 
 
 # define the target; i.e., the function you want to sample from.
