@@ -16,8 +16,7 @@ rm -rf ../pypmc/mix_adapt/variational.c
 #remove variational binaries only if command line argument specified
 if [ "$1" = "bin" ]
 then
-  rm -rf ../pypmc/mix_adapt/variational.so
-  rm -rf ../pypmc/mix_adapt/variational.cpython-33m.so
+  rm -rf ../pypmc/mix_adapt/*.so
 else
   echo 'type "./tidyup bin" to delete the compiled cython objects'
 fi
