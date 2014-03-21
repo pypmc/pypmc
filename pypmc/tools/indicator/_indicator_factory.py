@@ -2,7 +2,7 @@
 
 import numpy as _np
 
-def ball(center, radius = 1., bdy = True):
+def ball(center, radius=1., bdy=True):
     '''Returns the indicator function of a ball.
 
     :param center:

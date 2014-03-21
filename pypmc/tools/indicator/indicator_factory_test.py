@@ -7,14 +7,14 @@ import numpy as np
 import unittest
 
 class TestBall(unittest.TestCase):
-     # unit ball in dim 3
-    center = np.array([0, 0, 0.])
+    # unit ball in dim 3
+    center = np.array([0., 0., 0.])
 
     def test_unit_ball(self):
         unit_ball_ind = ball(self.center)
 
         inside  = [np.array((0.,0.,0.)) , np.array((0.,0.,1. )) , np.array(( .5,.5,.5))]
-        outside = [np.array((1.,1.,1.)) , np.array((0.,0.,1.1)) , np.array((5  ,.5,.5))]
+        outside = [np.array((1.,1.,1.)) , np.array((0.,0.,1.1)) , np.array((5. ,.5,.5))]
 
         for point in inside:
             self.assertTrue (unit_ball_ind(point))
@@ -25,33 +25,49 @@ class TestBall(unittest.TestCase):
         unit_ball_with_bdy    = ball(self.center, bdy=True)
         unit_ball_without_bdy = ball(self.center, bdy=False)
 
-        bdy_point = np.array((0.,0.,1.))
+        bdy_point = np.array((0.,0.,1. ))
+        inside    = np.array((0.,0., .5))
+        outside   = np.array((0.,0.,1.5))
+
+        self.assertTrue (unit_ball_with_bdy   (inside   ))
+        self.assertTrue (unit_ball_without_bdy(inside   ))
+
+        self.assertFalse(unit_ball_with_bdy   (outside  ))
+        self.assertFalse(unit_ball_without_bdy(outside  ))
 
         self.assertTrue (unit_ball_with_bdy   (bdy_point))
         self.assertFalse(unit_ball_without_bdy(bdy_point))
 
     def test_ball_wrong_dimension(self):
-        unit_ball_ind = ball(self.center)  # unit ball in dim 3
-        point3d       = np.array((0.,0.,1.))
+        # unit ball in dim 3
+        unit_ball_with_bdy = ball(self.center, bdy=True)
+        unit_ball_no_bdy   = ball(self.center, bdy=False)
+
+        point3d       = np.array((.4,.1,.2))
         point2d       = np.array((0.,0.))
 
-        unit_ball_ind(point3d)
-        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_ball_ind, point2d)
+        self.assertTrue(unit_ball_with_bdy(point3d))
+        self.assertTrue(unit_ball_no_bdy(point3d))
+        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_ball_no_bdy  , point2d)
+        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_ball_with_bdy, point2d)
 
 class TestHyperrectangle(unittest.TestCase):
     lower = np.array([0, 0, 0.])
     upper = np.array([1, 1, 1.])
 
     def test_unit_hr(self):
-        unit_hr_ind = hyperrectangle(self.lower, self.upper)
+        unit_hr_with_bdy = hyperrectangle(self.lower, self.upper, bdy=True)
+        unit_hr_no_bdy   = hyperrectangle(self.lower, self.upper, bdy=False)
 
-        inside  = [np.array(( .1, .1, .1)) , np.array(( .1, .1,1. )) , np.array(( .5,.5,.5))]
-        outside = [np.array((1.1,1.1,1.5)) , np.array((0.1,0.1,1.1)) , np.array((5  ,.5,.5))]
+        inside  = [np.array(( .1, .1, .1)) , np.array(( .1, .1, .9)) , np.array(( .5,.5,.5))]
+        outside = [np.array((1.1,1.1,1.5)) , np.array((0.1,0.1,1.1)) , np.array((5. ,.5,.5))]
 
         for point in inside:
-            self.assertTrue (unit_hr_ind(point))
+            self.assertTrue (unit_hr_with_bdy(point))
+            self.assertTrue (unit_hr_no_bdy(point))
         for point in outside:
-            self.assertFalse(unit_hr_ind(point))
+            self.assertFalse(unit_hr_with_bdy(point))
+            self.assertFalse(unit_hr_no_bdy(point))
 
     def test_hr_boundary(self):
         unit_hr_with_bdy    = hyperrectangle(self.lower, self.upper, bdy = True )
@@ -68,16 +84,23 @@ class TestHyperrectangle(unittest.TestCase):
             self.assertFalse(unit_hr_without_bdy(point))
 
     def test_hr_wrong_dimension(self):
-        unit_hr_ind = hyperrectangle(self.lower, self.upper) # unit hyperrectangle in dim 3 ([0,1]**3)
-        point3d     = np.array((0.,0.,1.))
-        point2d     = np.array((0.,0.))
+        # unit hyperrectangle in dim 3 ([0,1]**3)
+        unit_hr_with_bdy = hyperrectangle(self.lower, self.upper, bdy=True)
+        unit_hr_no_bdy   = hyperrectangle(self.lower, self.upper, bdy=False)
 
-        unit_hr_ind(point3d)
-        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_hr_ind, point2d)
+        point3d     = np.array((.1,.1,.1))
+        point2d     = np.array((.1,.1))
+
+        self.assertTrue(unit_hr_with_bdy(point3d))
+        self.assertTrue(unit_hr_no_bdy(point3d))
+        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_hr_with_bdy, point2d)
+        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_hr_no_bdy  , point2d)
 
     def test_hr_wrong_init(self):
         # hyperrectangle should raise an error if any lower > upper
-        self.assertRaises(ValueError, lambda: hyperrectangle(np.array([1.,1.]), np.array([10.,0.])))
+        self.assertRaises(ValueError, lambda: hyperrectangle(np.array([1.,1.]), np.array([10.,0.]), bdy=True))
+        self.assertRaises(ValueError, lambda: hyperrectangle(np.array([1.,1.]), np.array([10.,0.]), bdy=False))
 
         # hyperrectangle should raise an error if dim(lower)!=dim(upper)
-        self.assertRaises(ValueError, lambda: hyperrectangle(np.array([1.,1.,1.]), np.array([10.,10.])))
+        self.assertRaises(ValueError, lambda: hyperrectangle(np.array([1.,1.,1.]), np.array([10.,10.]), bdy=True))
+        self.assertRaises(ValueError, lambda: hyperrectangle(np.array([1.,1.,1.]), np.array([10.,10.]), bdy=False))
