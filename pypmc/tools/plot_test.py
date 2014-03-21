@@ -16,9 +16,9 @@ class TestPlotMixture(unittest.TestCase):
     means  = (np.array([ -1,  -1]),
               np.array([ 1  , 1]))
 
-    cov = [np.array([[1, -0.2], [-0.2, 1.]])]*2
+    covs = [np.array([[1, -0.2], [-0.2, 1.]]), np.array([[10., -0.2], [-0.2, 0.9]])]
     weights = [0.5, 0.5]
-    components = [Gauss(m, c) for m,c in zip(means, cov)]
+    components = [Gauss(m, c) for m,c in zip(means, covs)]
     input_components = MixtureDensity(components, weights)
 
     def test_valid(self):
@@ -29,7 +29,7 @@ class TestPlotMixture(unittest.TestCase):
         plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
 
     def test_invalid(self):
-        invalid_mix = MixtureDensity([Gauss(m, c) for m,c in zip(self.means, self.cov)],
+        invalid_mix = MixtureDensity([Gauss(m, c) for m,c in zip(self.means, self.covs)],
                                        self.weights)
 
         # invalid covariance
