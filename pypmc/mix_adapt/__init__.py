@@ -4,4 +4,4 @@ to data.
 '''
 
 # import these submodules by default
-from . import hierarchical, variational, pmc
+from . import hierarchical, variational, pmc, r_value

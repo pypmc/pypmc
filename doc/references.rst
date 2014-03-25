@@ -21,6 +21,10 @@ References
             Scandinavian Journal of Statistics 39-4, pp. 798-812
             `DOI:10.1111/j.1467-9469.2011.00756.x <http://dx.doi.org/10.1111/j.1467-9469.2011.00756.x>`_
 
+.. [GR92] Gelman, Andrew and Rubin, Donald B. *Inference from Iterative Simulation Using Multiple
+          Sequences*, 1992. Statistical Science, Volume 7, No. 4, pp. 457-511
+          `DOI:10.1214/ss/1177011136 <http://dx.doi.org/10.1214/ss/1177011136>`_
+
 .. [GR04] Goldberger, J. and Roweis, S. *Hierarchical clustering of a
           mixture model*, 2004. http://machinelearning.wustl.edu/mlpapers/paper_files/NIPS2005_63.pdf
 
