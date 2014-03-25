@@ -1,19 +1,36 @@
-'''Merge Gaussians with a sufficiently small Gelman-Rubin R-value [GR92]_.
+'''Merge Gaussians with a sufficiently small Gelman-Rubin R value [GR92]_.
 
 '''
+# TODO write example: Markov chains --> group by R value
 
 from __future__ import division as _div
 import numpy as _np
+from ..tools._doc import _add_to_docstring
 
+_manual_param_n = ''':param n:
+
+        Integer; the number of samples used to determine the estimates
+        passed via ``means`` and ``%(var)s``
+
+    '''
+_manual_param_approx = ''':param approx:
+
+        Bool; If False (default), calculate the R value as in [GR92]_.
+        If True, neglect the uncertainty induced by the sampling process.
+
+    '''
+
+@_add_to_docstring(_manual_param_approx)
+@_add_to_docstring(_manual_param_n %dict(var='variances'))
 def r_value(means, variances, n, approx=False):
-    '''Calculate the Gelman-Rubin R-value (Chapter 2.2 in [GR92]_).
-    The R-value can be used to quantify convergence of "Iterative
+    '''Calculate the Gelman-Rubin R value (Chapter 2.2 in [GR92]_).
+    The R value can be used to quantify convergence of "Iterative
     Simulations" (e.g. Markov Chains) to their limiting (target)
-    distribution. An R-value "close to one" indicates convergence.
+    distribution. An R value "close to one" indicates convergence.
 
     .. note::
 
-        The R-value is defined for univariate distributions only.
+        The R value is defined for univariate distributions only.
 
 
     :param means:
@@ -23,16 +40,6 @@ def r_value(means, variances, n, approx=False):
     :param variances:
 
         Vector-like array; the variance estimates
-
-    :param n:
-
-        Integer; the number of samples used to determine the estimates
-        passed via ``means`` and ``variances``
-
-    :approx:
-
-        Bool; If False (default), calculate the R-value as in [GR92]_.
-        If True, neglect the uncertainty induced by the sampling process.
 
     '''
     # use same variable names as in [GR92]
@@ -79,3 +86,88 @@ def r_value(means, variances, n, approx=False):
         return _np.inf
 
     return V / W * df / (df - 2)
+
+@_add_to_docstring(_manual_param_approx)
+@_add_to_docstring(_manual_param_n %dict(var='covs'))
+def multivariate_r(means, covs, n, approx=False):
+    '''Calculate the Gelman-Rubin R value (:py:func:`.r_value`) for each
+    dimension. Correlations are ignored, i.e. only the diagonal elements
+    of the covariance matrices are considered.
+    Return an array with the R values.
+
+    :param means:
+
+        Matrix-like array; the mean value estimates
+
+    :param covs:
+
+        3-dimensional array; the covariance estimates
+
+    '''
+    means = _np.asarray(means)
+    covs  = _np.asarray(covs)
+
+    assert len(means.shape) == 2, '``means`` must be matrix-like'
+    assert len(covs.shape) == 3, '``covs`` must be 3-dimensional'
+    assert len(means) == len(covs), \
+    'Number of ``means`` (%i) does not match number of ``covs`` (%i)' %( len(means), len(covs) )
+    assert covs.shape[1] == covs.shape[2], \
+    '``covs.shape[1]`` (%i) must match ``covs.shape[2]`` (%i)' %( covs.shape[1], covs.shape[2] )
+    assert means.shape[1] == covs.shape[1], \
+    'Dimensionality of ``means`` (%i) and ``covs`` (%i) does not match' %( means.shape[1], covs.shape[1] )
+
+    dim = means.shape[1]
+    out = _np.empty(dim)
+
+    for i in range(dim):
+        out[i] = r_value(means[:,i], covs[:,i,i], n, approx)
+
+    return out
+
+@_add_to_docstring(_manual_param_approx)
+@_add_to_docstring(''':param critical_r:
+
+        Float; group the chains such that their common R value is below
+        ``critical_r``.
+
+    ''')
+@_add_to_docstring(_manual_param_n %dict(var='covs'))
+def r_group(means, covs, n, critical_r=1.5, approx=False):
+    '''Group Gaussians whose common :py:func:`.r_value` is less than
+    ``critical_r``.
+
+    .. seealso::
+
+        :py:func:`.multivariate_r`
+
+
+    :param means:
+
+        Matrix-like array; the mean value estimates
+
+    :param covs:
+
+        3-dimensional array; the covariance estimates
+
+    '''
+    assert len(means) == len(covs)
+    means = _np.asarray(means)
+    covs  = _np.asarray(covs)
+
+    groups = []
+
+    for i in range(len(means)):
+        assigned = False
+        # try to assign component i to an existing group
+        for group in groups:
+            r_values = multivariate_r(means[group + [i]], covs[group + [i]], n, approx)
+            if (r_values < critical_r).all():
+                # add to group if R value small enough
+                group.append(i)
+                assigned = True
+                break
+        # if component i has not been added to an existing group case create a new group
+        if not assigned:
+            groups.append([i])
+
+    return groups
