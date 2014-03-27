@@ -1,8 +1,3 @@
-# cython: profile=False
-# cython: boundscheck=False
-# cython: wraparound=False
-# cython: cdivision=True
-
 """Variational clustering as described in [Bis06]_
 
 """
@@ -18,12 +13,11 @@ from ..density.mixture import MixtureDensity
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 from ..tools._regularize import regularize
 
-cimport cython
 cimport numpy as _np
 from libc.math cimport exp, log
 
 DTYPE = _np.float64
-ctypedef _np.double_t DTYPE_t
+ctypedef double DTYPE_t
 
 class GaussianInference(object):
     '''Approximate a probability density by a Gaussian mixture with a variational
@@ -567,17 +561,15 @@ class GaussianInference(object):
         # (10.46)
 
         cdef:
-            DTYPE_t dlog
+            DTYPE_t dlog = self.dim * log(2. * _np.pi)
             DTYPE_t [:] expectation_ln_pi = self.expectation_ln_pi
             DTYPE_t [:] expectation_det_ln_lambda = self.expectation_det_ln_lambda
             DTYPE_t [:,:] log_rho = self.log_rho
             DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
 
-            Py_ssize_t K = self.K
-            Py_ssize_t N = len(log_rho)
-            Py_ssize_t k,n
-
-        dlog = self.dim * log(2. * _np.pi)
+            size_t K = self.K
+            size_t N = len(log_rho)
+            size_t k,n
 
         for n in range(N):
             for k in range(K):
@@ -614,9 +606,9 @@ class GaussianInference(object):
             DTYPE_t tiny = _np.finfo('d').tiny
             DTYPE_t norm, norm_inv, log_norm_inv
 
-            cdef Py_ssize_t K = self.K
-            cdef Py_ssize_t N = len(log_rho)
-            cdef Py_ssize_t k,n
+            cdef size_t K = self.K
+            cdef size_t N = len(log_rho)
+            cdef size_t k,n
 
         for n in range(N):
             max = log_rho[n,0]
@@ -678,10 +670,10 @@ class GaussianInference(object):
             DTYPE_t [:] nu  =  self.nu
             DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
             DTYPE_t [:,:] W = _np.empty_like(self.W[0])
-            Py_ssize_t K = self.K
-            Py_ssize_t N = len(expectation_gauss_exponent)
-            Py_ssize_t dim = self.dim
-            Py_ssize_t k,n,i,j
+            size_t K = self.K
+            size_t N = len(expectation_gauss_exponent)
+            size_t dim = self.dim
+            size_t k,n,i,j
             DTYPE_t chi2
 
         for k in range(K):
@@ -718,10 +710,10 @@ class GaussianInference(object):
             DTYPE_t [:,:] data = self.data
             DTYPE_t [:,:] x_mean_comp = self.x_mean_comp
 
-            cdef Py_ssize_t K = self.K
-            cdef Py_ssize_t N = len(r)
-            cdef Py_ssize_t dim = self.dim
-            cdef Py_ssize_t k,n,i
+            cdef size_t K = self.K
+            cdef size_t N = len(r)
+            cdef size_t dim = self.dim
+            cdef size_t k,n,i
 
         x_mean_comp[:,:] = 0.0
 
@@ -742,10 +734,10 @@ class GaussianInference(object):
             DTYPE_t [:,:] data = self.data
             DTYPE_t [:,:] x_mean_comp = self.x_mean_comp
 
-            cdef Py_ssize_t K = self.K
-            cdef Py_ssize_t N = len(r)
-            cdef Py_ssize_t dim = self.dim
-            cdef Py_ssize_t k,n,i
+            cdef size_t K = self.K
+            cdef size_t N = len(r)
+            cdef size_t dim = self.dim
+            cdef size_t k,n,i
 
         x_mean_comp[:,:] = 0.0
 
@@ -769,10 +761,10 @@ class GaussianInference(object):
             DTYPE_t [:,:] r =  self.r
             DTYPE_t [:,:,:] S = self.S
 
-            Py_ssize_t K = self.K
-            Py_ssize_t N = len(r)
-            Py_ssize_t dim = self.dim
-            Py_ssize_t k,n,i,j
+            size_t K = self.K
+            size_t N = len(r)
+            size_t dim = self.dim
+            size_t k,n,i,j
 
         # start with a clean slate
         S[:,:,:] = 0.0
@@ -805,10 +797,10 @@ class GaussianInference(object):
             DTYPE_t [:,:] r =  self.r
             DTYPE_t [:] inv_N_comp =  self.inv_N_comp
 
-            Py_ssize_t K = self.K
-            Py_ssize_t N = len(r)
-            Py_ssize_t dim = self.dim
-            Py_ssize_t k,n,i,j
+            size_t K = self.K
+            size_t N = len(r)
+            size_t dim = self.dim
+            size_t k,n,i,j
 
         # start with a clean slate
         S[:,:,:] = 0.0
@@ -1029,10 +1021,10 @@ class VBMerge(GaussianInference):
             DTYPE_t [:,:] mu = self.mu
             DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
             DTYPE_t [:,:] W, sigma
-            Py_ssize_t K = self.K
-            Py_ssize_t L = len(expectation_gauss_exponent)
-            Py_ssize_t dim = self.dim
-            Py_ssize_t k,l,i,j
+            size_t K = self.K
+            size_t L = len(expectation_gauss_exponent)
+            size_t dim = self.dim
+            size_t k,l,i,j
             DTYPE_t chi2
 
         for k in range(K):
@@ -1093,10 +1085,10 @@ class VBMerge(GaussianInference):
             DTYPE_t [:] inv_N_comp =  self.inv_N_comp
             DTYPE_t [:] Nomega = self.Nomega
 
-            Py_ssize_t K = self.K
-            Py_ssize_t L = self.L
-            Py_ssize_t dim = self.dim
-            Py_ssize_t k,l,i,j
+            size_t K = self.K
+            size_t L = self.L
+            size_t dim = self.dim
+            size_t k,l,i,j
 
         # start with a clean slate
         S[:,:,:] = 0.0
