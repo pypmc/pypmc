@@ -140,6 +140,8 @@ class TestMultivariateR(unittest.TestCase):
                                                    [0.00, 0.10],
                                                    [0.03, 0.00]]]   )
 
+        indices_3_dim = (0,2)
+
         # ``means`` must be 2d
         three_means_wrong_shape = np.array(  [1., 2., 3.]  )
 
@@ -156,7 +158,8 @@ class TestMultivariateR(unittest.TestCase):
                                 multivariate_r, two_means, two_covs_not_square_matrices, 10)
         self.assertRaisesRegexp(AssertionError, 'Dimensionality.*means.*covs.*not match',
                                 multivariate_r, two_means, two_covs_wrong_dimension, 10)
-
+        self.assertRaisesRegexp(AssertionError, 'All.*indices.*less than 2',
+                                multivariate_r, multivariate_means, multivariate_covs, 10, indices=indices_3_dim)
 
     def test_multivariate_r(self):
         calculated_multivariate_r = multivariate_r(multivariate_means, multivariate_covs, n)
@@ -172,6 +175,21 @@ class TestMultivariateR(unittest.TestCase):
         for i in range(2):
             self.assertAlmostEqual(calculated_multivariate_approx_r[i], target_multivariate_approx_r[i])
             self.assertAlmostEqual(calculated_multivariate_r       [i], target_multivariate_r       [i])
+
+    def test_indices(self):
+        calculated_multivariate_r = multivariate_r(multivariate_means, multivariate_covs, n, indices=(1,1))
+        calculated_multivariate_approx_r = multivariate_r(multivariate_means, multivariate_covs, n, approx=True, indices=(0,))
+
+        target_multivariate_r        = [135.6615268882104   , 135.6615268882104]
+        target_multivariate_approx_r = [ 64.553881518372663]
+
+
+        self.assertEqual(len(calculated_multivariate_approx_r), 1)
+        self.assertEqual(len(calculated_multivariate_r)       , 2)
+
+        self.assertAlmostEqual(calculated_multivariate_approx_r[0], target_multivariate_approx_r[0])
+        self.assertAlmostEqual(calculated_multivariate_r       [0], target_multivariate_r       [0])
+        self.assertAlmostEqual(calculated_multivariate_r       [1], target_multivariate_r       [1])
 
 class TestRGroup(unittest.TestCase):
     def test_group(self):
@@ -194,3 +212,52 @@ class TestRGroup(unittest.TestCase):
 
         np.testing.assert_equal(inferred_groups,        target_groups)
         np.testing.assert_equal(inferred_groups_approx, target_groups)
+
+    def test_indices(self):
+        means3d = np.array ([[  4.31915681    ,  1.08038315     ,   0.1           ],
+                             [  4.31864843    ,  1.11007763     ,  -0.2           ],
+                             [  4.31389518    ,  1.10076274     ,   0.            ],
+                             [  4.29077485    ,  1.1090809      ,   0.08          ],
+                             [  4.29175174    ,  1.09263979     ,  -0.8           ]])
+        covs_3d = np.array([[[  9.27501935e-03,   2.93898176e-03,   2.94712784e-03],
+                             [  2.93898176e-03,   2.27907650e-03,   2.18398826e-03],
+                             [  2.94712784e-03,   2.18398826e-03,   5.71229368e-02]],
+
+                            [[  9.14057218e-03,   2.45045703e-03,  -6.75693542e-04],
+                             [  2.45045703e-03,   2.16242986e-03,  -2.27529109e-04],
+                             [ -6.75693542e-04,  -2.27529109e-04,   4.42518545e-02]],
+
+                            [[  1.20508676e-02,   4.44680466e-03,  -1.47851744e-04],
+                             [  4.44680466e-03,   3.04590236e-03,  -6.84309488e-05],
+                             [ -1.47851744e-04,  -6.84309488e-05,   3.66323621e-02]],
+
+                            [[  1.05334136e-02,   3.89969309e-03,  -2.94526373e-03],
+                             [  3.89969309e-03,   2.75030883e-03,  -8.85690874e-04],
+                             [ -2.94526373e-03,  -8.85690874e-04,   3.17552111e-02]],
+
+                            [[  7.41327996e-03,   2.53320165e-03,  -1.90328907e-03],
+                             [  2.53320165e-03,   2.09785528e-03,  -1.92942666e-04],
+                             [ -1.90328907e-03,  -1.92942666e-04,   5.02877762e-02]]])
+        n = 500
+
+        # target_r_values        = [1.02977183,  1.07893712,  7.1196891 ]
+        # target_approx_r_values = [1.01934397,  1.06018193,  4.18999978]
+
+        # grouping using all dimensions should result in at least two groups
+        inferred_groups_all_dim        = r_group(means3d, covs_3d, n, approx=False)
+        inferred_groups_all_dim_approx = r_group(means3d, covs_3d, n, approx=True)
+        self.assertGreaterEqual(len(inferred_groups_all_dim_approx), 2)
+        self.assertGreaterEqual(len(inferred_groups_all_dim       ), 2)
+
+        # neglecting the last dimension, the result should be one group
+        # with standard critical_r = 1.5
+        target_group_partial = range(5)
+        inferred_groups_partial_dim        = r_group(means3d, covs_3d, n, indices=(0,1), approx=False)
+        inferred_groups_partial_dim_approx = r_group(means3d, covs_3d, n, indices=(0,1), approx=True)
+        self.assertEqual(len(inferred_groups_partial_dim_approx   ), 1)
+        self.assertEqual(len(inferred_groups_partial_dim          ), 1)
+        self.assertEqual(len(inferred_groups_partial_dim_approx[0]), 5)
+        self.assertEqual(len(inferred_groups_partial_dim       [0]), 5)
+        for i in range(5):
+            self.assertEqual(inferred_groups_partial_dim_approx[0][i], target_group_partial[i])
+            self.assertEqual(inferred_groups_partial_dim       [0][i], target_group_partial[i])

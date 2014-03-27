@@ -88,8 +88,14 @@ def r_value(means, variances, n, approx=False):
     return V / W * df / (df - 2)
 
 @_add_to_docstring(_manual_param_approx)
+@_add_to_docstring(''':param indices:
+
+        Iterable of Integers; calculate R value only for these dimensions.
+        Default is all.
+
+    ''')
 @_add_to_docstring(_manual_param_n %dict(var='covs'))
-def multivariate_r(means, covs, n, approx=False):
+def multivariate_r(means, covs, n, indices=None, approx=False):
     '''Calculate the Gelman-Rubin R value (:py:func:`.r_value`) for each
     dimension. Correlations are ignored, i.e. only the diagonal elements
     of the covariance matrices are considered.
@@ -117,14 +123,23 @@ def multivariate_r(means, covs, n, approx=False):
     'Dimensionality of ``means`` (%i) and ``covs`` (%i) does not match' %( means.shape[1], covs.shape[1] )
 
     dim = means.shape[1]
-    out = _np.empty(dim)
+    if indices is None:
+        indices = range(dim)
+    out = _np.empty(len(indices))
 
-    for i in range(dim):
-        out[i] = r_value(means[:,i], covs[:,i,i], n, approx)
+    for out_index, dim_index in enumerate(indices):
+        assert dim_index < dim, 'All ``indices`` must be less than %i' %dim
+        out[out_index] = r_value(means[:,dim_index], covs[:,dim_index,dim_index], n, approx)
 
     return out
 
 @_add_to_docstring(_manual_param_approx)
+@_add_to_docstring(''':param indices:
+
+        Iterable of Integers; calculate and check the R value only for
+        these dimensions. Default is all.
+
+    ''')
 @_add_to_docstring(''':param critical_r:
 
         Float; group the chains such that their common R value is below
@@ -132,7 +147,7 @@ def multivariate_r(means, covs, n, approx=False):
 
     ''')
 @_add_to_docstring(_manual_param_n %dict(var='covs'))
-def r_group(means, covs, n, critical_r=1.5, approx=False):
+def r_group(means, covs, n, critical_r=1.5, indices=None, approx=False):
     '''Group Gaussians whose common :py:func:`.r_value` is less than
     ``critical_r``.
 
@@ -160,7 +175,7 @@ def r_group(means, covs, n, critical_r=1.5, approx=False):
         assigned = False
         # try to assign component i to an existing group
         for group in groups:
-            r_values = multivariate_r(means[group + [i]], covs[group + [i]], n, approx)
+            r_values = multivariate_r(means[group + [i]], covs[group + [i]], n, indices, approx)
             if (r_values < critical_r).all():
                 # add to group if R value small enough
                 group.append(i)
