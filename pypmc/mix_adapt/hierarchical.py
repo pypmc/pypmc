@@ -43,7 +43,7 @@ class Hierarchical(object):
         self.nin = len(input_components.components)
         self.nout = len(initial_guess.components)
 
-        assert self.nin > self.nout, "Cannot reduce number of input components: %s" % (self.nin, self.nout)
+        assert self.nin > self.nout, "Got more output (%i) than input (%i) components" % (self.nout, self.nin)
         assert self.nout > 0, "Invalid number of output components %s" % self.nout
 
         self.f = input_components
@@ -65,7 +65,6 @@ class Hierarchical(object):
         Resize storage. Recompute determinant and covariance.
 
         """
-        removed_indices = []
         if kill:
             removed_indices = self.g.prune()
 
