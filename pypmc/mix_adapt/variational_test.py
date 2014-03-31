@@ -5,7 +5,7 @@ from __future__ import print_function
 from .variational import *
 from ..density.gauss import Gauss
 from ..density.student_t import StudentT
-from ..density.mixture import MixtureDensity
+from ..density.mixture import MixtureDensity, create_gaussian_mixture, recover_gaussian_mixture
 from ..sampler import importance_sampling
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
@@ -60,6 +60,53 @@ rng_seed = 625135153
 class TestGaussianInference(unittest.TestCase):
     def setUp(self):
         np.random.seed(rng_seed)
+
+    def test_initial_guess(self):
+        weights = np.array([2., 8.])
+        normalized_weights = weights / weights.sum()
+        mean1 = np.array( (1. ,5.) )
+        mean2 = np.array( (0., 2.) )
+        nu    = np.array([100., 10.])
+
+        target_mix = create_gaussian_mixture(np.array([mean1,mean2]), np.array([covariance1, covariance2]), weights)
+
+        # only need the data to create the vb object, don't want check the .run method
+        # --> few data
+        data = target_mix.propose(10)
+
+        alpha = np.array([10., 10.])
+        m     = np.array([[0., 0.], [0., 5.]])
+        W     = np.array([np.eye(2) for i in range(2)])
+
+        # alpha, m and W should be valid
+        GaussianInference(data, components=2, alpha=alpha, m=m, W=W)
+
+        self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
+                                GaussianInference, data)
+
+        # should not be able to pass both initial_guess and something out of [alpha, m, W]
+        self.assertRaisesRegexp(ValueError, 'EITHER.*W.*OR.*initial_guess',
+                               GaussianInference, data, initial_guess=target_mix, W=W)
+        self.assertRaisesRegexp(ValueError, 'EITHER.*m.*OR.*initial_guess',
+                               GaussianInference, data, initial_guess=target_mix, m=m)
+        self.assertRaisesRegexp(ValueError, 'EITHER.*alpha.*OR.*initial_guess',
+                               GaussianInference, data, initial_guess=target_mix, alpha=alpha)
+
+        vb = GaussianInference(data, initial_guess=target_mix, nu=nu)
+
+        # initial_guess taken correctly?
+        np.testing.assert_almost_equal(vb.alpha, normalized_weights + 1.   )
+        np.testing.assert_almost_equal(vb.m,     np.array([mean1, mean2]) )
+        np.testing.assert_almost_equal(vb.W,     np.array([np.linalg.inv(covariance1) / (nu[0] - 2.),
+                                                           np.linalg.inv(covariance2) / (nu[1] - 2.)]) )
+
+        # vb.make_mixture should return ``target_mix``
+        re_mix = vb.make_mixture()
+        re_means, re_covs, re_component_weights = recover_gaussian_mixture(re_mix)
+
+        np.testing.assert_almost_equal(re_means            , np.array([mean1      , mean2      ]))
+        np.testing.assert_almost_equal(re_covs             , np.array([covariance1, covariance2]))
+        np.testing.assert_almost_equal(re_component_weights, normalized_weights                  )
 
     def test_parameter_validation(self):
         target_mean = np.array((+1. , -4.))

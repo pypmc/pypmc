@@ -9,7 +9,7 @@ from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
 from ..density.gauss import Gauss
-from ..density.mixture import MixtureDensity
+from ..density.mixture import MixtureDensity, recover_gaussian_mixture as _unroll
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 from ..tools._regularize import regularize
 
@@ -38,20 +38,26 @@ class GaussianInference(object):
     :param components:
 
         Integer; :math:`K` is the number of Gaussian components in the
-        approximating Gaussian mixture.
+        approximating Gaussian mixture. Will be detected from
+        ``initial_guess`` if provided.
 
     :param weights:
 
         Vector-like array; The i-th of the :math:`N` entries contains the
         weight of the i-th sample in ``data``.
 
+    :param initial_guess:
+
+        :py:class:`pypmc.density.mixture.MixtureDensity` with Gaussian
+        (:py:class:`pypmc.density.gauss.Gauss`) components; initialize
+        ``m``, ``W`` and ``alpha`` according to this mixture.
+
     All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
     '''
 
-    def __init__(self, _np.ndarray data, int components, weights=None, **kwargs):
+    def __init__(self, _np.ndarray data, int components=0, weights=None, initial_guess=None, **kwargs):
         self.data = data
-        self.K = components
         self.N = data.shape[0]
         self.dim = data.shape[1]
         if weights is not None:
@@ -66,7 +72,27 @@ class GaussianInference(object):
             self._update_S = self._update_S_weighted
             self._update_expectation_log_q_Z = self._update_expectation_log_q_Z_weighted
 
+        if initial_guess is not None:
+            self.K = len(initial_guess)
+            if 'm' in kwargs:
+                raise ValueError('Specify EITHER ``m`` OR ``initial_guess``')
+            if 'W' in kwargs:
+                raise ValueError('Specify EITHER ``W`` OR ``initial_guess``')
+            if 'alpha' in kwargs:
+                raise ValueError('Specify EITHER ``alpha`` OR ``initial_guess``')
+
+        elif components > 0:
+            self.K = components
+        else:
+            raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
+
         self.set_variational_parameters(**kwargs)
+
+        if initial_guess is not None:
+            means, covs, component_weights = _unroll(initial_guess)
+            self.m     = means
+            self.W     = _np.array([_np.linalg.inv(covs[k]) / (self.nu[k] - self.dim) for k in range(self.K)])
+            self.alpha = component_weights + 1
 
         self._initialize_intermediate(self.N)
 
@@ -979,7 +1005,7 @@ class VBMerge(GaussianInference):
         self.mu = _np.array([c.mu for c in self.input.components])
 
         if initial_guess is not None:
-            self.K = len(initial_guess.components)
+            self.K = len(initial_guess)
         elif components is not None:
             self.K = components
         else:
