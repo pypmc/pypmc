@@ -57,7 +57,7 @@ class Hierarchical(object):
             self.inv_map[j] = None
 
         # the i-th element is :math:`min_j KL(f_i || g_j)`
-        self.min_kl = np.empty(self.nin) + np.inf
+        self.min_kl = np.zeros(self.nin) + np.inf
 
     def _cleanup(self, kill):
         """Look for dead components (weight=0) and remove them

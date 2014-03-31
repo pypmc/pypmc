@@ -1,6 +1,3 @@
-import numpy as np
-from matplotlib import pyplot as plt
-
 def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
                        cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
                        solid_edge=True):
@@ -27,6 +24,10 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
         Draw the edge of the ellipse as solid opaque line.
 
     '''
+    # imports inside the function because then "ImportError" is raised on
+    # systems without 'matplotlib' only when 'plot_mixture' is called
+    import numpy as np
+    from matplotlib import pyplot as plt
     from matplotlib.patches import Ellipse
     from matplotlib.cm import get_cmap
 

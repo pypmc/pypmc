@@ -27,6 +27,7 @@ setup(
     author_email='Frederik.Beaujean@lmu.de, stephan.jahn@mytum.de',
     license='GPLv2',
     install_requires=['numpy', 'scipy', 'cython'],
+    extras_require={'testing': ['nose'], 'plotting': ['matplotlib']},
     ext_modules=cythonize(extensions,
                           compiler_directives=dict(profile=False, boundscheck=False,
                                                    wraparound=False, cdivision=True),

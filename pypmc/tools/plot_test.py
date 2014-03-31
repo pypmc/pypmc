@@ -1,4 +1,5 @@
 from sys import version
+import numpy as np
 from ._plot import *
 from ..density.gauss import Gauss
 from ..density.mixture import MixtureDensity
@@ -12,7 +13,6 @@ def setUpModule():
         raise unittest.SkipTest("Can't test plot without matplotlib")
 
 class TestPlotMixture(unittest.TestCase):
-
     means  = (np.array([ -1,  -1]),
               np.array([ 1  , 1]))
 
@@ -21,12 +21,16 @@ class TestPlotMixture(unittest.TestCase):
     components = [Gauss(m, c) for m,c in zip(means, covs)]
     input_components = MixtureDensity(components, weights)
 
+    def setUp(self):
+        import matplotlib.pyplot
+        self.plt = matplotlib.pyplot
+
     def test_valid(self):
-        plt.figure(figsize=(5,5))
+        self.plt.figure(figsize=(5,5))
         plot_mixture(self.input_components, 0, 1)
         # plt.savefig(self.__class__.__name__ + '.pdf')
         # saving a .pdf in python3 caused trouble --> .png is ok
-        plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
+        self.plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
 
     def test_invalid(self):
         invalid_mix = MixtureDensity([Gauss(m, c) for m,c in zip(self.means, self.covs)],
