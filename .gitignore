@@ -1,6 +1,8 @@
 *.py[cod]
 
-# C extensions
+# C[ython] extensions
+*.c
+*.html
 *.so
 
 # Packages

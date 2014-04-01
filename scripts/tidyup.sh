@@ -10,13 +10,13 @@ find -P .. -name __pycache__ -delete
 #remove build folder in root directory
 rm -rf ../build
 
-#remove variational.c
-rm -rf ../pypmc/mix_adapt/variational.c
+#remove cythonized C source and object files
+find -P .. -name *.c -delete
 
 #remove variational binaries only if command line argument specified
 if [ "$1" = "bin" ]
 then
-  rm -rf ../pypmc/mix_adapt/*.so
+    find -P .. -name *.so -delete
 else
   echo 'type "./tidyup bin" to delete the compiled cython objects'
 fi

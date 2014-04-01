@@ -13,12 +13,11 @@ with open('pypmc/_version.py') as f:
 
 n = 'pypmc'
 
-extensions = [Extension('*', ['pypmc/mix_adapt/*.pyx'],
-                        extra_compile_args=["-Wno-unused-but-set-variable",
-                                            "-Wno-unused-function",
-                                            "-O3"])
-             ]
+extra_compile_args=["-Wno-unused-but-set-variable",
+                    "-Wno-unused-function",
+                    "-O3"]
 
+extensions = [ Extension('*', ['pypmc/*/*.pyx' ], extra_compile_args=extra_compile_args)]
 
 setup(
     name=n,
