@@ -102,7 +102,7 @@ class MixtureDensity(ProbabilityDensity):
         for i,comp in enumerate(self.components):
             components_evaluated[i] = comp.evaluate(x)
         # avoid direct exponentiation --> use scipy.misc.logsumexp (_lse)
-        res =  _lse(a=components_evaluated, b=self.weights)
+        res =  _lse(components_evaluated, self.weights)
         if individual:
             return res, components_evaluated
         else:
