@@ -5,7 +5,7 @@ from .base import ProbabilityDensity, LocalDensity
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
 from pypmc.tools._linalg cimport bilinear_sym
-from libc.math cimport exp, log
+from libc.math cimport log
 cimport numpy as _np
 
 class LocalGauss(LocalDensity):

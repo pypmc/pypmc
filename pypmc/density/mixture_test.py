@@ -26,6 +26,14 @@ class TestMixtureDensity(unittest.TestCase):
     ncomp          = 5
     components     = [DummyComponent   for i in range(ncomp)]
 
+    proposals   = (DummyComponent(eval_to=10.),DummyComponent())
+    weights     = (.9,.1)
+    evaluate_at = np.array( (-5.,) )
+
+    target = 39.69741490700607
+
+    mix = MixtureDensity(proposals, weights)
+
     def test_dimcheck(self):
         # dimensions of all components have to match
 
@@ -66,15 +74,32 @@ class TestMixtureDensity(unittest.TestCase):
         self.assertTrue(mix.normalized())
 
     def test_evaluate(self):
-        proposals   = (DummyComponent(eval_to=10.),DummyComponent())
-        weights     = (.9,.1)
-        evaluate_at = np.array( (-5.,) )
+        self.assertAlmostEqual(self.target, self.mix.evaluate(self.evaluate_at))
 
-        target = 39.69741490700607
+    def test_multi_evaluate(self):
+        samples = np.array([self.evaluate_at] * 2)
+        targets = np.array([self.target] * 2)
+        individual = np.zeros((2,2))
+        res = self.mix.multi_evaluate(samples, individual)
 
-        mix = MixtureDensity(proposals, weights)
+        np.testing.assert_array_almost_equal(res, targets)
+        np.testing.assert_array_almost_equal(individual[:,0], 10.)
+        np.testing.assert_array_almost_equal(individual[:,1], 42.)
 
-        self.assertAlmostEqual(target,mix.evaluate(evaluate_at))
+    def test_error_messages_multi_evaluate(self):
+        samples              = np.array([[1.], [2.], [3.]])
+        samples_wrong_dim    = np.array([[1., 1.2], [2. ,32.], [2, 3.]])
+        individual_ok        = np.empty((3,2))
+        individual_too_short = np.empty((2,2))
+        individual_wrong_K   = np.empty((3,3))
+
+        self.mix.multi_evaluate(samples, individual_ok) # should be ok
+        self.assertRaisesRegexp(AssertionError, 'x.*wrong dim.*',
+                                self.mix.multi_evaluate, samples_wrong_dim, individual_ok)
+        self.assertRaisesRegexp(AssertionError, 'individual.*must.*shape',
+                                self.mix.multi_evaluate, samples, individual_too_short)
+        self.assertRaisesRegexp(AssertionError, 'individual.*must.*shape',
+                                self.mix.multi_evaluate, samples, individual_wrong_K)
 
     def test_propose(self):
         np.random.seed(rng_seed)
