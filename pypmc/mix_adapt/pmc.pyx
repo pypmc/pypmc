@@ -10,6 +10,9 @@ from math import exp as _exp
 from copy import deepcopy as _cp
 from ..tools._regularize import regularize
 
+from libc.math cimport exp
+cimport numpy as _np
+
 def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=0, copy=True):
     '''Adapt a mixture ``density`` using the (M-)PMC algorithm according
     to [Cap+08]_.
@@ -70,14 +73,23 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
 
     if copy:
         density = _cp(density)
-    # TODO: use multi_evaluate
+
     def calculate_rho_rb():
         rho = _np.zeros(( len(samples),len(density.components) ))
+
+        cdef:
+            size_t n
+            int    k
+            double tiny = _np.finfo('d').tiny
+            double [:] component_weights = density.weights
+            double [:] log_denominator = density.multi_evaluate(samples, rho) # TODO: only live_components
+            double [:,:] memview_rho = rho
+
         for k in live_components:
-            for n, sample in enumerate(samples):
-                rho[n, k]  = _exp(density.components[k].evaluate(sample)) * density.weights[k]
+            for n in range(len(samples)):
+                memview_rho[n, k]  = exp(memview_rho[n, k]) * component_weights[k]
                 # + "tiny" --> avoid division by zero
-                rho[n, k] /= _exp(density.evaluate(sample)) + _np.finfo('d').tiny
+                memview_rho[n, k] /= exp(log_denominator[n]) + tiny
         return rho
 
     def calculate_rho_non_rb():
