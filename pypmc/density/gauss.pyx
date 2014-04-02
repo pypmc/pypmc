@@ -81,6 +81,7 @@ class Gauss(ProbabilityDensity):
     """
     def __init__(self, mu, sigma):
         self.update(mu, sigma)
+        self._tmp = _np.empty_like(self.mu)
 
     def update(self, mu, sigma):
         r"""Re-initialize the density with new mean and covariance matrix.
@@ -108,7 +109,16 @@ class Gauss(ProbabilityDensity):
 
     @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, _np.ndarray[double, ndim=1] x):
-        return self._local_gauss.log_normalization - .5 * bilinear_sym(self.inv_sigma, x - self.mu)
+        cdef:
+            size_t i, dim = self.dim
+            double log_norm = self._local_gauss.log_normalization
+            double [:] tmp = self._tmp, mu = self.mu
+            double [:,:] inv_sigma = self.inv_sigma
+
+        for i in range(dim):
+            tmp[i] = x[i] - mu[i]
+
+        return log_norm - .5 * bilinear_sym(inv_sigma, tmp)
 
     @_inherit_docstring(ProbabilityDensity)
     def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=1] out=None):
