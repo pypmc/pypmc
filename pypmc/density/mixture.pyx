@@ -110,9 +110,10 @@ class MixtureDensity(ProbabilityDensity):
         else:
             return res
 
-    def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=2] individual not None):
-        '''Evaluate density at all points in ``x`` for all components and
-        return in ``individual``.
+    def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=2] individual not None,
+                       components=None):
+        '''Evaluate density at all points in ``x`` for all components
+        specified in ``components`` and return in ``individual``.
         Return log(q(x)) for each point.
 
         :param x:
@@ -121,13 +122,20 @@ class MixtureDensity(ProbabilityDensity):
         :param individual:
             (N x K) array; density of k-th component at the n-th sample.
 
+        :param components:
+            Iterable of integers; calculate ``individual`` for these
+            components only.
+
         '''
         assert x.shape[1] == self.dim, "The points in ``x`` have the wrong dimension (%i instead of %i)" %(x.shape[1], self.dim)
         assert len(x) == len(individual), "For the provided ``x``, ``individual`` must have shape %s" %( (len(x), len(self)), )
         assert individual.shape[1] == len(self), "For the provided ``x``, ``individual`` must have shape %s" %( (len(x), len(self)), )
 
-        for k, c in enumerate(self.components):
-            c.multi_evaluate(x, individual[:,k])
+        if components is None:
+            components = range(len(self.components))
+
+        for k in components:
+            self.components[k].multi_evaluate(x, individual[:,k])
 
         return logsumexp2D(individual, self.weights)
 

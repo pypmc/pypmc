@@ -82,7 +82,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
             int    k
             double tiny = _np.finfo('d').tiny
             double [:] component_weights = density.weights
-            double [:] log_denominator = density.multi_evaluate(samples, rho) # TODO: only live_components
+            double [:] log_denominator = density.multi_evaluate(samples, rho, live_components)
             double [:,:] memview_rho = rho
 
         for k in live_components:
@@ -126,8 +126,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
         # set up list of live_components
         live_components = []
         for k in range(len(density)):
-            if (density.weights[k] == 0.) or (count[k] < mincount):
-                # components with weight zero or less than ``mincount`` samples are not alive
+            if density.weights[k] == 0.:
                 continue
             live_components.append(k)
 
@@ -137,8 +136,9 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
             rho = calculate_rho_non_rb()
 
         # prune components with less samples than ``mincount`` AFTER rho has been calculated
-        for k in range(len(density)):
-            if (density.weights[k] != 0.) and (count[k] < mincount):
+        for k in live_components:
+            if count[k] < mincount:
+                live_components.pop(k)
                 density.weights[k] = 0.
                 # when a component is pruned, the other weights must be renormalized
                 need_renormalize = True
