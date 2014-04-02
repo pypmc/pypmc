@@ -1,3 +1,5 @@
+'Functions to avoid singularities, cython header'
+
 cimport numpy as _np
 
 cpdef double logsumexp(_np.ndarray[double, ndim=1] a, _np.ndarray[double, ndim=1] weights)

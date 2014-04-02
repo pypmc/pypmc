@@ -1,6 +1,4 @@
-'''Functions to avoid singularities
-
-'''
+'Functions to avoid singularities'
 
 import numpy as _np
 from libc.math cimport exp, log
