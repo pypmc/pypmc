@@ -4,6 +4,10 @@ import numpy as _np
 from .base import ProbabilityDensity, LocalDensity
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
+from pypmc.tools._linalg cimport bilinear_sym
+from libc.math cimport exp, log
+cimport numpy as _np
+
 class LocalGauss(LocalDensity):
     """A multivariate local Gaussian density with redefinable covariance.
 
@@ -24,8 +28,8 @@ class LocalGauss(LocalDensity):
             Matrix-like array; the new covariance-matrix.
 
         """
-        self.dim   = sigma.shape[0]
-        self.sigma = sigma.copy()
+        self.sigma = _np.array(sigma)
+        self.dim   = self.sigma.shape[0]
         self._sigma_decompose()
 
     def _sigma_decompose(self):
@@ -45,23 +49,22 @@ class LocalGauss(LocalDensity):
 
     def _get_gauss_sample(self, rng):
         """transform sample from standard gauss to Gauss(mean=0, sigma=sigma)"""
-        return _np.dot(self.cholesky_sigma,rng.normal(0,1,self.dim))
+        return _np.dot(self.cholesky_sigma, rng.normal(0,1,self.dim))
 
     def _compute_norm(self):
         'Compute the normalization'
-        self.log_normalization = -.5 * self.dim * _np.log(2 * _np.pi) - .5 * _np.log(self.det_sigma)
+        self.log_normalization = -.5 * self.dim * log(2 * _np.pi) - .5 * log(self.det_sigma)
 
     @_inherit_docstring(LocalDensity)
-    def evaluate(self, x , y):
-        return self.log_normalization - .5 * _np.dot(_np.dot(x-y, self.inv_sigma), x-y)
+    def evaluate(self, _np.ndarray[double, ndim=1] x, _np.ndarray[double, ndim=1] y):
+        return self.log_normalization - .5 * bilinear_sym(self.inv_sigma, x - y)
 
     @_add_to_docstring('''    .. important::\n
                 ``rng`` must return a numpy array of N samples from:\n
                 - **rng.normal(0,1,N)**: standard gaussian distribution\n''')
     @_inherit_docstring(LocalDensity)
-    def propose(self, y, rng = _np.random.mtrand):
+    def propose(self, y, rng=_np.random.mtrand):
         return y + self._get_gauss_sample(rng)
-
 
 class Gauss(ProbabilityDensity):
     r"""A Gaussian probability density. Can be used as component for
@@ -104,14 +107,38 @@ class Gauss(ProbabilityDensity):
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
     @_inherit_docstring(ProbabilityDensity)
-    def evaluate(self, x):
-        return self._local_gauss.evaluate(x,self.mu)
+    def evaluate(self, _np.ndarray[double, ndim=1] x):
+        return self._local_gauss.log_normalization - .5 * bilinear_sym(self.inv_sigma, x - self.mu)
+
+    @_inherit_docstring(ProbabilityDensity)
+    def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=1] out=None):
+        if out is None:
+            out = _np.empty(len(x))
+        else:
+            assert len(out) == len(x)
+
+        cdef:
+            double log_normalization = self._local_gauss.log_normalization
+            double [:]   mu          = self.mu
+            double [:]   diff        = _np.empty_like(x[0])
+            double [:]   results     = out
+            double [:,:] inv_sigma   = self.inv_sigma
+            size_t       i, n
+
+        for n in range(len(x)):
+            # compute difference
+            for i in range(len(diff)):
+                diff[i] = x[n,i] - mu[i]
+
+            results[n] = log_normalization - 0.5 * bilinear_sym(inv_sigma, diff)
+
+        return out
 
     @_add_to_docstring("""    .. important::\n
                 ``rng`` must meet the requirements of
                 :py:meth:`.LocalGauss.propose`.\n\n""")
     @_inherit_docstring(ProbabilityDensity)
-    def propose(self, N=1, rng=_np.random.mtrand):
+    def propose(self, int N=1, rng=_np.random.mtrand):
         output = _np.empty((N,self.dim))
         for i in range(N):
             output[i] = self._local_gauss.propose(self.mu)

@@ -41,6 +41,9 @@ def _add_to_docstring(string):
 
     '''
     def wrapper(method):
-        method.__doc__ += string
+        if method.__doc__ is not None:
+            method.__doc__ += string
+        else:
+            method.__doc__ = string
         return method
     return wrapper

@@ -70,7 +70,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
 
     if copy:
         density = _cp(density)
-
+    # TODO: use multi_evaluate
     def calculate_rho_rb():
         rho = _np.zeros(( len(samples),len(density.components) ))
         for k in live_components:

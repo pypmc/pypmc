@@ -264,6 +264,7 @@ class DeterministicIS(ImportanceSampler):
             old_targets = old_deltas_targets [:,1 ]
 
             # calculate the deltas for the old samples
+            # TODO: use multi_evaluate
             for i_sample, sample in enumerate(old_samples):
                 old_deltas[i_sample] += this_N * _exp( self.proposal_history[-1].evaluate(sample) )
 
