@@ -138,7 +138,7 @@ def gaussian_pmc(samples, density, weights=None, latent=None, rb=True, mincount=
         # prune components with less samples than ``mincount`` AFTER rho has been calculated
         for k in live_components:
             if count[k] < mincount:
-                live_components.pop(k)
+                live_components.remove(k)
                 density.weights[k] = 0.
                 # when a component is pruned, the other weights must be renormalized
                 need_renormalize = True
