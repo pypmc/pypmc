@@ -522,7 +522,7 @@ class GaussianInference(object):
             self.m = _np.array(self.m)
         for name in ('m0', 'm'):
             if getattr(self, name).shape != (self.K, self.dim):
-                raise ValueError('Shape of %s %s does not match (K,d)=%s' % (name, self.m.shape, (self.K, self.dim)))
+                raise ValueError('Shape of %s %s does not match (K,d)=%s' % (name, getattr(self, name).shape, (self.K, self.dim)))
 
         # covariance matrix; unit matrix <--> unknown correlation
         self.W0     = kwargs.pop('W0', None)
