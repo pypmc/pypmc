@@ -5,7 +5,7 @@ from .r_value import *
 import numpy as np
 import unittest
 
-# output from ten two-dimensional markov-chains after n steps
+# output from ten two-dimensional Markov chains after n steps
 n = 10000
 
 multivariate_means = np.array([[  9.43294669,  -9.96858978],

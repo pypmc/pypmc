@@ -1,4 +1,4 @@
-'''Merge Gaussians with a sufficiently small Gelman-Rubin R value [GR92]_.
+'''Functions associated with the Gelman-Rubin R value [GR92]_.
 
 '''
 # TODO write example: Markov chains --> group by R value
@@ -10,7 +10,7 @@ from ..tools._doc import _add_to_docstring
 _manual_param_n = ''':param n:
 
         Integer; the number of samples used to determine the estimates
-        passed via ``means`` and ``%(var)s``
+        passed via ``means`` and ``%(var)s``.
 
     '''
 _manual_param_approx = ''':param approx:
@@ -30,16 +30,15 @@ def r_value(means, variances, n, approx=False):
 
     .. note::
 
-        The R value is defined for univariate distributions only.
-
+        The R value is defined only for 1D.
 
     :param means:
 
-        Vector-like array; the mean value estimates
+        Vector-like array; the mean value estimates.
 
     :param variances:
 
-        Vector-like array; the variance estimates
+        Vector-like array; the variance estimates.
 
     '''
     # use same variable names as in [GR92]
@@ -49,8 +48,8 @@ def r_value(means, variances, n, approx=False):
     means     = _np.asarray(means)
     variances = _np.asarray(variances)
 
-    assert len(means.shape) == 1, '``means`` must be vector-like'
-    assert len(variances.shape) == 1, '``variances`` must be vector-like'
+    assert means.ndim == 1, '``means`` must be vector-like'
+    assert variances.ndim == 1, '``variances`` must be vector-like'
     assert len(means) == len(variances), \
     'Number of ``means`` (%i) does not match number of ``variances`` (%i)' %( len(means), len(variances) )
 
@@ -96,10 +95,12 @@ def r_value(means, variances, n, approx=False):
     ''')
 @_add_to_docstring(_manual_param_n %dict(var='covs'))
 def multivariate_r(means, covs, n, indices=None, approx=False):
-    '''Calculate the Gelman-Rubin R value (:py:func:`.r_value`) for each
-    dimension. Correlations are ignored, i.e. only the diagonal elements
-    of the covariance matrices are considered.
-    Return an array with the R values.
+    '''Calculate the Gelman-Rubin R value (:py:func:`.r_value`) in each dimension
+    for the combination of ``n`` samples from ``m`` chains.
+
+    Each chain is summarized by its mean and covariance. Correlations
+    are ignored; i.e., only the diagonal elements of the covariance matrices are
+    considered. Return an array with the R values.
 
     :param means:
 
@@ -113,8 +114,8 @@ def multivariate_r(means, covs, n, indices=None, approx=False):
     means = _np.asarray(means)
     covs  = _np.asarray(covs)
 
-    assert len(means.shape) == 2, '``means`` must be matrix-like'
-    assert len(covs.shape) == 3, '``covs`` must be 3-dimensional'
+    assert means.ndim == 2, '``means`` must be matrix-like'
+    assert covs.ndim == 3, '``covs`` must be 3-dimensional'
     assert len(means) == len(covs), \
     'Number of ``means`` (%i) does not match number of ``covs`` (%i)' %( len(means), len(covs) )
     assert covs.shape[1] == covs.shape[2], \
@@ -148,8 +149,8 @@ def multivariate_r(means, covs, n, indices=None, approx=False):
     ''')
 @_add_to_docstring(_manual_param_n %dict(var='covs'))
 def r_group(means, covs, n, critical_r=1.5, indices=None, approx=False):
-    '''Group Gaussians whose common :py:func:`.r_value` is less than
-    ``critical_r``.
+    '''Group chains whose common :py:func:`.r_value` is less than
+    ``critical_r`` in every dimension considered.
 
     .. seealso::
 
