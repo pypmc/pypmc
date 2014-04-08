@@ -1,6 +1,7 @@
 """Collect Markov Chain"""
 
 from __future__ import division as _div
+from copy import deepcopy as _cp
 import numpy as _np
 from ..tools import History as _History
 from ..tools.indicator import merge_function_with_indicator as _indmerge
@@ -72,7 +73,7 @@ class MarkovChain(object):
         # store input into instance
         self.current_point        = _np.array(start) # call array constructor to make sure to have a copy
         self.history              = _History(len(self.current_point), prealloc) # initialize history
-        self.proposal             = proposal
+        self.proposal             = _cp(proposal)
         self.rng                  = rng
         self.target               = _indmerge(target, indicator, -_np.inf)
         self.current_target_eval  = self.target(self.current_point)

@@ -37,6 +37,14 @@ class TestMarkovChain(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
 
+    def test_copy(self):
+        prop = density.gauss.LocalGauss(offdiag_sigma)
+
+        mc = MarkovChain(lambda x: 1., prop, zero_mean)
+
+        self.assertNotEqual(id(mc.current_point), id(zero_mean), msg='starting point has not been copied')
+        self.assertNotEqual(id(mc.proposal)     , id(prop     ), msg='Proposal has not been copied')
+
     def test_invalid_start(self):
         prop = density.gauss.LocalGauss(offdiag_sigma)
         start = np.array((0.,1.))
