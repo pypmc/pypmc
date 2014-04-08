@@ -1,1 +1,1 @@
-grep -i -R -G [^"au""sphinx.ext."]todo ..
+grep -i -R -G --color=auto [^"au""sphinx.ext."]todo ..
