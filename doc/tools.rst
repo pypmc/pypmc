@@ -3,6 +3,11 @@ Tools
 
 .. automodule:: pypmc.tools
 
+Convergence diagnostics
+-----------------------
+
+.. automodule:: pypmc.tools.convergence
+
 History
 -------
 

@@ -32,6 +32,10 @@ References
            Adaptive Metropolis Algorithm*, 2001. `jstor:3318737
            <http://www.jstor.org/stable/3318737>`_
 
+.. [LC95] Liu, Jun S. and Chen, Rong *Blind Deconvolution via Sequential Imputations*, 1995. Journal of
+          the American Statistical Association, Volume 90, Number 430, pp. 567–576
+          `DOI:10.1080/01621459.1995.10476549 <http://dx.doi.org/10.1080/01621459.1995.10476549>`_
+
 .. [Wra+09] Kilbinger, Martin and Wraith, Darren and Robert,
             Christian P. and Benabed, Karim and Cappe, Olivier and
             others. *Bayesian model comparison in cosmology with

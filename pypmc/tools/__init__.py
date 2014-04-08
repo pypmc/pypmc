@@ -4,4 +4,4 @@
 
 from ._history import History
 from ._plot import plot_mixture
-from . import indicator
+from . import indicator, convergence
