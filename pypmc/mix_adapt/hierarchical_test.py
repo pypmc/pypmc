@@ -30,7 +30,8 @@ class TestHierarchical(unittest.TestCase):
 
     def test_prune(self):
         h = Hierarchical(self.input_components1, self.initial_guess1, verbose=True)
-        sol = h.run()
+        h.run()
+        sol = h.g
 
         # only one component should survive and have weight 1.0
         # expect precision loss in the weight summation for many input components
@@ -46,7 +47,8 @@ class TestHierarchical(unittest.TestCase):
 
     def test_cluster(self):
         h = Hierarchical(self.input_components2, self.initial_guess2, verbose=True)
-        sol = h.run()
+        h.run()
+        sol = h.g
 
         # both components should survive and have equal weight
         # expect precision loss in the weight summation for many input components

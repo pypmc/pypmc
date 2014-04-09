@@ -163,6 +163,8 @@ class Hierarchical(object):
         r"""Perform the clustering on the input components
         updating the initial guess.
 
+        Return the number of iterations at convergence, or None.
+
         :param eps:
             If relative change of distance between current and last step falls below ``eps``,
             declare convergence:
@@ -184,7 +186,7 @@ class Hierarchical(object):
             print('Starting hierarchical clustering with %d components.' % len(self.g.components))
         converged = False
         step = 0
-        while not converged and step < max_steps:
+        for step in range(1, max_steps + 1): #while not converged and step < max_steps:
             self._cleanup(kill)
             self._regroup()
             self._refit()
@@ -198,6 +200,7 @@ class Hierarchical(object):
                 coverged = True
                 if self._verbose:
                     print('Exact minimum found after %d steps' % step)
+                break
 
             rel_change = (old_distance - new_distance) / old_distance
             assert not (rel_change < -1e-13), 'distance increased'
@@ -206,18 +209,18 @@ class Hierarchical(object):
                 converged = True
                 if self._verbose and new_distance != old_distance:
                     print('Close enough to local minimum after %d steps' % step)
+                break
 
             # save distance for comparison in next step
             old_distance = new_distance
 
-            step += 1
-
-        assert converged
         self._cleanup(kill)
         if self._verbose:
             print('%d components remain.' % len(self.g.components))
 
-        return self.g
+        if converged:
+            return step
+        # else return None
 
 def kullback_leibler(c1, c2):
     """Kullback Leibler divergence of two Gaussians, :math:`KL(1||2)`"""
