@@ -185,8 +185,7 @@ class Hierarchical(object):
         if self._verbose:
             print('Starting hierarchical clustering with %d components.' % len(self.g.components))
         converged = False
-        step = 0
-        for step in range(1, max_steps + 1): #while not converged and step < max_steps:
+        for step in range(1, max_steps + 1):
             self._cleanup(kill)
             self._regroup()
             self._refit()
@@ -197,7 +196,7 @@ class Hierarchical(object):
             if self._verbose:
                 print('Distance in step %d: %g' % (step, new_distance))
             if new_distance == old_distance:
-                coverged = True
+                converged = True
                 if self._verbose:
                     print('Exact minimum found after %d steps' % step)
                 break
