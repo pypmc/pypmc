@@ -39,6 +39,9 @@ class MixtureDensity(ProbabilityDensity):
     def __init__(self, components, weights=None):
         self.components  = [_deepcopy(component) for component in components]
 
+        assert self.components, "Must have at least one component!"
+
+        # assertion above prevents this from causing segmentation fault
         self.dim = self.components[0].dim
 
         _np.testing.assert_equal([comp.dim for comp in self.components],[self.dim for comp in components])

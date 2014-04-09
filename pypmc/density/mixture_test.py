@@ -142,6 +142,10 @@ class TestMixtureDensity(unittest.TestCase):
         self.assertAlmostEqual(samples[0][0], -1., delta=1.e-15)
         self.assertAlmostEqual(samples[1][0], +1., delta=1.e-15)
 
+    def test_no_segfault(self):
+        # passing an empty list as ``components`` used to cause segfault
+        self.assertRaisesRegexp(AssertionError, ".*at least.*['one''1'].*component", MixtureDensity, [])
+
 means = np.array([[ 1.0,  5.4, -3.1],
                   [-3.8,  2.5,  0.4],
                   [ 4.1, -3.3, 19.8],
