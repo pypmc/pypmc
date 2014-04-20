@@ -97,7 +97,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
             ellipse_style_clone = dict(ellipse_style)
             ellipse_style_clone['facecolor'] = 'none'
             ellipse_style_clone['edgecolor'] = colors[k]
-            ellipse_style_clone['alpha'] = '1'
+            ellipse_style_clone['alpha'] = 1
             ax.add_patch(Ellipse(xy=(x_values[k], y_values[k]),
                                        width=2*width, height=2*height, angle=angle,
                                        **ellipse_style_clone))
