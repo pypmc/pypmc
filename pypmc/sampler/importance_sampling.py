@@ -194,11 +194,25 @@ class DeterministicIS(ImportanceSampler):
 
     An importance sampler object; generates weighted samples from
     ``target`` using ``proposal``. Calculates `deterministic mixture
-    weights` according to [Cor+12]_
+    weights` according to [Cor+12]_ and optionally standard weights.
 
-    """ + _docstring_params_importance_sampler
+    """ + _docstring_params_importance_sampler + \
+    """:param std_weights:
+
+        Bool; if True, store standard weights in ``self.std_weights``
+
+        .. note::
+            Can only be passed as keyword argument.
+
+    """
     def __init__(self, *args, **kwargs):
+        save_std_weights = kwargs.pop('std_weights', False)
+
         super(DeterministicIS, self).__init__(*args, **kwargs)
+
+        # optionally save standars weights
+        if save_std_weights:
+            self.std_weights = _History(1, self.history.prealloc)
 
         # save all past proposals in this list
         self.proposal_history = []
@@ -223,6 +237,13 @@ class DeterministicIS(ImportanceSampler):
         # allocate memory for new target and proposal evaluations
         this_deltas_targets = self._deltas_targets_evaluated.append(this_N)
 
+        # allocate memory for new standard weights (if desired by user)
+        try:
+            this_std_weights = self.std_weights.append(this_N)[:,0]
+            need_std_weights = True
+        except AttributeError:
+            need_std_weights = False
+
         # create references
         this_weights = this_weights_samples[:,0 ]
         this_samples = this_weights_samples[:,1:]
@@ -242,16 +263,41 @@ class DeterministicIS(ImportanceSampler):
         all_targets = all_deltas_targets [:,1 ]
 
 
-        # evaluate the target at the new samples
-        for i, sample in enumerate(this_samples):
-            # exp because the self.target returns the log of the target
-            this_targets[i] = _exp(self.target(sample))
+        if need_std_weights:
+            # evaluate the target at the new samples
+            for i, sample in enumerate(this_samples):
+                tmp = self.target(sample)
+                this_std_weights[i] = tmp
+                # exp because the self.target returns the log of the target
+                this_targets[i] = _exp(tmp)
 
-        # calculate the deltas for the new samples
-        this_deltas[:] = 0.
-        for i_sample, sample in enumerate(this_samples):
-            for i_run, i_samples in enumerate(self.history):
-                this_deltas[i_sample] += len(i_samples) * _exp( self.proposal_history[i_run].evaluate(sample) )
+            # calculate the deltas and standard weights for the new samples
+            this_deltas[:] = 0.
+            i_run = -1
+            for i_run in range(len(self.history) - 1): # special treatment for last run
+                N_i = len(self.history[i_run])
+                for i_sample, sample in enumerate(this_samples):
+                    this_deltas[i_sample] += N_i * _exp( self.proposal_history[i_run].evaluate(sample) )
+            # last run
+            i_run += 1
+            N_i = len(self.history[i_run])
+            for i_sample, sample in enumerate(this_samples):
+                tmp = self.proposal_history[i_run].evaluate(sample)
+                this_deltas[i_sample] += N_i * _exp( tmp )
+                this_std_weights[i_sample] -= tmp
+                this_std_weights[i_sample] = _exp(this_std_weights[i_sample])
+        else:
+            # evaluate the target at the new samples
+            for i, sample in enumerate(this_samples):
+                # exp because the self.target returns the log of the target
+                this_targets[i] = _exp(self.target(sample))
+
+            # calculate the deltas for the new samples
+            this_deltas[:] = 0.
+            for i_sample, sample in enumerate(this_samples):
+                for i_run, i_samples in enumerate(self.history):
+                    this_deltas[i_sample] += len(i_samples) * _exp( self.proposal_history[i_run].evaluate(sample) )
+
 
         assert i_run + 1 == len(self.proposal_history), inconsistency_message
 
@@ -264,7 +310,7 @@ class DeterministicIS(ImportanceSampler):
             old_targets = old_deltas_targets [:,1 ]
 
             # calculate the deltas for the old samples
-            # TODO: use multi_evaluate
+            # Note: cannot use multi_evaluate because of different functionality for MixtureDensity and base class
             for i_sample, sample in enumerate(old_samples):
                 old_deltas[i_sample] += this_N * _exp( self.proposal_history[-1].evaluate(sample) )
 

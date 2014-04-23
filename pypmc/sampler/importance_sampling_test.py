@@ -301,6 +301,10 @@ class TestDeterministicIS(unittest.TestCase):
         for i, sample in enumerate(samples_second):
             self.assertAlmostEqual(weights_second[i], target_weights_second[i], places=6)
 
+        # standard weights should not have been saved
+        with self.assertRaises(AttributeError):
+            sam.std_weights
+
     def test_clear(self):
         N = 20
         prop = density.mixture.MixtureDensity((density.gauss.Gauss(mu, cov),))
@@ -312,3 +316,23 @@ class TestDeterministicIS(unittest.TestCase):
         pmc.run(N)
         weighted_samples = pmc.history[:]
         self.assertEqual(len(weighted_samples), 20)
+
+    def test_std_weights(self):
+        target_dmx_weights = np.array([ 4.51833133,  3.97876579,  4.68361755,  4.79001426,  2.03969365,
+                                        4.42676502,  4.7814771 ,  4.38248357,  4.42923761,  4.80564581  ])
+
+        target_std_weights = np.array([5.64485430502, 4.21621342833, 6.19074100415, 6.57693562598, 1.39850240669] +
+                                      [3.76663727037] * 5)
+
+        sam = DeterministicIS(log_target, perturbed_prop, rng=np.random.mtrand, std_weights=True)
+        sam.run(less_steps)
+        sam.proposal.components[0].update(mu, cov) # set proposal = normalized target (i.e. perfect_prop)
+        sam.run(less_steps)
+
+        # check weights
+        dmx_weights = sam.history    [:][:,0]
+        std_weights = sam.std_weights[:][:,0]
+
+        for i in range(10):
+            self.assertAlmostEqual(dmx_weights[i], target_dmx_weights[i], places=6)
+            self.assertAlmostEqual(std_weights[i], target_std_weights[i], places=6)
