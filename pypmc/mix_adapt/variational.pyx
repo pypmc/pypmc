@@ -75,13 +75,7 @@ class GaussianInference(object):
 
         if initial_guess is not None:
             self.K = len(initial_guess)
-            if 'm' in kwargs:
-                raise ValueError('Specify EITHER ``m`` OR ``initial_guess``')
-            if 'W' in kwargs:
-                raise ValueError('Specify EITHER ``W`` OR ``initial_guess``')
-            if 'alpha' in kwargs:
-                raise ValueError('Specify EITHER ``alpha`` OR ``initial_guess``')
-
+            self._check_initial_guess(initial_guess, kwargs)
         elif components > 0:
             self.K = components
         else:
@@ -90,10 +84,7 @@ class GaussianInference(object):
         self.set_variational_parameters(**kwargs)
 
         if initial_guess is not None:
-            means, covs, component_weights = _unroll(initial_guess)
-            self.m     = means
-            self.W     = _np.array([_np.linalg.inv(covs[k]) / (self.nu[k] - self.dim) for k in range(self.K)])
-            self.alpha = component_weights + 1
+            self._parse_initial_guess(initial_guess)
 
         self._initialize_intermediate(self.N)
 
@@ -556,6 +547,18 @@ class GaussianInference(object):
         self.M_step()
         self.E_step()
 
+    def _check_initial_guess(self, initial_guess, other_args):
+        if 'm' in other_args:
+            raise ValueError('Specify EITHER ``m`` OR ``initial_guess``')
+        if 'W' in other_args:
+            raise ValueError('Specify EITHER ``W`` OR ``initial_guess``')
+        if 'alpha' in other_args:
+            raise ValueError('Specify EITHER ``alpha`` OR ``initial_guess``')
+        if 'beta' in other_args:
+            raise ValueError('Specify EITHER ``beta`` OR ``initial_guess``')
+        if 'nu' in other_args:
+            raise ValueError('Specify EITHER ``nu`` OR ``initial_guess``')
+
     def _check_K_vector(self, name, min=0.0):
         v = getattr(self, name)
         if len(v.shape) != 1:
@@ -583,6 +586,23 @@ class GaussianInference(object):
         self.N_comp = _np.zeros(self.K)
         self.expectation_det_ln_lambda = _np.zeros_like(self.N_comp)
         self.expectation_ln_pi = _np.zeros_like(self.N_comp)
+
+    def _parse_initial_guess(self, initial_guess):
+        means, covs, component_weights = _unroll(initial_guess)
+        N = self.N
+        K = self.K
+
+        c_alpha = self.alpha0.sum() + N
+        self.alpha = component_weights * (c_alpha - K) + 1
+
+        c_beta = self.beta0.sum() + N
+        self.beta = component_weights * (c_beta - K)
+
+        c_nu = self.nu0.sum() + N
+        self.nu = component_weights * (c_nu - K)
+
+        self.m     = means
+        self.W     = _np.array([_np.linalg.inv(covs[k]) / (self.nu[k] - self.dim) for k in range(self.K)])
 
     def _update_log_rho(self):
         # (10.46)
@@ -997,6 +1017,7 @@ class VBMerge(GaussianInference):
 
         if initial_guess is not None:
             self.K = len(initial_guess)
+            self._check_initial_guess(initial_guess, kwargs)
         elif components is not None:
             self.K = components
         else:
@@ -1017,13 +1038,7 @@ class VBMerge(GaussianInference):
 
         # take mean and covariances from initial guess
         if initial_guess is not None:
-
-            self.W = _np.array([c.inv_sigma / (self.nu[k] - self.dim) for k,c in enumerate(initial_guess.components)])
-
-            # copy over the means
-            self.m = _np.array([c.mu for c in initial_guess.components])
-
-            self.alpha = N * _np.array(initial_guess.weights)
+            self._parse_initial_guess(initial_guess)
 
         self.E_step()
 

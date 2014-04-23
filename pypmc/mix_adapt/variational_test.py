@@ -66,7 +66,6 @@ class TestGaussianInference(unittest.TestCase):
         normalized_weights = weights / weights.sum()
         mean1 = np.array( (1. ,5.) )
         mean2 = np.array( (0., 2.) )
-        nu    = np.array([100., 10.])
 
         target_mix = create_gaussian_mixture(np.array([mean1,mean2]), np.array([covariance1, covariance2]), weights)
 
@@ -75,6 +74,8 @@ class TestGaussianInference(unittest.TestCase):
         data = target_mix.propose(10)
 
         alpha = np.array([10., 10.])
+        beta  = alpha
+        nu    = np.array([100., 10.])
         m     = np.array([[0., 0.], [0., 5.]])
         W     = np.array([np.eye(2) for i in range(2)])
 
@@ -84,21 +85,45 @@ class TestGaussianInference(unittest.TestCase):
         self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
                                 GaussianInference, data)
 
-        # should not be able to pass both initial_guess and something out of [alpha, m, W]
+        # should not be able to pass both initial_guess and something out of [alpha, beta, nu, m, W]
         self.assertRaisesRegexp(ValueError, 'EITHER.*W.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, W=W)
         self.assertRaisesRegexp(ValueError, 'EITHER.*m.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, m=m)
         self.assertRaisesRegexp(ValueError, 'EITHER.*alpha.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, alpha=alpha)
+        self.assertRaisesRegexp(ValueError, 'EITHER.*beta.*OR.*initial_guess',
+                               GaussianInference, data, initial_guess=target_mix, beta=beta)
+        self.assertRaisesRegexp(ValueError, 'EITHER.*nu.*OR.*initial_guess',
+                               GaussianInference, data, initial_guess=target_mix, nu=nu)
 
-        vb = GaussianInference(data, initial_guess=target_mix, nu=nu)
+
+        alpha0 = np.array([20., 20.])
+        beta0  = np.array([30., 30.])
+        nu0    = np.array([40., 40.])
+        vb = GaussianInference(data, initial_guess=target_mix, alpha0=alpha0, beta0=beta0, nu0=nu0)
 
         # initial_guess taken correctly?
-        np.testing.assert_almost_equal(vb.alpha, normalized_weights + 1.   )
-        np.testing.assert_almost_equal(vb.m,     np.array([mean1, mean2]) )
-        np.testing.assert_almost_equal(vb.W,     np.array([np.linalg.inv(covariance1) / (nu[0] - 2.),
-                                                           np.linalg.inv(covariance2) / (nu[1] - 2.)]) )
+        N = len(data)
+        K = 2
+
+        # alpha_k = weight_k * (c_alpha - K) + 1; c_alpha = sum(alpha0) + N
+        c_alpha = 2.*20. + N; target_alpha = normalized_weights * (c_alpha - K) + 1
+
+        # beta_k = weight_k * (c_beta - K); c_beta = sum(beta0) + N
+        c_beta = 2.*30. + N; target_beta = normalized_weights * (c_beta - K)
+
+        # nu_k = weight_k * (c_nu - K); c_nu = sum(nu0) + N
+        c_nu = 2.*40. + N; target_nu = normalized_weights * (c_nu - K)
+
+        target_m     = np.array([mean1, mean2])
+        target_W     = np.array([np.linalg.inv(covariance1) / (target_nu[0] - 2.),
+                                 np.linalg.inv(covariance2) / (target_nu[1] - 2.)])
+        np.testing.assert_almost_equal(vb.alpha, target_alpha)
+        np.testing.assert_almost_equal(vb.beta , target_beta )
+        np.testing.assert_almost_equal(vb.nu   , target_nu   )
+        np.testing.assert_almost_equal(vb.m    , target_m    )
+        np.testing.assert_almost_equal(vb.W    , target_W    )
 
         # vb.make_mixture should return ``target_mix``
         re_mix = vb.make_mixture()
@@ -425,7 +450,10 @@ class TestVBMerge(unittest.TestCase):
         for c in zip(initial_guess.components, initial_guess.weights):
             print(c[0].mu, "weight =", c[1])
 
-        vb = VBMerge(input_mix, N=N, initial_guess=initial_guess, alpha0=1e-5, beta0=1e-5, nu=np.zeros(2) + 3)
+        vb = VBMerge(input_mix, N=N, alpha0=1e-5, beta0=1e-5, nu=np.zeros(2) + 3, components=len(initial_guess),
+                     alpha=N * np.array(initial_guess.weights),
+                     m=np.array([c.mu for c in initial_guess.components]),
+                     W=np.array([c.inv_sigma for c in initial_guess.components]) )
 
         # initial guess taken over?
         for i,c in enumerate(initial_guess.components):
@@ -555,7 +583,7 @@ class TestVBMerge(unittest.TestCase):
 
         nu = np.zeros(N_output_initial) + 3. + 10.
 
-        vb = VBMerge(input_components, N=N, initial_guess=initial_guess, nu=nu)
+        vb = VBMerge(input_components, N=N, initial_guess=initial_guess)
         vb_prune = copy.deepcopy(vb)
         print('Keep all components...\n')
 
