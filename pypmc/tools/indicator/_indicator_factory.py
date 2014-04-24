@@ -21,20 +21,21 @@ def ball(center, radius=1., bdy=True):
         ``bdy=True``.
 
     '''
+    center = _np.array(center) # copy input parameter
     dim = len(center)
 
     if bdy:
         def ball_indicator(x):
             if len(x) != dim:
                 raise ValueError('input has wrong dimension (%i instead of %i)' % (len(x), dim))
-            if _np.linalg.norm(x) <= radius:
+            if _np.linalg.norm(x - center) <= radius:
                 return True
             return False
     else:
         def ball_indicator(x):
             if len(x) != dim:
                 raise ValueError('input has wrong dimension (%i instead of %i)' % (len(x), dim))
-            if _np.linalg.norm(x) < radius:
+            if _np.linalg.norm(x - center) < radius:
                 return True
             return False
 
@@ -64,6 +65,9 @@ def hyperrectangle(lower, upper, bdy=True):
         ``hr_indicator(x)`` returns ``True`` if and only if ``bdy=True``.
 
     '''
+    # copy input
+    lower = _np.array(lower)
+    upper = _np.array(upper)
     dim = len(lower)
     if (upper <= lower).any():
         raise ValueError('invalid input; found upper <= lower')

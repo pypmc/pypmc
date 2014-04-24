@@ -65,9 +65,6 @@ def ess(weights):
     # normalize weights
     w = _np.asarray(weights) / _np.sum(weights)
 
-    # mask zero weights
-    w = _np.ma.MaskedArray(w, copy=False, mask=(w == 0))
-
     # ess
     coeff_var = _np.sum((len(w) * w - 1)**2) / len(w)
 

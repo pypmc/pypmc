@@ -6,7 +6,7 @@ from .convergence import *
 import unittest
 
 weights = np.array([0., 1., 2., 3., 4.])
-weights_integer = np.arange(5)
+weights_integer = range(5)
 
 class TestPerplexity(unittest.TestCase):
     target = 0.71922309332486445
@@ -18,7 +18,7 @@ class TestPerplexity(unittest.TestCase):
         self.assertAlmostEqual(perp(weights_integer), self.target)
 
 class TestESS(unittest.TestCase):
-    target = 0.76923076923076916
+    target = 2. / 3.
 
     def test_float(self):
         self.assertAlmostEqual(ess(weights), self.target)
