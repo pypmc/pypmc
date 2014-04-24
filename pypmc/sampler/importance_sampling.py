@@ -189,8 +189,8 @@ class ImportanceSampler(object):
             return this_run
 
 class DeterministicIS(ImportanceSampler):
-    __doc__ = r"""DeterministicIS(target, proposal, indicator = None, prealloc = 0,
-    rng = numpy.random.mtrand)
+    __doc__ = r"""DeterministicIS(target, proposal, indicator=None, prealloc=0,
+    rng=numpy.random.mtrand, std_weights=False)
 
     An importance sampler object; generates weighted samples from
     ``target`` using ``proposal``. Calculates `deterministic mixture
