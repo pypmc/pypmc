@@ -4,8 +4,8 @@ except ImportError:
     from distutils.core import setup
 
 from distutils.extension import Extension
-
 from Cython.Build import cythonize
+import numpy
 
 # set the version number
 with open('pypmc/_version.py') as f:
@@ -17,7 +17,10 @@ extra_compile_args=["-Wno-unused-but-set-variable",
                     "-Wno-unused-function",
                     "-O3"]
 
-extensions = [ Extension('*', ['pypmc/*/*.pyx' ], extra_compile_args=extra_compile_args)]
+extensions = [ Extension('*', ['pypmc/*/*.pyx' ],
+                                                  extra_compile_args=extra_compile_args,
+                                                  include_dirs=[numpy.get_include()])
+             ]
 
 setup(
     name=n,
