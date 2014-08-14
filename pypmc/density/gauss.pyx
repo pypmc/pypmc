@@ -44,8 +44,11 @@ class LocalGauss(LocalDensity):
         self.cholesky_sigma = _np.linalg.cholesky(self.sigma)
         self.inv_sigma      = _np.linalg.inv(self.sigma)
         self.det_sigma      = _np.linalg.det(self.sigma)
+        # sometime the cholesky decomposition does not fail although the
+        # determinant is negative
+        if self.det_sigma <= 0.:
+            raise _np.linalg.LinAlgError('Matrix is not positive definite')
         self._compute_norm()
-
 
     def _get_gauss_sample(self, rng):
         """transform sample from standard gauss to Gauss(mean=0, sigma=sigma)"""

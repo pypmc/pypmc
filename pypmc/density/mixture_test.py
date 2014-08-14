@@ -80,9 +80,23 @@ class TestMixtureDensity(unittest.TestCase):
         samples = np.array([self.evaluate_at] * 2)
         targets = np.array([self.target] * 2)
         individual = np.zeros((2,2))
-        res = self.mix.multi_evaluate(samples, individual)
+        out1 = np.zeros(2)
+        out2 = np.zeros(2)
+        res1 = self.mix.multi_evaluate(samples, individual=individual)
+        res2 = self.mix.multi_evaluate(samples, individual=individual, out=out1)
+        res3 = self.mix.multi_evaluate(samples, out=out2)
 
-        np.testing.assert_array_almost_equal(res, targets)
+        # assert bitwise equality no matter where the result is taken from or what is calculated in addition
+        np.testing.assert_equal(res1, res2)
+        np.testing.assert_equal(res1, res3)
+        np.testing.assert_equal(res1, out1)
+        np.testing.assert_equal(res1, out2)
+
+        np.testing.assert_array_almost_equal(res1, targets)
+        np.testing.assert_array_almost_equal(res2, targets)
+        np.testing.assert_array_almost_equal(res3, targets)
+        np.testing.assert_array_almost_equal(out1, targets)
+        np.testing.assert_array_almost_equal(out2, targets)
         np.testing.assert_array_almost_equal(individual[:,0], 10.)
         np.testing.assert_array_almost_equal(individual[:,1], 42.)
 
@@ -92,14 +106,21 @@ class TestMixtureDensity(unittest.TestCase):
         individual_ok        = np.empty((3,2))
         individual_too_short = np.empty((2,2))
         individual_wrong_K   = np.empty((3,3))
+        out_too_long         = np.empty((9, ))
+        out_ok               = np.empty((3, ))
+        components           = [0]
 
-        self.mix.multi_evaluate(samples, individual_ok) # should be ok
+        self.mix.multi_evaluate(samples, individual=individual_ok) # should be ok
         self.assertRaisesRegexp(AssertionError, 'x.*wrong dim.*',
-                                self.mix.multi_evaluate, samples_wrong_dim, individual_ok)
+                                self.mix.multi_evaluate, samples_wrong_dim, individual=individual_ok)
         self.assertRaisesRegexp(AssertionError, 'individual.*must.*shape',
-                                self.mix.multi_evaluate, samples, individual_too_short)
+                                self.mix.multi_evaluate, samples, individual=individual_too_short)
         self.assertRaisesRegexp(AssertionError, 'individual.*must.*shape',
-                                self.mix.multi_evaluate, samples, individual_wrong_K)
+                                self.mix.multi_evaluate, samples, individual=individual_wrong_K)
+        self.assertRaisesRegexp(AssertionError, 'components.*not None.*out.*must be None',
+                                self.mix.multi_evaluate, samples, out_ok, components=components)
+        self.assertRaisesRegexp(AssertionError, 'out.*must.*len.*3',
+                                self.mix.multi_evaluate, samples, out_too_long)
 
     def test_propose(self):
         np.random.seed(rng_seed)
@@ -167,15 +188,17 @@ covs  = np.array([[[ 3.7,  0.7, -0.6],
                    [-0.3,  6.6, -0.5],
                    [-0.6, -0.5,  9.4]]])
 
+dofs = range(1,5)
+
 weights = np.array([ 2.7,  0.4, 1.6, 4.8])
 
 normalized_weights = weights/weights.sum()
 
 class TestCreateGaussian(unittest.TestCase):
     def test_invalid_input(self):
-        self.assertRaisesRegexp(AssertionError, 'number of means.*?not match.*?number of cov',
+        self.assertRaisesRegexp(AssertionError, 'Number of means.*?not match.*?number of cov',
                                 create_gaussian_mixture, means    , covs[:2]   )
-        self.assertRaisesRegexp(AssertionError, 'number of means.*?not match.*?number of cov',
+        self.assertRaisesRegexp(AssertionError, 'Number of means.*?not match.*?number of cov',
                                 create_gaussian_mixture, means[:2], covs       )
 
     def test_create_no_weights(self):

@@ -4,6 +4,7 @@ import numpy as _np
 from copy import deepcopy as _deepcopy
 from .base import ProbabilityDensity
 from .gauss import Gauss
+from .student_t import StudentT
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
 cimport numpy as _np
@@ -106,21 +107,28 @@ class MixtureDensity(ProbabilityDensity):
         components_evaluated = _np.empty(len(self.components))
         for i,comp in enumerate(self.components):
             components_evaluated[i] = comp.evaluate(x)
-        # avoid direct exponentiation --> use scipy.misc.logsumexp (_lse)
+        # avoid direct exponentiation --> use logsumexp
         res = logsumexp(components_evaluated, self.weights)
         if individual:
             return res, components_evaluated
         else:
             return res
 
-    def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=2] individual not None,
-                       components=None):
+    def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=1] out=None,
+                       _np.ndarray[double, ndim=2] individual=None, components=None):
         '''Evaluate density at all points in ``x`` for all components
         specified in ``components`` and return in ``individual``.
-        Return log(q(x)) for each point.
+        Return log(q(x)) for each point (if ``components`` is ``None``).
+
+        Use ``individual`` if you need the density at ``x`` for each component
+        and you want to compute it only once to increase efficiency.
 
         :param x:
             (N x D) array; one D-dim. sample per row.
+
+        :param out:
+            (N) array, optional; write output into this array (if
+            ``components`` is ``None``).
 
         :param individual:
             (N x K) array; density of k-th component at the n-th sample.
@@ -130,17 +138,27 @@ class MixtureDensity(ProbabilityDensity):
             components only.
 
         '''
-        assert x.shape[1] == self.dim, "The points in ``x`` have the wrong dimension (%i instead of %i)" %(x.shape[1], self.dim)
-        assert len(x) == len(individual), "For the provided ``x``, ``individual`` must have shape %s" %( (len(x), len(self)), )
-        assert individual.shape[1] == len(self), "For the provided ``x``, ``individual`` must have shape %s" %( (len(x), len(self)), )
+        assert x.shape[1] == self.dim, "The points in ``x`` have the wrong dimension (%i instead of %i)" % (x.shape[1], self.dim)
+        if individual is None:
+            individual = _np.empty( (len(x), len(self)) )
+        else:
+            assert len(x) == len(individual), "For the provided ``x``, ``individual`` must have shape %s" % ((len(x), len(self)),)
+            assert individual.shape[1] == len(self), "For the provided ``x``, ``individual`` must have shape %s" % ((len(x), len(self)),)
 
         if components is None:
-            components = range(len(self.components))
+            for k,c in enumerate(self.components):
+                c.multi_evaluate(x, individual[:,k])
+            if out is None:
+                return logsumexp2D(individual, self.weights)
+            else:
+                assert len(out) == len(x), '``out`` must have length %i' % (len(x))
+                out[:] = logsumexp2D(individual, self.weights)
+                return out
 
-        for k in components:
-            self.components[k].multi_evaluate(x, individual[:,k])
-
-        return logsumexp2D(individual, self.weights)
+        else:
+            assert out is None, 'If ``components`` is not None, ``out`` must be None.'
+            for k in components:
+                self.components[k].multi_evaluate(x, individual[:,k])
 
     @_add_to_docstring(_msg_expect_normalized_weights)
     @_add_to_docstring(""":param shuffle:\n

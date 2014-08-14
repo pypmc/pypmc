@@ -24,6 +24,11 @@ class TestLocalStudentT(unittest.TestCase):
         print('"StudentT" needs .LocalGauss.')
         print('When this test fails, first make sure that .LocalGauss works.')
 
+    def test_bad_dof(self):
+        expected_error_msg = ".*dof.*must.*((larger)|(greater)).*(0|(zero))"
+        self.assertRaisesRegexp(AssertionError, expected_error_msg, LocalStudentT, offdiag_sigma,  0.0)
+        self.assertRaisesRegexp(AssertionError, expected_error_msg, LocalStudentT, offdiag_sigma, -1.1)
+
     def test_badCovarianceInput(self):
         self.assertRaises(np.linalg.LinAlgError, lambda: LocalStudentT(singular_sigma, 10) )
         self.assertRaises(np.linalg.LinAlgError, lambda: LocalStudentT(asymmetric_sigma,10) )
@@ -125,6 +130,21 @@ class TestLocalStudentT(unittest.TestCase):
 
 
 class TestStudentT(unittest.TestCase):
+    mean  = np.array( [1.25, 4.3   ] )
+    sigma = np.array([[0.0049, 0.  ]
+                     ,[0.    ,  .01]])
+    dof   = 5.
+
+    t = StudentT(mean, sigma, dof)
+
+    point1 = np.array([1.3 , 4.4  ])
+    point2 = np.array([1.26, 4.424])
+
+    target1 = 2.200202941
+    target2 = 2.174596526
+
+    delta = 1e-9
+
     def setUp(self):
         print('"StudentT" needs .LocalStudentT.')
         print('When this test fails, first make sure that .LocalStudentT works.')
@@ -138,22 +158,22 @@ class TestStudentT(unittest.TestCase):
                 StudentT, mu, sigma, dof)
 
     def test_evaluate(self):
-        mean  = np.array( [1.25, 4.3   ] )
-        sigma = np.array([[0.0049, 0.  ]
-                         ,[0.    ,  .01]])
-        dof   = 5.
-        delta = 1e-9
+        self.assertAlmostEqual(self.t.evaluate(self.point1), self.target1, delta=self.delta)
+        self.assertAlmostEqual(self.t.evaluate(self.point2), self.target2, delta=self.delta)
 
-        t = StudentT(mean, sigma, dof)
+    def test_multi_evaluate(self):
+        samples = np.array([self.point1 , self.point2 ])
+        target  = np.array([self.target1, self.target2])
 
-        point1 = np.array([1.3 , 4.4  ])
-        point2 = np.array([1.26, 4.424])
+        out1 = np.empty(2)
+        out2 = self.t.multi_evaluate(samples, out1)
+        np.testing.assert_array_almost_equal(out1, target)
+        np.testing.assert_array_almost_equal(out2, target)
+        assert out1 is out2
 
-        target1 = 2.200202941
-        target2 = 2.174596526
-
-        self.assertAlmostEqual(t.evaluate(point1), target1, delta=delta)
-        self.assertAlmostEqual(t.evaluate(point2), target2, delta=delta)
+        # should also work if out is not provided
+        result = self.t.multi_evaluate(samples)
+        np.testing.assert_array_almost_equal(result, target)
 
     def test_propose(self):
         mean  = np.array( [8.] )
@@ -168,12 +188,10 @@ class TestStudentT(unittest.TestCase):
 
         np.random.seed(rng_seed)
 
-
         # test if value for rng can be omitted
         proposed1 = comp.propose(rng_steps//2)
         # test if value for rng can be set
         proposed2 = comp.propose(rng_steps//2, np.random.mtrand)
-
         # test standard value for parameter N
         proposed3 = comp.propose()
         self.assertEqual(len(proposed3),1)

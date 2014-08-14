@@ -1,4 +1,4 @@
-"""Collect StudentT probability densities"""
+"""Collect Student's t probability densities"""
 
 import numpy as _np
 from scipy.special import gammaln as _gammaln
@@ -6,8 +6,12 @@ from .base import ProbabilityDensity
 from .gauss import LocalGauss
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
+from pypmc.tools._linalg cimport bilinear_sym
+from libc.math cimport log
+cimport numpy as _np
+
 class LocalStudentT(LocalGauss):
-    """A multivariate local StudentT density with redefinable covariance.
+    """A multivariate local Student's t density with redefinable covariance.
 
     :param sigma:
 
@@ -16,23 +20,23 @@ class LocalStudentT(LocalGauss):
 
     :param dof:
 
-         Float or Integer; the degrees of freedom
+         Float; the degrees of freedom
 
     """
-
-    def __init__(self, sigma, dof):
+    def __init__(self, sigma, double dof):
         self.symmetric = True
+        assert dof > 0., "Degree of freedom (``dof``) must be greater than zero (got %g)." % dof
         self.dof       = dof
         self.update(sigma)
 
     def _compute_norm(self):
         self.log_normalization = _gammaln(.5 * (self.dof + self.dim)) - _gammaln(.5 * self.dof) \
-                                 -0.5 * self.dim * _np.log(self.dof * _np.pi) + .5 * _np.log(_np.linalg.det(self.inv_sigma))
+                                 -0.5 * self.dim * log(self.dof * _np.pi) + .5 * log(_np.linalg.det(self.inv_sigma))
 
     @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x , y):
         return self.log_normalization  - .5 * (self.dof + self.dim) \
-            * _np.log(1. + (_np.dot(_np.dot(x-y, self.inv_sigma), x-y)) / self.dof)
+            * log(1. + bilinear_sym(self.inv_sigma, x - y) / self.dof)
 
     @_add_to_docstring('''    .. important::\n
                 ``rng`` must return a numpy array of N samples from:\n
@@ -49,7 +53,7 @@ class LocalStudentT(LocalGauss):
         return y + self._get_gauss_sample(rng) * _np.sqrt(self.dof / rng.chisquare(self.dof))
 
 class StudentT(ProbabilityDensity):
-    r"""A Student T probability density. Can be used as component for
+    r"""A Student's t probability density. Can be used as a component in
     MixtureDensities.
 
         :param mu:
@@ -65,10 +69,11 @@ class StudentT(ProbabilityDensity):
             Float; the degrees of freedom :math:`\nu`
 
     """
-    def __init__(self, mu, sigma, dof):
+    def __init__(self, mu, sigma, double dof):
         self.update(mu, sigma, dof)
+        self._tmp = _np.empty_like(self.mu)
 
-    def update(self, mu, sigma, dof):
+    def update(self, mu, sigma, double dof):
         r"""Re-initialize the density with new mean, covariance matrix and
         degrees of freedom.
 
@@ -98,15 +103,63 @@ class StudentT(ProbabilityDensity):
 
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
+        self._eval_prefactor = - .5 * (self.dof + self.dim)
+        self._inv_dof = 1. / self.dof
+
     @_inherit_docstring(ProbabilityDensity)
-    def evaluate(self, x):
-        return self._local_t.evaluate(x,self.mu)
+    def evaluate(self, _np.ndarray[double, ndim=1] x):
+        cdef:
+            size_t i, dim = self.dim
+            double log_norm = self._local_t.log_normalization
+            double inv_dof = self._inv_dof
+            double prefactor = self._eval_prefactor
+            double [:] tmp = self._tmp, mu = self.mu
+            double [:,:] inv_sigma = self.inv_sigma
+
+        for i in range(dim):
+            tmp[i] = x[i] - mu[i]
+
+        return log_norm  + prefactor * log(1. + bilinear_sym(self.inv_sigma, tmp) * inv_dof)
+
+    @_inherit_docstring(ProbabilityDensity)
+    def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=1] out=None):
+        cdef:
+            size_t       i, n
+            size_t       N          = len(x)
+            size_t       dim        = self.dim
+            double       prefactor  = self._eval_prefactor
+            double       inv_dof    = self._inv_dof
+            double       log_norm   = self._local_t.log_normalization
+            double [:]   mu         = self.mu
+            double [:]   diff       = _np.empty_like(mu)
+            double [:,:] inv_sigma  = self.inv_sigma
+
+        if out is None:
+            out = _np.empty(N)
+        else:
+            assert len(out) == N
+
+        cdef double [:] results = out
+
+        for n in range(N):
+            # compute difference
+            for i in range(len(diff)):
+                diff[i] = x[n,i] - mu[i]
+
+            results[n]  = bilinear_sym(self.inv_sigma, diff)
+            results[n] *= inv_dof
+            results[n] += 1.
+            results[n]  = log(results[n])
+            results[n] *= prefactor
+            results[n] += log_norm
+
+        return out
 
     @_add_to_docstring("""    .. important::\n
                 ``rng`` must meet the requirements of
                 :py:meth:`.LocalStudentT.propose`.\n\n""")
     @_inherit_docstring(ProbabilityDensity)
-    def propose(self, N=1, rng=_np.random.mtrand):
+    def propose(self, int N=1, rng=_np.random.mtrand):
         output = _np.empty((N,self.dim))
         for i in range(N):
             output[i] = self._local_t.propose(self.mu)
