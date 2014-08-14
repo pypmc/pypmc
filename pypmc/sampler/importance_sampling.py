@@ -225,6 +225,10 @@ class DeterministicIS(ImportanceSampler):
         self.history.clear()
         self._deltas_targets_evaluated.clear()
         self.proposal_history = []
+        try:
+            self.std_weights.clear()
+        except AttributeError:
+            pass
 
     @_inherit_docstring(ImportanceSampler)
     def _calculate_weights(self, this_weights_samples, this_N):
@@ -245,7 +249,6 @@ class DeterministicIS(ImportanceSampler):
             need_std_weights = False
 
         # create references
-        this_weights = this_weights_samples[:,0 ]
         this_samples = this_weights_samples[:,1:]
         this_deltas  = this_deltas_targets [:,0 ]
         this_targets = this_deltas_targets [:,1 ]
@@ -262,30 +265,25 @@ class DeterministicIS(ImportanceSampler):
         all_deltas  = all_deltas_targets [:,0 ]
         all_targets = all_deltas_targets [:,1 ]
 
-
         if need_std_weights:
-            # evaluate the target at the new samples
-            for i, sample in enumerate(this_samples):
-                tmp = self.target(sample)
-                this_std_weights[i] = tmp
-                # exp because the self.target returns the log of the target
-                this_targets[i] = _exp(tmp)
-
             # calculate the deltas and standard weights for the new samples
             this_deltas[:] = 0.
             i_run = -1
             for i_run in range(len(self.history) - 1): # special treatment for last run
-                N_i = len(self.history[i_run])
-                for i_sample, sample in enumerate(this_samples):
-                    this_deltas[i_sample] += N_i * _exp( self.proposal_history[i_run].evaluate(sample) )
+                this_deltas[:] += len(self.history[i_run]) * _np.exp( self.proposal_history[i_run].multi_evaluate(this_samples) )
             # last run
             i_run += 1
-            N_i = len(self.history[i_run])
-            for i_sample, sample in enumerate(this_samples):
-                tmp = self.proposal_history[i_run].evaluate(sample)
-                this_deltas[i_sample] += N_i * _exp( tmp )
-                this_std_weights[i_sample] -= tmp
-                this_std_weights[i_sample] = _exp(this_std_weights[i_sample])
+            this_std_weights[:] = - self.proposal_history[i_run].multi_evaluate(this_samples)
+            this_deltas[:] += len(self.history[i_run]) * _np.exp(- this_std_weights)
+
+            # evaluate the target at the new samples
+            for i, sample in enumerate(this_samples):
+                tmp = self.target(sample)
+                this_std_weights[i] += tmp
+                # exp because the self.target returns the log of the target
+                this_targets[i] = _exp(tmp)
+                this_std_weights[i] = _exp(this_std_weights[i])
+
         else:
             # evaluate the target at the new samples
             for i, sample in enumerate(this_samples):
@@ -294,26 +292,18 @@ class DeterministicIS(ImportanceSampler):
 
             # calculate the deltas for the new samples
             this_deltas[:] = 0.
-            for i_sample, sample in enumerate(this_samples):
-                for i_run, i_samples in enumerate(self.history):
-                    this_deltas[i_sample] += len(i_samples) * _exp( self.proposal_history[i_run].evaluate(sample) )
-
+            for i_run, i_samples in enumerate(self.history):
+                this_deltas[:] += len(i_samples) * _np.exp( self.proposal_history[i_run].multi_evaluate(this_samples) )
 
         assert i_run + 1 == len(self.proposal_history), inconsistency_message
 
-
         # not to be done if this is the first run
         if old_weights_samples.size:
-            old_weights = old_weights_samples[:,0 ]
             old_samples = old_weights_samples[:,1:]
             old_deltas  = old_deltas_targets [:,0 ]
-            old_targets = old_deltas_targets [:,1 ]
 
             # calculate the deltas for the old samples
-            # Note: cannot use multi_evaluate because of different functionality for MixtureDensity and base class
-            for i_sample, sample in enumerate(old_samples):
-                old_deltas[i_sample] += this_N * _exp( self.proposal_history[-1].evaluate(sample) )
-
+            old_deltas[:] += this_N * _np.exp( self.proposal_history[-1].multi_evaluate(old_samples) )
 
         # calculate the weights (Algorithm1 in [Cor+12])
         all_weights[:] = all_targets / (all_deltas / len(all_weights_samples))
