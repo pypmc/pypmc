@@ -81,20 +81,21 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
         # change sign to rotate in right direction
         angle = -theta * 180 / np.pi
 
+        # copy keywords but override some
+        ellipse_style_clone = dict(ellipse_style)
+
         # overwrite facecolor
-        ellipse_style['facecolor'] = colors[k]
+        ellipse_style_clone['facecolor'] = colors[k]
 
         ax = plt.gca()
 
         # need full width/height
         e = Ellipse(xy=(x_values[k], y_values[k]),
                                    width=2*width, height=2*height, angle=angle,
-                                   **ellipse_style)
+                                   **ellipse_style_clone)
         ax.add_patch(e)
 
         if solid_edge:
-            # copy keywords but override some
-            ellipse_style_clone = dict(ellipse_style)
             ellipse_style_clone['facecolor'] = 'none'
             ellipse_style_clone['edgecolor'] = colors[k]
             ellipse_style_clone['alpha'] = 1
