@@ -6,9 +6,8 @@ from .pmc import *
 from .. import density
 import numpy as np
 import unittest
-#TODO: compare with pmclib (Kilbinger et. al.)
 
-class TestPMCNoOverlap(unittest.TestCase):
+class TestGaussianPMCNoOverlap(unittest.TestCase):
     # proposal density
     mu1 = np.array( [ 10., -1.0, 8.0] )
     mu2 = np.array( [-10.,  7.4, 0.5] )
@@ -169,7 +168,7 @@ class TestPMCNoOverlap(unittest.TestCase):
         np.testing.assert_allclose(adapted_sigma1      , pmc_sigma1      )
         np.testing.assert_allclose(adapted_sigma2      , pmc_sigma2      )
 
-class TestPMCWithOverlap(unittest.TestCase):
+class TestGaussianPMCWithOverlap(unittest.TestCase):
     # proposal density
     mu1 = np.array([ 10.5,   1.1,   8.0])
     mu2 = np.array([ 10.3,   1.4,   7.8])
@@ -320,3 +319,233 @@ class TestPMCWithOverlap(unittest.TestCase):
         self.assertGreater(adapted_prop.weights[0], 0.)
         self.assertLess(adapted_prop.weights[1], 1.)
         self.assertGreater(adapted_prop.weights[1], 0.)
+
+class TestStudentTPMC(unittest.TestCase):
+    # proposal density
+    mu1 = np.array([ 10.5,   1.1,   8.0])
+    mu2 = np.array([ 10.3,   1.4,   7.8])
+
+    sigma1 = np.array([[1.15 , 0.875, 0.0],
+                       [0.875, 0.75 ,-0.2],
+                       [0.0  ,-0.2  , 1.1]])
+
+    sigma2 = np.array([[1.0  , 0.01 , 0.1],
+                       [0.01 , 0.75 , 0.0],
+                       [0.1  , 0.0  , 2.1]])
+
+    dof1 = 3.3
+    dof2 = 5.1
+
+    inv_sigma1 = np.linalg.inv(sigma1)
+    inv_sigma2 = np.linalg.inv(sigma2)
+
+    stud1 = density.student_t.StudentT(mu1+.001, sigma1+.001, dof1 + .1)
+    stud2 = density.student_t.StudentT(mu2-.005, sigma2-.005, dof2 - .1)
+    component_weights = np.array( (.7, .3) )
+    prop = density.mixture.MixtureDensity((stud1,stud2), component_weights)
+
+    # samples, latent variables and weights
+    latent = np.array([0, 1, 1, 0, 0, 1, 0, 0, 1, 0])
+    samples = np.array([[  8.25176666,  -0.46218162,   6.38766958],
+                        [ 10.30030254,   0.7211386 ,   8.75618216],
+                        [  9.80807539,   2.0664736 ,   8.3028291 ],
+                        [ 11.38801874,   1.90190379,   7.76177193],
+                        [ 11.06700609,   1.52600855,   8.82273509],
+                        [ 10.97130581,   0.23669273,   6.89884423],
+                        [ 10.2306073 ,   0.76789268,   8.30328072],
+                        [ 10.55012467,   1.26067336,   6.83958086],
+                        [  9.44298062,   1.47722829,   8.32750139],
+                        [ 11.74685298,   2.17160491,   6.83467116]])
+    weights = np.array([ 3.5958562 ,  6.44966403,  6.80000758,  1.48035422,  9.39147787,
+                         7.51766722,  7.68528257,  7.40332561,  1.71696272,  6.77512513])
+
+    def test_no_dof_with_rb(self):
+        # with sample weights
+        target_component_weights  = np.array([ 0.67176945,  0.32823055])
+
+        target_means = np.array([[ 10.63424834,   1.17615673,   7.97917987],
+                                 [ 10.32042937,   1.25670556,   7.75812829]])
+
+        target_sigmas = np.array([[[ 671.89282598,  551.62301992,    1.48200917],
+                                   [ 551.62301992,  475.62917432, -122.2084429 ],
+                                   [   1.48200917, -122.2084429 , 1020.549628  ]],
+
+                                  [[ 486.37526014, -421.55243758, -395.3979511 ],
+                                   [-421.55243758,  778.06582252,  555.72762087],
+                                   [-395.3979511 ,  555.72762087,  668.5489189 ]]]) / 1000.
+
+        target_dofs = np.array([self.stud1.dof, self.stud2.dof])
+
+        pmc_out = student_t_pmc(self.samples, self.prop, self.weights, self.latent, rb=True, dof_solver_steps=0)
+
+        out_weights = pmc_out.weights
+        out_means   = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas  = np.array([c.sigma for c in pmc_out.components])
+        out_dofs    = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means  , target_means            )
+        np.testing.assert_allclose(out_sigmas , target_sigmas           )
+        np.testing.assert_allclose(out_dofs   , target_dofs             )
+
+        # without sample weights
+        target_component_weights  = np.array([ 6.51754959,  3.48245041]) / 10.
+
+        target_means = np.array([[ 10.64064452,   1.20477389,   7.8647287 ],
+                                 [ 10.10032388,   1.33408113,   7.89891759]])
+
+        target_sigmas = np.array([[[ 91.6746563 ,  73.41635892,  10.62064779],
+                                   [ 73.41635892,  61.3471909 ,  -4.22104931],
+                                   [ 10.62064779,  -4.22104931,  93.98024092]],
+
+                                  [[ 56.60939478, -33.90533953, -41.08681049],
+                                   [-33.90533953,  62.26413148,  45.18436705],
+                                   [-41.08681049,  45.18436705,  57.66346247]]]) / 100.
+
+        target_dofs = np.array([self.stud1.dof, self.stud2.dof])
+
+        pmc_out = student_t_pmc(self.samples, self.prop, latent=self.latent, rb=True, dof_solver_steps=0)
+
+        out_weights = pmc_out.weights
+        out_means  = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas = np.array([c.sigma for c in pmc_out.components])
+        out_dofs   = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means , target_means             )
+        np.testing.assert_allclose(out_sigmas, target_sigmas            )
+        np.testing.assert_allclose(out_dofs  , target_dofs              )
+
+    def test_no_dof_without_rb(self):
+        # with sample weights
+        target_component_weights  = np.array([ 36.3314216 ,  22.48430155])
+        target_component_weights /= target_component_weights.sum()
+
+        target_means = np.array([[ 10.70959752,   1.27844173,   7.80719563],
+                                 [ 10.25601726,   1.08861396,   8.04985871]])
+
+        target_sigmas = np.array([[[ 0.73500094,  0.58391041,  0.09255567],
+                                   [ 0.58391041,  0.47788471, -0.02328713],
+                                   [ 0.09255567, -0.02328713,  1.01187774]],
+
+                                  [[ 0.32712438, -0.42655827, -0.34233007],
+                                   [-0.42655827,  0.70395756,  0.35210173],
+                                   [-0.34233007,  0.35210173,  0.68200957]]])
+
+        target_dofs = np.array([self.stud1.dof, self.stud2.dof])
+
+        pmc_out = student_t_pmc(self.samples, self.prop, self.weights, self.latent, rb=False, dof_solver_steps=0)
+
+        out_weights = pmc_out.weights
+        out_means   = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas  = np.array([c.sigma for c in pmc_out.components])
+        out_dofs    = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means  , target_means            )
+        np.testing.assert_allclose(out_sigmas , target_sigmas           )
+        np.testing.assert_allclose(out_dofs   , target_dofs             )
+
+        # without sample weights
+        target_component_weights  = np.array([ .6, .4])
+
+        target_means = np.array([[ 10.7150198 ,   1.30847355,   7.67736328],
+                                 [ 10.07830094,   1.17993564,   8.13995191]])
+
+        target_sigmas = np.array([[[ 1.01160969,  0.78906904,  0.21705097],
+                                   [ 0.78906904,  0.6294487 ,  0.08307613],
+                                   [ 0.21705097,  0.08307613,  0.85973435]],
+
+                                  [[ 0.38354688, -0.39554163, -0.29675089],
+                                   [-0.39554163,  0.59199027,  0.27669984],
+                                   [-0.29675089,  0.27669984,  0.54528296]]])
+
+        target_dofs = np.array([self.stud1.dof, self.stud2.dof])
+
+        pmc_out = student_t_pmc(self.samples, self.prop, latent=self.latent, rb=False, dof_solver_steps=0)
+
+        out_weights = pmc_out.weights
+        out_means  = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas = np.array([c.sigma for c in pmc_out.components])
+        out_dofs   = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means , target_means             )
+        np.testing.assert_allclose(out_sigmas, target_sigmas            )
+        np.testing.assert_allclose(out_dofs  , target_dofs              )
+
+    def test_dof_without_rb(self):
+        # dof and   rb    are independent --> do not need ``test_dof_with_rb``
+        # with sample weights
+        target_component_weights  = np.array([ 36.3314216 ,  22.48430155])
+        target_component_weights /= target_component_weights.sum()
+
+        target_means = np.array([[ 10.70959752,   1.27844173,   7.80719563],
+                                 [ 10.25601726,   1.08861396,   8.04985871]])
+
+        target_sigmas = np.array([[[ 0.73500094,  0.58391041,  0.09255567],
+                                   [ 0.58391041,  0.47788471, -0.02328713],
+                                   [ 0.09255567, -0.02328713,  1.01187774]],
+
+                                  [[ 0.32712438, -0.42655827, -0.34233007],
+                                   [-0.42655827,  0.70395756,  0.35210173],
+                                   [-0.34233007,  0.35210173,  0.68200957]]])
+
+        target_dofs = np.array([3.96890222, 5.49239325])
+
+        pmc_out = student_t_pmc(self.samples, self.prop, self.weights, self.latent, rb=False, dof_solver_steps=100)
+
+        out_weights = pmc_out.weights
+        out_means   = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas  = np.array([c.sigma for c in pmc_out.components])
+        out_dofs    = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means  , target_means            )
+        np.testing.assert_allclose(out_sigmas , target_sigmas           )
+        np.testing.assert_allclose(out_dofs   , target_dofs             )
+
+        # without sample weights
+        target_component_weights  = np.array([ .6, .4])
+
+        target_means = np.array([[ 10.7150198 ,   1.30847355,   7.67736328],
+                                 [ 10.07830094,   1.17993564,   8.13995191]])
+
+        target_sigmas = np.array([[[ 1.01160969,  0.78906904,  0.21705097],
+                                   [ 0.78906904,  0.6294487 ,  0.08307613],
+                                   [ 0.21705097,  0.08307613,  0.85973435]],
+
+                                  [[ 0.38354688, -0.39554163, -0.29675089],
+                                   [-0.39554163,  0.59199027,  0.27669984],
+                                   [-0.29675089,  0.27669984,  0.54528296]]])
+
+        target_dofs = np.array([3.9176380, 5.4672393])
+
+        pmc_out = student_t_pmc(self.samples, self.prop, latent=self.latent, rb=False, dof_solver_steps=100)
+
+        out_weights = pmc_out.weights
+        out_means  = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas = np.array([c.sigma for c in pmc_out.components])
+        out_dofs   = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means , target_means             )
+        np.testing.assert_allclose(out_sigmas, target_sigmas            )
+        np.testing.assert_allclose(out_dofs  , target_dofs              )
+
+        # other updates ok if dof does not converge
+        pmc_out = student_t_pmc(self.samples, self.prop, latent=self.latent, rb=False, dof_solver_steps=10, mindof=4.)
+
+        # expect mindof if real dof is less (component 0)
+        # expect the old dof if update does not converge (component 1)
+        target_dofs = np.array([4., self.prop.components[1].dof])
+
+        out_weights = pmc_out.weights
+        out_means  = np.array([c.mu    for c in pmc_out.components])
+        out_sigmas = np.array([c.sigma for c in pmc_out.components])
+        out_dofs   = np.array([c.dof   for c in pmc_out.components])
+
+        np.testing.assert_allclose(out_weights, target_component_weights)
+        np.testing.assert_allclose(out_means , target_means             )
+        np.testing.assert_allclose(out_sigmas, target_sigmas            )
+        np.testing.assert_allclose(out_dofs  , target_dofs              )

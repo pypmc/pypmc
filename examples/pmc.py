@@ -12,7 +12,7 @@ import pypmc
 # In this case, it is a bimodal Gaussian
 #
 # Note that the target function "log_target" returns the log of the
-# target function and that the target is not normalized.
+# target function.
 component_weights = np.array([0.3, 0.7])
 
 mean0       = np.array ([ 5.0  , 0.01  ])
@@ -56,8 +56,8 @@ sampler = pypmc.sampler.importance_sampling.ImportanceSampler(log_target, initia
 
 # draw 10,000 samples adapting the proposal every 1,000 samples
 # hereby save the generating proposal component for each sample which is
-# returned by mc.run
-# Note: With too few samples components may die out.
+# returned by sampler.run
+# Note: With too few samples components may die out, and one mode might be lost.
 generating_components = []
 for i in range(10):
     print("\rstep", i, "...\n\t", end='')
@@ -125,7 +125,7 @@ pypmc.tools.plot_mixture(sampler.proposal, cmap='spectral', cutoff=0.01)
 set_axlimits()
 
 plt.subplot(224)
-plt.title('data')
+plt.title('weighted samples')
 plt.hist2d(sampler.history[-1][:,1], sampler.history[-1][:,2], weights=sampler.history[-1][:,0], cmap='gray_r', bins=200)
 set_axlimits()
 

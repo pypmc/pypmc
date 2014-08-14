@@ -31,6 +31,11 @@ References
 .. [GR04] Goldberger, J. and Roweis, S. *Hierarchical clustering of a
           mixture model*, 2004. http://machinelearning.wustl.edu/mlpapers/paper_files/NIPS2005_63.pdf
 
+.. [HOD12] Hoogerheide, Lennart and Opschoor, Anne and van Dijk, Herman K. *A class of adaptive
+           importance sampling weighted EM algorithms for efficient and robust posterior and predictive
+           simulation*, 2012. Journal of Econometrics, Volume 171, Issue 2, pp. 101-120
+           `DOI:10.1016/j.jeconom.2012.06.011 <http://dx.doi.org/10.1016/j.jeconom.2012.06.011>`_
+
 .. [HST01] Haario, Heikki and Saksman, Eero and Tamminen, Johanna. *An
            Adaptive Metropolis Algorithm*, 2001. `jstor:3318737
            <http://www.jstor.org/stable/3318737>`_
