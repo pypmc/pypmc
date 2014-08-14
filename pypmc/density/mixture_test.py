@@ -234,3 +234,49 @@ class TestRecoverGaussian(unittest.TestCase):
             self.assertAlmostEqual (o_weights[i], mix.weights   [i]      )
             np.testing.assert_equal(o_means  [i], mix.components[i].mu   )
             np.testing.assert_equal(o_covs   [i], mix.components[i].sigma)
+
+class TestCreateStudentT(unittest.TestCase):
+    def test_invalid_input(self):
+        self.assertRaisesRegexp(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
+                                create_t_mixture, means    , covs[:2], dofs       )
+        self.assertRaisesRegexp(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
+                                create_t_mixture, means[:2], covs    , dofs       )
+        self.assertRaisesRegexp(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
+                                create_t_mixture, means[:2], covs    , dofs[:2]   )
+
+    def test_create_no_weights(self):
+        mix = create_t_mixture(means, covs, dofs)
+
+        self.assertEqual(len(mix.components), 4)
+        self.assertEqual(len(mix.weights)   , 4)
+
+        for i in range(4):
+            self.assertAlmostEqual(mix.weights[i], .25)
+            np.testing.assert_equal(mix.components[i].mu   , means[i])
+            np.testing.assert_equal(mix.components[i].sigma, covs [i])
+            np.testing.assert_equal(mix.components[i].dof  , dofs [i])
+
+    def test_create_with_weights(self):
+        mix = create_t_mixture(means, covs, dofs, weights)
+
+        self.assertEqual(len(mix.components), 4)
+        self.assertEqual(len(mix.weights)   , 4)
+
+        for i in range(4):
+            self.assertAlmostEqual(mix.weights[i], normalized_weights[i])
+            np.testing.assert_equal(mix.components[i].mu   , means[i])
+            np.testing.assert_equal(mix.components[i].sigma, covs [i])
+            np.testing.assert_equal(mix.components[i].dof  , dofs [i])
+
+class TestRecoverStudentT(unittest.TestCase):
+    def setUp(self):
+        print('when this test fails, first make sure that "create_gaussian_mixture" works')
+
+    def test_recover(self):
+        mix = create_t_mixture(means, covs, dofs, weights)
+        o_means, o_covs, o_dofs, o_weights = recover_t_mixture(mix)
+        for i in range(4):
+            self.assertAlmostEqual (o_weights[i], mix.weights   [i]      )
+            np.testing.assert_equal(o_means  [i], mix.components[i].mu   )
+            np.testing.assert_equal(o_covs   [i], mix.components[i].sigma)
+            np.testing.assert_equal(o_dofs   [i], mix.components[i].dof  )
