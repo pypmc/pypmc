@@ -374,13 +374,6 @@ class GaussianInference(object):
 
             This function may delete results obtained by :py:meth:`.update`.
 
-        .. note::
-
-            For good results, it is strongly recommended to NOT initialize
-            ``m`` to values close to the bulk of the target distribution.
-            For all other parameters, consult chapter 10 in [Bis06]_ when
-            considering to modify the defaults.
-
         :param alpha0, alpha:
 
             Float or :math:`K` vector; parameter of the mixing
@@ -414,20 +407,19 @@ class GaussianInference(object):
 
         :param nu0, nu:
 
-            Float or :math:`K` vector; :math:`\nu` is the minimum
-            value of the number of degrees of freedom of the Wishart
-            distribution of :math:`\boldsymbol{\Lambda}`.  To avoid a
-            divergence at the origin, it is required that
+            Float or :math:`K` vector; degrees of freedom of the
+            Wishart distribution of :math:`\boldsymbol{\Lambda}`.
+            A well defined Wishard distribution requires:
 
             .. math::
-                \nu_0 \geq D + 1.
+                \nu_0 \geq D - 1.
 
             The same restrictions as for ``alpha`` apply.
 
             Default:
 
             .. math::
-                \nu_0 = D+1.
+                \nu_0 = D - 1 + 10^{-5}.
 
         :param m0, m:
 

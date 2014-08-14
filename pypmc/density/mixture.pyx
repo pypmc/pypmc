@@ -30,12 +30,6 @@ class MixtureDensity(ProbabilityDensity):
         Iterable of floats; the weights of the components
         (will be normalized automatically during initialization)
 
-    Slice and item access is supported:
-    ``self[item]`` returns ``tuple(self.components[item],self.weights[item])``
-
-    Iteration is supported:
-    Step ``i`` yields ``tuple(self.components[i],self.weights[i])``
-
     """
     def __init__(self, components, weights=None):
         self.components  = [_deepcopy(component) for component in components]
@@ -74,9 +68,9 @@ class MixtureDensity(ProbabilityDensity):
         Return list of removed components and weights in the form:
         [(index, component, weight), ...].
 
-            :param threshold:
+        :param threshold:
 
-                Float; components with lower weight are deleted
+            Float; components with lower weight are deleted
 
         """
         # go reverse s.t. indices remain valid
@@ -99,9 +93,10 @@ class MixtureDensity(ProbabilityDensity):
 
         return removed_components
 
-    @_add_to_docstring(_msg_expect_normalized_weights)
+    @_add_to_docstring("        " + _msg_expect_normalized_weights)
     @_add_to_docstring(''':param individual:\n
-        bool; If true, return the evaluation of each component at ``x`` as an array.\n\n''')
+            bool; If true, return the evaluation of each component at ``x`` as
+            an array.\n\n''')
     @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x, individual=False):
         components_evaluated = _np.empty(len(self.components))

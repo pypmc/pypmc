@@ -11,7 +11,7 @@ from ..tools.indicator import merge_function_with_indicator as _indmerge
 
 def calculate_expectation(samples, f):
     r'''Calculates the expectation value of function ``f`` using weighted
-    samples (like the output of a PMC-run).
+    samples (like the output of an importance-sampling run).
 
     Denoting :math:`x_n` as the sample n and :math:`w_n` as its (normalized)
     weight, the following is returned:
@@ -39,8 +39,8 @@ def calculate_expectation(samples, f):
     return out/normalization
 
 def calculate_mean(samples):
-    r'''Calculates the mean of weighted samples (like the output of a
-    PMC-run).
+    r'''Calculates the mean of weighted samples (like the output of an
+    importance-sampling run).
 
     :param samples:
 
@@ -51,8 +51,8 @@ def calculate_mean(samples):
     return _np.average(samples[:,1:], axis=0, weights=samples[:,0])
 
 def calculate_covariance(samples):
-    r'''Calculates the covariance matrix of weighted samples (like the
-    output of a PMC-run).
+    r'''Calculates the covariance matrix of weighted samples (like the output of an
+    importance-sampling run).
 
     :param samples:
 

@@ -8,8 +8,8 @@ from ..tools.indicator import merge_function_with_indicator as _indmerge
 from ..tools._doc import _inherit_docstring
 
 class MarkovChain(object):
-    r"""MarkovChain(target, proposal, start, indicator = None, prealloc = 0,
-    rng = numpy.random.mtrand)
+    r"""MarkovChain(target, proposal, start, indicator=None, prealloc=0,
+    rng=numpy.random.mtrand)
 
     A Markov chain to generate samples from the target density.
 
