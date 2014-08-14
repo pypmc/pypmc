@@ -4,6 +4,9 @@
 References
 ==========
 
+.. [BC13] Beaujean, Frederik and Caldwell, A. *Initializing adaptive importance sampling with Markov
+          chains*, 2013. `arXiv:1304.7808 <http://arxiv.org/abs/1304.7808>`_
+
 .. [BGP10] Bruneau, Pierrick and Gelgon, Marc and Picarougne, Fabien
            *Parsimonious reduction of Gaussian mixture models with a
            variational-Bayes approach*, 2010. Pattern Recognition
