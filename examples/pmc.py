@@ -71,7 +71,8 @@ for i in range(10):
     samples = weighted_samples[:,1:]
 
     # update the proposal using the pmc algorithm in the non Rao-Blackwellized form
-    pypmc.mix_adapt.pmc.gaussian_pmc(samples, sampler.proposal, weights, generating_components[-1], mincount=20, rb=False, copy=False)
+    pypmc.mix_adapt.pmc.gaussian_pmc(samples, sampler.proposal, weights, generating_components[-1],
+                                     mincount=20, rb=True, copy=False)
 
 print("\rsampling finished")
 print(  '-----------------')

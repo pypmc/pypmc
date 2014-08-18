@@ -22,6 +22,13 @@ Indicator
 
 .. autofunction:: pypmc.tools.indicator.merge_function_with_indicator
 
+Parallel sampler
+----------------
+
+.. automodule:: pypmc.tools.parallel_sampler
+	:exclude-members: MPISampler
+.. autoclass::  pypmc.tools.parallel_sampler.MPISampler(sampler_type, comm=MPI.COMM_WORLD, mpi_tag=0, *args, **kwargs)
+
 Partition
 ---------
 
