@@ -28,7 +28,7 @@ setup(
     author='Frederik Beaujean, Stephan Jahn',
     author_email='Frederik.Beaujean@lmu.de, stephan.jahn@mytum.de',
     license='GPLv2',
-    install_requires=['numpy', 'scipy', 'cython'],
+    install_requires=['numpy', 'scipy', 'cython', 'setuptools>=3.3'],
     extras_require={'testing': ['nose'], 'plotting': ['matplotlib'], 'parallelization': ['mpi4py']},
     ext_modules=cythonize(extensions,
                           compiler_directives=dict(profile=False, boundscheck=False,
