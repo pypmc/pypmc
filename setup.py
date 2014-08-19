@@ -1,9 +1,8 @@
 from ez_setup import use_setuptools
 use_setuptools()
-from setuptools import setup, find_packages
 
+from setuptools import setup, find_packages, Extension
 from codecs import open # To use a consistent encoding
-from distutils.extension import Extension
 from Cython.Build import cythonize
 import numpy
 
