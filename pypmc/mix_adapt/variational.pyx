@@ -58,9 +58,12 @@ class GaussianInference(object):
     '''
 
     def __init__(self, _np.ndarray data, int components=0, weights=None, initial_guess=None, **kwargs):
-        self.data = data
         self.N = data.shape[0]
-        self.dim = data.shape[1]
+        if data.ndim == 1:
+            self.data = data.reshape(self.N, 1)
+        else:
+            self.data = data
+        self.dim = self.data.shape[1]
         if weights is not None:
             assert weights.shape == (self.N,), \
                     "The number of samples (%s) does not match the number of weights (%s)" %(self.N, weights.shape[0])
@@ -702,11 +705,11 @@ class GaussianInference(object):
         # (10.64)
 
         cdef:
-            double  [:] tmp  = _np.zeros_like(self.data[0], dtype=DTYPE)
+            double  [:] tmp  = _np.zeros(self.dim, dtype=DTYPE)
             DTYPE_t [:] beta = self.beta
-            DTYPE_t [:,:] data  =  self.data
-            DTYPE_t [:,:] m  =  self.m
-            DTYPE_t [:] nu  =  self.nu
+            DTYPE_t [:,:] data = self.data
+            DTYPE_t [:,:] m = self.m
+            DTYPE_t [:] nu = self.nu
             DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
             double  [:,:] W = _np.empty_like(self.W[0])
             size_t K = self.K

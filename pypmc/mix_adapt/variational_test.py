@@ -414,6 +414,19 @@ class TestGaussianInference(unittest.TestCase):
 
     # todo test if convergence only approximate
 
+    def test_1D(self):
+        data = np.random.normal(size=1000)
+        # set one component far away
+        vb = GaussianInference(data, components=2, m0=np.zeros(1),
+                               beta0=1e-5, m=np.array([[1000.], [0.]]))
+        vb.run()
+        mix = vb.make_mixture()
+        self.assertEqual(len(mix), 1)
+        # means agree as m0 = 0 but correction from beta0
+        self.assertAlmostEqual(mix.components[0].mu[0], np.mean(data), places=5)
+        # not identical due to prior on W
+        self.assertAlmostEqual(mix.components[0].sigma[0], np.cov(data), delta=5. / 1000)
+
 def create_mixture(means, cov, ncomp):
     '''Create mixture density with different means but common covariance.
 
@@ -431,6 +444,25 @@ def create_mixture(means, cov, ncomp):
 class TestVBMerge(unittest.TestCase):
     def setUp(self):
         np.random.seed(rng_seed)
+
+    def test_1d(self):
+        means = (np.array([1000.]), np.array([0.]))
+        cov = np.eye(1)
+        N = 500
+        # ten components around 0
+        input_mix = create_mixture(means[1:], cov, 10)
+        # one comp. around each mean
+        initial_guess = create_mixture(means, cov, 1)
+        # initial_guess.weights = np.ones(2) * 1e-5 / N
+
+        vb = VBMerge(input_mix, N=N, initial_guess=initial_guess)
+        vb.run(verbose=True)
+        mix = vb.make_mixture()
+        self.assertEqual(len(mix), 1)
+        # means agree as m0 = 0 but correction from beta0
+        self.assertAlmostEqual(mix.components[0].mu[0], np.mean([c.mu for c in input_mix.components]), places=7)
+        # not identical due to large 'data' variance of the input means
+        self.assertAlmostEqual(mix.components[0].sigma[0], cov, delta=1.2)
 
     def test_bimodal(self):
         #Compress bimodal distribution with four components to two components.
