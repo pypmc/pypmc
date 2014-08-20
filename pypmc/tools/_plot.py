@@ -1,6 +1,6 @@
 def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
-                       cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
-                       solid_edge=True):
+                 cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
+                 solid_edge=True):
     '''Plot the (Gaussian) components of the ``mixture`` density as
     one-sigma ellipses in the ``(i,j)`` plane.
 
@@ -33,6 +33,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
 
     assert i >= 0 and j >= 0, 'Invalid submatrix specification (%d, %d)' % (i, j)
     assert i != j, 'Identical dimension given: i=j=%d' % i
+    assert mixture.dim >= 2, '1D plot not supported'
 
     cmap = get_cmap(name=cmap)
     colors = [cmap(k) for k in np.linspace(0, 0.9, len(mixture.components))]
@@ -45,7 +46,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     y_values = means.T[j]
 
     for k, w in enumerate(mixture.weights):
-        #skip components by hand to retain consistent coloring
+        # skip components by hand to retain consistent coloring
         if w < cutoff:
             continue
 
