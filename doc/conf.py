@@ -20,7 +20,10 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.todo', 'sphinx.ext.coverage', 'sphinx.ext.mathjax', 'sphinx.ext.viewcode']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest',
+              'sphinx.ext.todo', 'sphinx.ext.coverage',
+              'sphinx.ext.mathjax', 'sphinx.ext.viewcode',
+              'matplotlib.sphinxext.plot_directive']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -84,6 +87,9 @@ pygments_style = 'sphinx'
 
 # turn off flags by hand using :no-members:
 autodoc_default_flags = ['members', 'show-inheritance', 'inherited-members']
+
+# Show the code used to generate a plot with matplotlib
+plot_include_source = True
 
 # -- Options for HTML output ---------------------------------------------------
 
