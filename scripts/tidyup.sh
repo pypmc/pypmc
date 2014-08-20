@@ -27,9 +27,3 @@ find -P .. -name *~ -delete
 
 #remove file created by coverage
 rm -f .coverage
-
-#remove plot created by tools.plot_test
-find -P -name TestPlotMixture_python2.png -delete
-find -P -name TestPlotMixture_python3.png -delete
-find -P .. -name TestPlotMixture_python2.png -delete
-find -P .. -name TestPlotMixture_python3.png -delete

@@ -30,7 +30,7 @@ class TestPlotMixture(unittest.TestCase):
         plot_mixture(self.input_components, 0, 1)
         # plt.savefig(self.__class__.__name__ + '.pdf')
         # saving a .pdf in python3 caused trouble --> .png is ok
-        self.plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
+        # self.plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
 
     def test_invalid(self):
         invalid_mix = MixtureDensity([Gauss(m, c) for m,c in zip(self.means, self.covs)],
