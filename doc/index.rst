@@ -1,17 +1,17 @@
 pypmc
 =====
 
-Contents
---------
+.. include:: abstract.txt
 
 .. toctree::
    :numbered:
    :maxdepth: 2
 
-   density
-   sampler
-   mix_adapt
-   tools
+   introduction
+   installation
+   user_guide
+   examples
+   reference_guide
    references
 
 Indices and tables
