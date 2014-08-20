@@ -112,10 +112,7 @@ _docstring_params_importance_sampler = """:param target:
     """
 
 class ImportanceSampler(object):
-    __doc__ = r"""ImportanceSampler(target, proposal, indicator=None, prealloc=0,
-    rng=numpy.random.mtrand)
-
-    An importance sampler object; generates weighted samples from
+    __doc__ = r"""An importance sampler object; generates weighted samples from
     ``target`` using ``proposal``.
 
     """ + _docstring_params_importance_sampler
@@ -189,10 +186,7 @@ class ImportanceSampler(object):
             return this_run
 
 class DeterministicIS(ImportanceSampler):
-    __doc__ = r"""DeterministicIS(target, proposal, indicator=None, prealloc=0,
-    rng=numpy.random.mtrand, std_weights=False)
-
-    An importance sampler object; generates weighted samples from
+    __doc__ = r"""An importance sampler object; generates weighted samples from
     ``target`` using ``proposal``. Calculates `deterministic mixture
     weights` according to [Cor+12]_ and optionally standard weights.
 

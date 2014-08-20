@@ -73,13 +73,13 @@ class Gauss(ProbabilityDensity):
     r"""A Gaussian probability density. Can be used as component for
     MixtureDensities.
 
-        :param mu:
+    :param mu:
 
-            Vector-like array; the gaussian's mean :math:`\mu`
+        Vector-like array; the gaussian's mean :math:`\mu`
 
-        :param sigma:
+    :param sigma:
 
-            Matrix-like array; the gaussian's covariance matrix :math:`\Sigma`
+        Matrix-like array; the gaussian's covariance matrix :math:`\Sigma`
 
     """
     def __init__(self, mu, sigma):
@@ -110,7 +110,7 @@ class Gauss(ProbabilityDensity):
 
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 
-    @_inherit_docstring(ProbabilityDensity)
+    @_add_to_docstring('\n        ' + ProbabilityDensity.evaluate.__doc__)
     def evaluate(self, _np.ndarray[double, ndim=1] x):
         cdef:
             size_t i, dim = self.dim
@@ -123,7 +123,7 @@ class Gauss(ProbabilityDensity):
 
         return log_norm - .5 * bilinear_sym(inv_sigma, tmp)
 
-    @_inherit_docstring(ProbabilityDensity)
+    @_add_to_docstring('\n        ' + ProbabilityDensity.multi_evaluate.__doc__)
     def multi_evaluate(self, _np.ndarray[double, ndim=2] x not None, _np.ndarray[double, ndim=1] out=None):
         if out is None:
             out = _np.empty(len(x))
@@ -147,10 +147,10 @@ class Gauss(ProbabilityDensity):
 
         return out
 
-    @_add_to_docstring("""    .. important::\n
-                ``rng`` must meet the requirements of
-                :py:meth:`.LocalGauss.propose`.\n\n""")
-    @_inherit_docstring(ProbabilityDensity)
+    @_add_to_docstring('\n        ' + ProbabilityDensity.propose.__doc__ +
+                       """.. important::\n
+            ``rng`` must meet the requirements of
+            :py:meth:`.LocalGauss.propose`.\n\n""")
     def propose(self, int N=1, rng=_np.random.mtrand):
         output = _np.empty((N,self.dim))
         for i in range(N):

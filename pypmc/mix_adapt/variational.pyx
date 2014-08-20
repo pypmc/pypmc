@@ -29,7 +29,6 @@ class GaussianInference(object):
 
         Another implementation can be found at https://github.com/jamesmcinerney/vbmm.
 
-
     :param data:
 
         Matrix like array; Each of the :math:`N` rows contains one
@@ -50,8 +49,9 @@ class GaussianInference(object):
     :param initial_guess:
 
         :py:class:`pypmc.density.mixture.MixtureDensity` with Gaussian
-        (:py:class:`pypmc.density.gauss.Gauss`) components; initialize
-        ``m``, ``W`` and ``alpha`` according to this mixture.
+        (:py:class:`pypmc.density.gauss.Gauss`) components; call
+        :meth:`set_variational_parameters` with parameters ``m``, ``W`` and
+        ``alpha`` extracted from the ``initial_guess``.
 
     All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
@@ -342,9 +342,10 @@ class GaussianInference(object):
         r'''Reset the parameters to the submitted values or default.
 
         Use this function to set the prior value (indicated by the
-        subscript `0` as in :math:`\alpha_0`) or the initial value
-        (e.g., :math:`\alpha`) used in the iterative procedure to find
-        the posterior value of the variational distribution.
+        subscript :math:`0` as in :math:`\alpha_0`) or the initial
+        value (e.g., :math:`\alpha`) used in the iterative procedure
+        to find the values of the hyperparameters of variational
+        posterior distribution.
 
         Every parameter can be set in two ways:
 

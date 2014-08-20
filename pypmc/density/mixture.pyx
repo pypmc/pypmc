@@ -156,22 +156,36 @@ class MixtureDensity(ProbabilityDensity):
                 self.components[k].multi_evaluate(x, individual[:,k])
 
     @_add_to_docstring(_msg_expect_normalized_weights)
-    @_add_to_docstring(""":param shuffle:\n
+    def propose(self, N=1, rng=_np.random.mtrand, trace=False, shuffle=True):
+        """Propose N points using the random number generator ``rng``.
+
+        :param N:
+
+            Integer; the number of random points to be proposed
+
+        :param rng:
+
+            State of a random number generator like numpy.random.mtrand
+
+        :param shuffle:
+
             bool; if True (default), the samples are disordered. Otherwise,
-            the samples are ordered by the components.\n\n        """)
-    @_add_to_docstring(""":param trace:\n
+            the samples are ordered by the components.
+
+        :param trace:
+
             bool; if True, return the proposed samples and an array containing
             the number of the component responsible for each sample, otherwise
-            just return the samples.\n\n        """)
-    @_add_to_docstring("""    .. important::\n
-                ``rng`` must:\n
-                - return a numpy array of N samples from the multinomial
-                  distribution with probabilities ``pvals`` when calling
-                  **rng.multinomial(N, pvals)**
-                - shuffle an ``array`` in place when calling
-                  **rng.shuffle(array)**\n\n\n        """)
-    @_add_to_docstring(ProbabilityDensity.propose.__doc__.replace('.mtrand)', '.mtrand, trace=False, shuffle=True)', 1))
-    def propose(self, N=1, rng=_np.random.mtrand, trace=False, shuffle=True):
+            just return the samples.
+
+        .. important::
+            ``rng`` must:
+               - return a numpy array of N samples from the multinomial
+                 distribution with probabilities ``pvals`` when calling
+                 **rng.multinomial(N, pvals)**
+               - shuffle an ``array`` in place when calling **rng.shuffle(array)**
+
+        """
         if trace and shuffle:
             raise ValueError('Either ``shuffle`` or ``trace`` must be ``False``!')
 

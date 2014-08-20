@@ -56,17 +56,17 @@ class StudentT(ProbabilityDensity):
     r"""A Student's t probability density. Can be used as a component in
     MixtureDensities.
 
-        :param mu:
+    :param mu:
 
-            Vector-like array; the gaussian's mean :math:`\mu`
+        Vector-like array; the gaussian's mean :math:`\mu`
 
-        :param sigma:
+    :param sigma:
 
-            Matrix-like array; the gaussian's covariance matrix :math:`\Sigma`
+        Matrix-like array; the gaussian's covariance matrix :math:`\Sigma`
 
-        :param dof:
+    :param dof:
 
-            Float; the degrees of freedom :math:`\nu`
+        Float; the degrees of freedom :math:`\nu`
 
     """
     def __init__(self, mu, sigma, double dof):
