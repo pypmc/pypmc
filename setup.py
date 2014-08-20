@@ -31,7 +31,8 @@ setup(
     install_requires=['numpy', 'scipy', 'cython', 'setuptools>=3.3'],
     extras_require={'testing': ['nose'], 'plotting': ['matplotlib'], 'parallelization': ['mpi4py']},
     ext_modules=cythonize(extensions,
-                          compiler_directives=dict(profile=False, boundscheck=False,
-                                                   wraparound=False, cdivision=True),
+                          compiler_directives=dict(boundscheck=False, cdivision=True,
+                                                   embedsignature=True,
+                                                   profile=False, wraparound=False),
                           )
     )
