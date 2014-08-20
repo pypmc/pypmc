@@ -5,7 +5,6 @@ pypmc depends only on a few standard modules:
 
 * numpy
 * scipy
-* cython
 * setuptools (>=3.3)
 
 If you have pip, the easiest way to install is from the python package
@@ -31,6 +30,8 @@ can be obtained for example by::
 
 Note there is no blank inside ``[...]``.
 
-pypmc is developed and tested for both python 2.7 and 3.x. On a
-debian-based system such as ubuntu >= 12.04, you can install all
-dependencies from the package manager.
+If you checkout the latest version from `github
+<https://github.com/fredRos/pypmc/>`_, you need `cython
+<http://cython.org>`_.  pypmc is developed and tested for both python
+2.7 and 3.x. On a debian-based system such as ubuntu >= 12.04, you can
+install all dependencies from the package manager.
