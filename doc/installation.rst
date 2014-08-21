@@ -30,6 +30,12 @@ can be obtained for example by::
 
 Note there is no blank inside ``[...]``.
 
+If you have nose installed, you can run pypmc's self tests::
+
+  nosetests pypmc
+
+after installation.
+
 If you checkout the latest version from `github
 <https://github.com/fredRos/pypmc/>`_, you need `cython
 <http://cython.org>`_.  pypmc is developed and tested for both python
