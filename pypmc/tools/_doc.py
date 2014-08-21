@@ -31,7 +31,10 @@ def _inherit_docstring(from_class):
     def wrapper(method):
         funcname = method.__name__
         parent_doc = from_class.__dict__[funcname].__doc__
-        method.__doc__ = parent_doc
+        if method.__doc__ is not None:
+            method.__doc__ += '\n        ' + parent_doc
+        else:
+            method.__doc__ = parent_doc
         return method
     return wrapper
 
