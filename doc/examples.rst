@@ -31,3 +31,8 @@ Variational Bayes
 -----------------
 
 .. literalinclude:: ../examples/variational.py
+
+MCMC + variational Bayes
+------------------------
+
+.. literalinclude:: ../examples/uniting_markov_chains_and_variational_bayes.py
