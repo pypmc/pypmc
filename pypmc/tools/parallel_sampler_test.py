@@ -18,10 +18,7 @@ def setUpModule():
     except ImportError:
         raise unittest.SkipTest("Cannot test MPI parallelism without MPI4Py")
 
-    try:
-        from .parallel_sampler import MPISampler, MPI
-    except:
-        from pypmc.tools.parallel_sampler import MPISampler, MPI
+    from .parallel_sampler import MPISampler, MPI
 
     global MPI
     global MPISampler

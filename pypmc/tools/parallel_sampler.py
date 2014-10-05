@@ -5,9 +5,7 @@
 from mpi4py import MPI
 
 class MPISampler(object):
-    '''MPISampler(sampler_type, comm=MPI.COMM_WORLD, mpi_tag=0, \*args, \*\*kwargs)
-
-    An MPI4Py parallelized sampler. Parallelizes any :py:mod:`pypmc.sampler`.
+    '''An MPI4Py parallelized sampler. Parallelizes any :py:mod:`pypmc.sampler`.
 
     :param sampler_type:
 
