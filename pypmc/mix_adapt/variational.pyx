@@ -20,6 +20,7 @@ from pypmc.tools._linalg cimport bilinear_sym
 DTYPE = _np.float64
 ctypedef double DTYPE_t
 
+# TODO make responsibilities available as attribute. Most people use VB for clustering.
 class GaussianInference(object):
     '''Approximate a probability density by a Gaussian mixture with a variational
     Bayes approach. The motivation, notation, and derivation is explained in
@@ -597,8 +598,8 @@ class GaussianInference(object):
         c_nu = self.nu0.sum() + N
         self.nu = component_weights * (c_nu - K)
 
-        self.m     = means
-        self.W     = _np.array([_np.linalg.inv(covs[k]) / (self.nu[k] - self.dim) for k in range(self.K)])
+        self.m = means
+        self.W = _np.array([_np.linalg.inv(covs[k]) / (self.nu[k] - self.dim) for k in range(self.K)])
 
     def _update_log_rho(self):
         # (10.46)
