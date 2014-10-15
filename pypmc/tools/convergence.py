@@ -1,12 +1,13 @@
-'''Provides functions to rate teh quality of weighted samples
+'''Provide functions to rate the quality of weighted samples.
 
 '''
 from __future__ import division as _div
 import numpy as _np
 
 def perp(weights):
-    r"""Calculate the normalized perplexity :math:`\mathcal{P}` of
-    samples with ``weights`` :math:`\omega_i`:
+    r"""Calculate the normalized perplexity :math:`\mathcal{P}` of samples
+    with ``weights`` :math:`\omega_i`. :math:`\mathcal{P}=0` is
+    terrible and :math:`\mathcal{P}=1` is perfect.
 
     .. math::
 
@@ -41,7 +42,8 @@ def perp(weights):
 
 def ess(weights):
     r"""Calculate the normalized effective sample size :math:`ESS` [LC95]_
-    of samples with ``weights`` :math:`\omega_i`:
+    of samples with ``weights`` :math:`\omega_i`.  :math:`ESS=0` is
+    terrible and :math:`ESS=1` is perfect.
 
     .. math::
 
