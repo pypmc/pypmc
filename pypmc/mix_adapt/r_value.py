@@ -25,9 +25,10 @@ _manual_param_approx = ''':param approx:
 @_add_to_docstring(_manual_param_n %dict(var='variances'))
 def r_value(means, variances, n, approx=False):
     '''Calculate the Gelman-Rubin R value (Chapter 2.2 in [GR92]_).
-    The R value can be used to quantify convergence of "Iterative
-    Simulations" (e.g. Markov Chains) to their limiting (target)
-    distribution. An R value "close to one" indicates convergence.
+
+    The R value can be used to quantify mixing of "multiple iterative
+    simulations" (e.g. Markov Chains). An R value "close to one"
+    indicates that all chains explored the same region.
 
     .. note::
 
@@ -35,11 +36,11 @@ def r_value(means, variances, n, approx=False):
 
     :param means:
 
-        Vector-like array; the mean value estimates.
+        Vector-like array; the sample mean of each chain.
 
     :param variances:
 
-        Vector-like array; the variance estimates.
+        Vector-like array; the sample variance of each chain.
 
     '''
     # use same variable names as in [GR92]
