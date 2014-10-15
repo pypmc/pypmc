@@ -30,6 +30,8 @@ class LocalGauss(LocalDensity):
         """
         self.sigma = _np.array(sigma)
         self.dim   = self.sigma.shape[0]
+        if self.sigma.ndim == 1 and self.dim == 1:
+            self.sigma = _np.ones((1, 1)) * self.sigma
         self._sigma_decompose()
 
     def _sigma_decompose(self):
