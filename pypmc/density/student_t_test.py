@@ -1,4 +1,4 @@
-"""Unit tests for the StuentT probability densities
+"""Unit tests for the StudentT probability densities
 
 """
 
@@ -128,6 +128,18 @@ class TestLocalStudentT(unittest.TestCase):
         self.assertAlmostEqual(mean1, target_mean1, delta=delta_mean)
         self.assertAlmostEqual(var1 , target_var1 , delta=delta_var1)
 
+    def test_1D(self):
+        sigma = 1
+        dof = 1 # Cauchy
+        x = np.array([3.2])
+        y = np.array([0.])
+        current = np.empty(1)
+
+        # pass number as scalar, vector, array
+        for s in (sigma, [sigma], [[sigma]]):
+            t = LocalStudentT(sigma=s, dof=dof)
+            self.assertAlmostEqual(t.evaluate(x, y), -3.5642087303149452)
+            t.propose(current, np.random)
 
 class TestStudentT(unittest.TestCase):
     mean  = np.array( [1.25, 4.3   ] )

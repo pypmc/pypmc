@@ -28,10 +28,9 @@ class LocalGauss(LocalDensity):
             Matrix-like array; the new covariance-matrix.
 
         """
-        self.sigma = _np.array(sigma)
+        # turn scalar into 1x1 matrix if needed
+        self.sigma = _np.array(_np.asmatrix(sigma))
         self.dim   = self.sigma.shape[0]
-        if self.sigma.ndim == 1 and self.dim == 1:
-            self.sigma = _np.ones((1, 1)) * self.sigma
         self._sigma_decompose()
 
     def _sigma_decompose(self):
