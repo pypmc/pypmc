@@ -29,7 +29,7 @@ class LocalGauss(LocalDensity):
 
         """
         # turn scalar into 1x1 matrix if needed
-        self.sigma = _np.array(_np.asmatrix(sigma))
+        self.sigma = _np.asarray(_np.matrix(sigma, dtype=float, copy=True))
         self.dim   = self.sigma.shape[0]
         self._sigma_decompose()
 
