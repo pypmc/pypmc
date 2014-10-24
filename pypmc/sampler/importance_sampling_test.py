@@ -336,3 +336,82 @@ class TestDeterministicIS(unittest.TestCase):
         for i in range(10):
             self.assertAlmostEqual(dmx_weights[i], target_dmx_weights[i], places=6)
             self.assertAlmostEqual(std_weights[i], target_std_weights[i], places=6)
+
+class TestCombineWeights(unittest.TestCase):
+    # one dim samples
+    #                                 weights     positions
+    weighted_samples_1 = np.array([[-5.44709992, -2.75569806],
+                                   [ 2.71150098, -0.40966545],
+                                   [ 6.70663397,  0.44663665],
+                                   [ 3.43498611, -0.4713257 ],
+                                   [ 5.18926004, -0.39922083],
+                                   [ 2.19327499, -0.89152452]])
+    weighted_samples_2 = np.array([[ 2.00140479, -0.75817199],
+                                   [-3.48395737, -2.29824693],
+                                   [-4.53006187, -2.26075246],
+                                   [ 8.2430438 ,  0.74320662]])
+
+    def setUp(self):
+        np.random.mtrand.seed(rng_seed)
+
+    def test_combine_weights(self):
+        prop1 = density.gauss.Gauss([0.0], [1.0]) # standard Gauss
+        prop2 = density.student_t.StudentT(mu=[0.0], sigma=[1.0], dof=1.0)
+
+        target_combined_weights = np.array([
+                                  -2.41555928,  3.02214411,  7.5019662 ,  3.85165843,  5.77794706, 2.53678258,
+                                   1.55337057, -4.72862573, -5.98542884,  6.41159914
+                                  ])
+
+        combined_weights = combine_weights([self.weighted_samples_1, self.weighted_samples_2], [prop1, prop2])
+
+        assert type(combined_weights) is np.ndarray
+        self.assertEqual(combined_weights.shape, (10,))
+        for i in range(10):
+            self.assertAlmostEqual(combined_weights[i], target_combined_weights[i])
+
+    def test_cross_check_with_deterministic_is(self):
+        # repeat the same test as above in the deterministic IS test, but by hand => same numbers
+        target_combined_weights = np.array([ 4.51833133,  3.97876579,  4.68361755,  4.79001426,  2.03969365,
+                                             4.42676502,  4.7814771 ,  4.38248357,  4.42923761,  4.80564581  ])
+
+        first_proposal = perturbed_prop
+        second_proposal = perfect_prop
+
+        sam = ImportanceSampler(log_target, first_proposal)
+
+        sam.run(less_steps)
+        sam.proposal.components[0].update(mu, cov) # set proposal = normalized target (i.e. perfect_prop)
+        sam.run(less_steps)
+
+        weighted_samples_1 = sam.history[0]
+        weighted_samples_2 = sam.history[1]
+
+        combined_weights = combine_weights([weighted_samples_1, weighted_samples_2],
+                                           [first_proposal    , second_proposal   ])
+
+        for j in range(dim):
+            # samples should be the target_samples --> need exactly these samples to calculate by hand
+            for i in range(2*less_steps):
+                self.assertAlmostEqual(np.vstack([weighted_samples_1, weighted_samples_2])[:,1:][i,j], target_samples[i,j])
+
+        for i, target_weight_i in enumerate(target_combined_weights):
+            self.assertAlmostEqual(combined_weights[i], target_weight_i, places=6)
+
+    def test_error_messages(self):
+        # add a zero column to the end
+        weighted_samples_1 = np.hstack([self.weighted_samples_1, np.zeros((len(self.weighted_samples_1), 1))])
+        weighted_samples_2 = np.hstack([self.weighted_samples_2, np.zeros((len(self.weighted_samples_2), 1))])
+
+
+        # should be OK
+        combine_weights([weighted_samples_1, weighted_samples_2], [perfect_prop, perfect_prop])
+
+        with self.assertRaisesRegexp(AssertionError, 'Got 2 importance-sampling runs but 1 proposal densities'):
+            combine_weights([weighted_samples_1, weighted_samples_2], [perfect_prop])
+
+        with self.assertRaisesRegexp(AssertionError, "``weighted_samples\[0\]`` is not matrix like."):
+            combine_weights([range(9), weighted_samples_2], [perfect_prop, perfect_prop])
+
+        with self.assertRaisesRegexp(AssertionError, "Dimension of weighted_samples\[0\] \(2\) does not match the dimension of weighted_samples\[1\] \(1\)"):
+            combine_weights([weighted_samples_1, [[10., 11.]]], [perfect_prop, perfect_prop])

@@ -301,3 +301,62 @@ class DeterministicIS(ImportanceSampler):
 
         # calculate the weights (Algorithm1 in [Cor+12])
         all_weights[:] = all_targets / (all_deltas / len(all_weights_samples))
+
+def combine_weights(weighted_samples, proposals):
+    """Calculate the `deterministic mixture weights` according to
+    [Cor+12]_ given weighted samples from the standard importance
+    sampler :py:class:`.ImportanceSampler` and their proposal
+    densities.
+
+    :param weighted_samples:
+
+        Iterable of matrix-like arrays; the weighted samples whose
+        importance weights shall be combined. The first column of each
+        array is interpreted as the weight, the rest of each row as
+        the sample. The output of multiple runs using
+        :py:meth:`.ImportanceSampler.run()` with different proposal
+        densities qualifies as input here.
+
+    :param proposals:
+
+        Iterable of :py:class:`pypmc.density.base.ProbabilityDensity`
+        instances; the proposal densities from which the
+        ``weighted_samples`` have been drawn.
+
+    """
+    # shallow copy --> can safely modify (need numpy arrays --> can overwrite with np.asarray)
+    weighted_samples = list(weighted_samples)
+
+    assert len(weighted_samples) == len(proposals), \
+    "Got %i importance-sampling runs but %i proposal densities" % (len(weighted_samples), len(proposals))
+
+    N_total = 0
+
+    # basic consistency checks, conversion to numpy array and counting total number of samples
+    for i in range(len(weighted_samples)):
+        weighted_samples[i] = _np.asarray(weighted_samples[i])
+        assert len(weighted_samples[i].shape) == 2, '``weighted_samples[%i]`` is not matrix like.' % i
+        dim = weighted_samples[0].shape[-1] - 1
+        assert weighted_samples[i].shape[-1] - 1 == dim, \
+            "Dimension of weighted_samples[0] (%i) does not match the dimension of weighted_samples[%i] (%i)" \
+                % (dim, i, weighted_samples[i].shape[-1] - 1)
+        N_total += len(weighted_samples[i])
+
+    combine_weights_working_history = _History(1, N_total)
+
+    # now the actual combination: [Cor+12], Eq. (3)
+    for i, (this_weighted_samples, this_proposal) in enumerate(zip(weighted_samples, proposals)):
+        this_combined_weights = combine_weights_working_history.append(len(this_weighted_samples))
+        this_weights = this_weighted_samples[:,0 ]
+        this_samples = this_weighted_samples[:,1:]
+
+        this_combined_weight_denominator = 0.0
+        for prop, samples_from_prop in zip(proposals, weighted_samples):
+            this_combined_weight_denominator += len(samples_from_prop) * _np.exp(prop.multi_evaluate(this_samples))
+        this_combined_weight_denominator /= N_total
+
+        this_target_values = _np.exp(this_proposal.multi_evaluate(this_samples)) * this_weights
+
+        this_combined_weights[:][:,0] = this_target_values / this_combined_weight_denominator
+
+    return combine_weights_working_history[:][:,0]
