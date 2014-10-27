@@ -100,9 +100,10 @@ def multivariate_r(means, covs, n, indices=None, approx=False):
     '''Calculate the Gelman-Rubin R value (:py:func:`.r_value`) in each dimension
     for the combination of ``n`` samples from ``m`` chains.
 
-    Each chain is summarized by its mean and covariance. Correlations
-    are ignored; i.e., only the diagonal elements of the covariance matrices are
-    considered. Return an array with the R values.
+    Each chain is summarized by its mean and variance along each
+    dimension. Correlations are ignored; i.e., only the diagonal
+    elements of the covariance matrices are considered. Return an
+    array with the R values.
 
     :param means:
 
@@ -110,18 +111,19 @@ def multivariate_r(means, covs, n, indices=None, approx=False):
 
     :param covs:
 
-        3-dimensional array; the covariance estimates
+        2- or 3-dimensional array; the (co-)variance estimates
 
     '''
     means = _np.asarray(means)
     covs  = _np.asarray(covs)
 
     assert means.ndim == 2, '``means`` must be matrix-like'
-    assert covs.ndim == 3, '``covs`` must be 3-dimensional'
+    assert covs.ndim == 2 or covs.ndim == 3, '``covs`` must be 2- or 3-dimensional'
     assert len(means) == len(covs), \
     'Number of ``means`` (%i) does not match number of ``covs`` (%i)' %( len(means), len(covs) )
-    assert covs.shape[1] == covs.shape[2], \
-    '``covs.shape[1]`` (%i) must match ``covs.shape[2]`` (%i)' %( covs.shape[1], covs.shape[2] )
+    if covs.ndim == 3:
+        assert covs.shape[1] == covs.shape[2], \
+        '``covs.shape[1]`` (%i) must match ``covs.shape[2]`` (%i)' %( covs.shape[1], covs.shape[2] )
     assert means.shape[1] == covs.shape[1], \
     'Dimensionality of ``means`` (%i) and ``covs`` (%i) does not match' %( means.shape[1], covs.shape[1] )
 
@@ -130,9 +132,14 @@ def multivariate_r(means, covs, n, indices=None, approx=False):
         indices = range(dim)
     out = _np.empty(len(indices))
 
-    for out_index, dim_index in enumerate(indices):
-        assert dim_index < dim, 'All ``indices`` must be less than %i' %dim
-        out[out_index] = r_value(means[:,dim_index], covs[:,dim_index,dim_index], n, approx)
+    if covs.ndim == 3:
+        for out_index, dim_index in enumerate(indices):
+            assert dim_index < dim, 'All ``indices`` must be less than %i' %dim
+            out[out_index] = r_value(means[:,dim_index], covs[:,dim_index,dim_index], n, approx)
+    else:
+        for out_index, dim_index in enumerate(indices):
+            assert dim_index < dim, 'All ``indices`` must be less than %i' %dim
+            out[out_index] = r_value(means[:,dim_index], covs[:,dim_index], n, approx)
 
     return out
 
@@ -212,8 +219,8 @@ def _make_r_patches(data, K_g, critical_r, indices, approx):
     for item in data:
         assert len(item) == n, 'Every chain must bring the same number of points.'
 
-    chain_groups = r_group([_np.mean(chain_values, axis  =0) for chain_values in data],
-                           [_np.cov (chain_values, rowvar=0) for chain_values in data],
+    chain_groups = r_group([_np.mean(chain_values, axis=0        ) for chain_values in data],
+                           [_np.var (chain_values, axis=0, ddof=1) for chain_values in data],
                            n, critical_r, indices, approx)
 
     long_patches_means = []
