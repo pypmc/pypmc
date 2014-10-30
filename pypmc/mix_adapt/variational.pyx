@@ -49,16 +49,24 @@ class GaussianInference(object):
 
     :param initial_guess:
 
-        :py:class:`pypmc.density.mixture.MixtureDensity` with Gaussian
-        (:py:class:`pypmc.density.gauss.Gauss`) components; call
-        :meth:`set_variational_parameters` with parameters ``m``, ``W`` and
-        ``alpha`` extracted from the ``initial_guess``.
+        string or :py:class:`pypmc.density.mixture.MixtureDensity` with Gaussian
+        (:py:class:`pypmc.density.gauss.Gauss`) components;
+
+        Allowed string values:
+
+            * "first": initially place the components (defined by the mean
+              parameter ``m``) at the first ``K`` data points.
+            * "random": like "first", but randomly select ``K`` data points. For
+              reproducibility, set the seed with ``numpy.random.seed(123)``
+
+        If a `MixtureDensity`, override other (default) values of the parameters
+        ``m``, ``W`` and ``alpha``.
 
     All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
     '''
 
-    def __init__(self, _np.ndarray data, int components=0, weights=None, initial_guess=None, **kwargs):
+    def __init__(self, _np.ndarray data, int components=0, weights=None, initial_guess="first", **kwargs):
         self.N = data.shape[0]
         if data.ndim == 1:
             self.data = data.reshape(self.N, 1)
@@ -77,17 +85,12 @@ class GaussianInference(object):
             self._update_S = self._update_S_weighted
             self._update_expectation_log_q_Z = self._update_expectation_log_q_Z_weighted
 
-        if initial_guess is not None:
-            self.K = len(initial_guess)
-            self._check_initial_guess(initial_guess, kwargs)
-        elif components > 0:
-            self.K = components
-        else:
-            raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
+        self._initialize_K(initial_guess, components, kwargs)
 
-        self.set_variational_parameters(**kwargs)
+        # if `initial_guess` is a string, it is used to set for example m
+        self.set_variational_parameters(initial_guess=initial_guess, **kwargs)
 
-        if initial_guess is not None:
+        if not isinstance(initial_guess, str):
             self._parse_initial_guess(initial_guess)
 
         self._initialize_intermediate(self.N)
@@ -502,10 +505,17 @@ class GaussianInference(object):
             if len(self.m0.shape) == 1:
                 self.m0 = _np.vstack(tuple([self.m0] * self.K))
 
+        initial_guess = kwargs.pop('initial_guess')
+
         # If the initial means are identical, the K remain identical in all updates.
-        self.m      = kwargs.pop('m'     , None)
+        self.m = kwargs.pop('m', None)
         if self.m is None:
-            self.m = _np.linspace(-1.,1., self.K*self.dim).reshape((self.K, self.dim))
+            if isinstance(initial_guess, str):
+                self.m = self._initialize_m(initial_guess)
+            else:
+                # old default, can be really bad
+                # should be overwritten later!
+                self.m = _np.linspace(-1.,1., self.K*self.dim).reshape((self.K, self.dim))
         else:
             self.m = _np.array(self.m)
         for name in ('m0', 'm'):
@@ -556,6 +566,15 @@ class GaussianInference(object):
         if 'nu' in other_args:
             raise ValueError('Specify EITHER ``nu`` OR ``initial_guess``')
 
+    def _initialize_K(self, initial_guess, components, kwargs):
+        if not isinstance(initial_guess, str):
+            self.K = len(initial_guess)
+            self._check_initial_guess(initial_guess, kwargs)
+        elif components > 0:
+            self.K = components
+        else:
+            raise ValueError('Specify either `components` or a mixture density as `initial_guess` to set the initial values')
+
     def _check_K_vector(self, name, min=0.0):
         v = getattr(self, name)
         if len(v.shape) != 1:
@@ -564,6 +583,23 @@ class GaussianInference(object):
             raise ValueError('len(%s)=%d does not match K=%d' % (name, len(v), self.K))
         if not (v > min).all():
             raise ValueError('All elements of %s must exceed %g. %s=%s' % (name, min, name, v))
+
+    def _initialize_m(self, initial_guess):
+        '''Provide initial guess for ``m`` depending on chosen method in the string ``initial_guess``.'''
+
+        if self.K > self.N:
+            raise ValueError("Can't auto-initialize ``m`` with more output components than samples."
+                             " Specify ``m`` explicitly.")
+
+        if initial_guess is 'first':
+            # the idea behind this is to close to at least one datum such that
+            # components do not die in the very first step only because of a bad
+            # initialization
+            return self.data[:self.K].copy()
+        elif initial_guess is 'random':
+            return self.data[_np.random.choice(self.N, size=self.K, replace=False)].copy()
+        else:
+            raise ValueError('Invalid ``initial_guess``: ' + str(initial_guess))
 
     def _initialize_intermediate(self, N_samples):
         '''Create all intermediate quantities needed for the iteration in ``self.update``.
@@ -1002,7 +1038,7 @@ class VBMerge(GaussianInference):
 
     '''
 
-    def __init__(self, input_mixture, N, components=None, initial_guess=None, **kwargs):
+    def __init__(self, input_mixture, N, components=0, initial_guess='first', **kwargs):
         # don't copy input_mixture, we won't update it
         self.input = input_mixture
 
@@ -1012,13 +1048,7 @@ class VBMerge(GaussianInference):
         # input means
         self.mu = _np.array([c.mu for c in self.input.components])
 
-        if initial_guess is not None:
-            self.K = len(initial_guess)
-            self._check_initial_guess(initial_guess, kwargs)
-        elif components is not None:
-            self.K = components
-        else:
-            raise ValueError('Specify either `components` or `initial_guess` to set the initial values')
+        self._initialize_K(initial_guess, components, kwargs)
 
         self.dim = len(input_mixture.components[0].mu)
 
@@ -1029,15 +1059,33 @@ class VBMerge(GaussianInference):
         # in [BGP10], that's N \cdot \omega' (vector!)
         self.Nomega = N * self.input.weights
 
-        self.set_variational_parameters(**kwargs)
+        self.set_variational_parameters(initial_guess=initial_guess, **kwargs)
 
         self._initialize_intermediate(self.L)
 
         # take mean and covariances from initial guess
-        if initial_guess is not None:
+        if not isinstance(initial_guess, str):
             self._parse_initial_guess(initial_guess)
 
         self.E_step()
+
+    def _initialize_m(self, initial_guess):
+        '''Provide initial guess for ``m`` depending on chosen method in the string ``initial_guess``.'''
+
+        if self.K > self.L:
+            raise ValueError("Can't auto-initialize ``m`` with more output components than input components."
+                             " Specify ``m`` explicitly.")
+
+        if initial_guess is 'first':
+            # the idea behind this is to close to at least one input component
+            #  such that components do not die in the very first step only
+            # because of a bad initialization
+            return _np.array([c.mu for c in self.input.components[:self.K]])
+        elif initial_guess is 'random':
+            indices = _np.random.choice(len(self.input), size=self.K, replace=False)
+            return _np.array([self.input.components[i].mu for i in indices])
+        else:
+            raise ValueError('Invalid ``initial_guess``: ' + str(initial_guess))
 
     def _update_expectation_gauss_exponent(self):
         # after (40) in [BGP10]

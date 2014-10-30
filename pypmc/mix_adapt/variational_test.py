@@ -133,6 +133,23 @@ class TestGaussianInference(unittest.TestCase):
         np.testing.assert_almost_equal(re_covs             , np.array([covariance1, covariance2]))
         np.testing.assert_almost_equal(re_component_weights, normalized_weights                  )
 
+        # test default
+        self.assertRaisesRegexp(ValueError, 'Specify ``m``',
+                                GaussianInference, data, len(data) + 10)
+        # specify some m with too many components
+        GaussianInference(data, len(data) + 10, m=np.zeros((len(data) + 10, 2)))
+        GaussianInference(data, K)
+
+        # test 'first'
+        self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
+                                GaussianInference, data, initial_guess='first')
+        vb = GaussianInference(data, K, initial_guess='first', alpha0=alpha0, beta0=beta0, nu0=nu0)
+        np.testing.assert_equal(vb.m, data[0:K])
+
+        # test 'random'
+        vb = GaussianInference(data, K, initial_guess='random', alpha0=alpha0, beta0=beta0, nu0=nu0)
+        self.assertFalse((vb.m == data[0:K]).any())
+
     def test_parameter_validation(self):
         target_mean = np.array((+1. , -4.))
         data = np.random.mtrand.multivariate_normal(target_mean, covariance1, size=500)
@@ -442,27 +459,49 @@ def create_mixture(means, cov, ncomp):
     return MixtureDensity([Gauss(mu, cov) for mu in random_centers])
 
 class TestVBMerge(unittest.TestCase):
+    means = (np.array([1000.]), np.array([0.]))
+    cov = np.eye(1)
+    N = 500
+    # ten components around 0
+    input_mix = create_mixture(means[1:], cov, 10)
+    # one comp. around each mean
+    initial_guess = create_mixture(means, cov, 1)
+
     def setUp(self):
         np.random.seed(rng_seed)
 
-    def test_1d(self):
-        means = (np.array([1000.]), np.array([0.]))
-        cov = np.eye(1)
-        N = 500
-        # ten components around 0
-        input_mix = create_mixture(means[1:], cov, 10)
-        # one comp. around each mean
-        initial_guess = create_mixture(means, cov, 1)
-        # initial_guess.weights = np.ones(2) * 1e-5 / N
+    def test_initial_guess(self):
+        K = 3
+        means, _, _ = recover_gaussian_mixture(self.input_mix)
 
-        vb = VBMerge(input_mix, N=N, initial_guess=initial_guess)
+        # test default
+        self.assertRaisesRegexp(ValueError, 'Specify ``m``',
+                                VBMerge, self.input_mix, self.N, 32)
+        # specify some m with too many components
+        VBMerge(self.input_mix, self.N, 32, m=np.zeros((32, 1)))
+        VBMerge(self.input_mix, self.N, K)
+        # test 'first'
+        self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
+                                VBMerge, self.input_mix, self.N, initial_guess='first')
+
+
+        vb = VBMerge(self.input_mix, self.N, K, initial_guess='first')
+        np.testing.assert_equal(vb.m, means[:K])
+
+        # test 'random'
+        vb = VBMerge(self.input_mix, self.N, K, initial_guess='random')
+
+        self.assertFalse((vb.m == means[:K]).any())
+
+    def test_1d(self):
+        vb = VBMerge(self.input_mix, N=self.N, initial_guess=self.initial_guess)
         vb.run(verbose=True)
         mix = vb.make_mixture()
         self.assertEqual(len(mix), 1)
         # means agree as m0 = 0 but correction from beta0
-        self.assertAlmostEqual(mix.components[0].mu[0], np.mean([c.mu for c in input_mix.components]), places=7)
+        self.assertAlmostEqual(mix.components[0].mu[0], np.mean([c.mu for c in self.input_mix.components]), places=7)
         # not identical due to large 'data' variance of the input means
-        self.assertAlmostEqual(mix.components[0].sigma[0], cov, delta=1.2)
+        self.assertAlmostEqual(mix.components[0].sigma[0], self.cov, delta=1.2)
 
     def test_bimodal(self):
         #Compress bimodal distribution with four components to two components.
@@ -651,7 +690,9 @@ class TestVBMerge(unittest.TestCase):
         weights = np.array([ 0.12644431,  0.87355569])
         components = [Gauss(m, c) for m,c in zip(means, cov)]
         input_components = MixtureDensity(components, weights)
-        vb = VBMerge(input_components, N=1e4,  components=2)
+        K = 2; dim = 2
+        old_initial_m = np.linspace(-1.,1., K*dim).reshape((K, dim))
+        vb = VBMerge(input_components, N=1e4,  components=2, m=np.linspace(-1.,1., K*dim).reshape((K, dim)))
         # compute (43) and (44) manually
         S = np.array([[ 0.01022336,  0.00301026],
                       [ 0.00301026,  0.00271089]])

@@ -55,7 +55,7 @@ K = 20
 vb = pypmc.mix_adapt.variational.GaussianInference(data, K)
 
 # adapt the variational parameters
-converged = vb.run(50, verbose=True)
+converged = vb.run(100, verbose=True)
 print('-----------------------------')
 
 # generate a Gaussian mixture with the most probable parameters
