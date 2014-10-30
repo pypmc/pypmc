@@ -110,8 +110,8 @@ long_patches = pypmc.mix_adapt.r_value.make_r_gaussmix(mc_samples_sorted_by_chai
 #   o mc_samples[::100]   - Samples in the Markov chains are strongly correlated
 #                           => thin the samples to get approx. independent samples
 #   o W0=np.eye(dim)*1e10 - The resulting covariance matrices can be very
-#                           sensitive to W0. It should be chosen much larger
-#                           than the actual covariance. If it is too small,
+#                           sensitive to W0. Its inverse should be chosen much
+#                           smaller than the actual covariance. If it is too small,
 #                           W0 will dominate the resulting covariances and
 #                           usually lead to very bad results.
 vb = pypmc.mix_adapt.variational.GaussianInference(mc_samples[::100], initial_guess=long_patches, W0=np.eye(dim)*1e10)

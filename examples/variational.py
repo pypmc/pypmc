@@ -49,9 +49,9 @@ K = 20
 # Create a "GaussianInference" object.
 # The following command passes just the two essential arguments to "GaussianInference":
 # The ``data`` and a maximum number of ``components``.
-# For reasonable results in more complicated settings, an intial guess for some
-# parameters (especially ``m``) may be important. In this simple case however,
-# the default initialization is good enough.
+# For reasonable results in more complicated settings, a careful choice for ``W0``
+# is crucial. As a rule of thumb, choose ``inv(W0)`` much smaller than the expected
+# covariance. In this case, however, the default (``W0`` = unit matrix) is good enough.
 vb = pypmc.mix_adapt.variational.GaussianInference(data, K)
 
 # adapt the variational parameters
