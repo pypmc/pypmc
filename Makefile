@@ -143,9 +143,9 @@ build-sdist : sdist
 check-sdist : build-sdist
 	cd dist/*/build ; \
 	cd lib*2.7 ; nosetests-2.7 . --processes=-1 --process-timeout=60 ; \
-	mpirun -n 2 nosetests-2.7 ./pypmc/tools/parallel_sampler_test.py ; \
+	mpirun -n 2 nosetests-2.7  ; \
 	cd ../lib*3.* ; nosetests3 . --processes=-1 --process-timeout=60 ; \
-	mpirun -n 2 nosetests3 ./pypmc/tools/parallel_sampler_test.py
+	mpirun -n 2 nosetests3
 
 .PHONY : distcheck
 distcheck : check check-sdist doc run-examples
