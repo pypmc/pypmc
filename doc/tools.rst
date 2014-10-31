@@ -39,3 +39,4 @@ Plot
 ----
 
 .. autofunction:: pypmc.tools.plot_mixture
+.. autofunction:: pypmc.tools.plot_responsibility
