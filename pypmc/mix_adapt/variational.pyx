@@ -267,7 +267,7 @@ class GaussianInference(object):
         # recreate consistent expectation values
         self.E_step()
 
-    def run(self, iterations=25, prune=1., rel_tol=1e-4, abs_tol=1e-3, verbose=False):
+    def run(self, iterations=1000, prune=1., rel_tol=1e-10, abs_tol=1e-5, verbose=False):
         r'''Run variational-Bayes parameter updates and check for convergence
         using the change of the log likelihood bound of the current and the last
         step. Convergence is not declared if the number of components changed,
