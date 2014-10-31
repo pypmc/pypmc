@@ -115,7 +115,8 @@ def plot_responsibility(data, responsibility,
                         cmap='spectral'):
     '''Classify the 2D ``data`` according to the ``responsibility`` and
     make a scatter plot of each data point with the color of the
-    component it is most likely from.
+    component it is most likely from. The ``responsibility`` is
+    normalized internally such that each row sums to unity.
 
     :param data:
 
@@ -132,6 +133,12 @@ def plot_responsibility(data, responsibility,
         color of the data points
 
     '''
+    import numpy as np
+    from matplotlib import pyplot as plt
+    from matplotlib.cm import get_cmap
+
+    data = np.asarray(data)
+    responsibility = np.asarray(responsibility)
 
     assert data.ndim == 2
     assert responsibility.ndim == 2
@@ -143,9 +150,9 @@ def plot_responsibility(data, responsibility,
     assert D == 2
     assert N == responsibility.shape[0]
 
-    import numpy as np
-    from matplotlib import pyplot as plt
-    from matplotlib.cm import get_cmap
+    # normalize responsibility so each row sums to one
+    inv_row_sum = 1.0 / np.einsum('nk->n', responsibility)
+    responsibility = np.einsum('n,nk->nk', inv_row_sum, responsibility)
 
     # index of the most likely component for each sample
     indicators = np.argmax(responsibility, axis=1)

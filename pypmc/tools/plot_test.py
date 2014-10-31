@@ -49,3 +49,23 @@ class TestPlotMixture(unittest.TestCase):
         for a in expected_fail_args:
             with self.assertRaises(AssertionError) as cm:
                 plot_mixture(*a)
+
+class TestPlotResponsibility(unittest.TestCase):
+    def setUp(self):
+        import matplotlib.pyplot
+        self.plt = matplotlib.pyplot
+
+        np.random.seed(12531235)
+
+        self.N = 100
+        self.D = 2
+        self.K = 10
+        self.data = np.random.rand(self.N, self.D)
+        self.r = np.random.rand(self.N, self.K)
+
+    def test_valid(self):
+        self.plt.figure()
+        plot_responsibility(self.data, self.r)
+        # saving a .pdf in python3 caused trouble --> .png is ok
+        # self.plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
+
