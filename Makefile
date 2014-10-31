@@ -34,9 +34,9 @@ clean:
 	#remove build doc
 	rm -rf ./doc/_build
 
-	#remove .pyc files crated by python 2.7
+	#remove .pyc files created by python 2.7
 	rm -f ./*.pyc
-	find -P . -name *.pyc -delete
+	find -P . -name '*.pyc' -delete
 
 	#remove .pyc files crated by python 3
 	rm -rf ./__pycache__
@@ -46,13 +46,13 @@ clean:
 	rm -rf ./build
 
 	#remove cythonized C source and object files
-	find -P . -name *.c -delete
+	find -P . -name '*.c' -delete
 
 	#remove variational binaries only if command line argument specified
-	find -P . -name *.so -delete
+	find -P . -name '*.so' -delete
 
 	#remove backup files
-	find -P . -name *~ -delete
+	find -P . -name '*~' -delete
 
 	#remove files created by coverage
 	rm -f .coverage
