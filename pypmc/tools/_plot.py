@@ -1,3 +1,7 @@
+from __future__ import division
+
+_max_color = 0.9
+
 def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
                  cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
                  solid_edge=True):
@@ -36,7 +40,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     assert mixture.dim >= 2, '1D plot not supported'
 
     cmap = get_cmap(name=cmap)
-    colors = [cmap(k) for k in np.linspace(0, 0.9, len(mixture.components))]
+    colors = [cmap(k) for k in np.linspace(0, _max_color, len(mixture.components))]
 
     mask = mixture.weights >= cutoff
 
@@ -106,3 +110,49 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
 
     if center_style:
         plt.scatter(x_values[mask], y_values[mask], **center_style)
+
+def plot_responsibility(data, responsibility,
+                        cmap='spectral'):
+    '''Classify the 2D ``data`` according to the ``responsibility`` and
+    make a scatter plot of each data point with the color of the
+    component it is most likely from.
+
+    :param data:
+
+        matrix-like; one row = one 2D sample
+
+    :param responsibility:
+
+        matrix-like; one row = probabilities that sample n is from
+        1st, 2nd, ... component. The number of rows has to agree with ``data``
+
+    :param cmap:
+
+        colormap; defines how component indices are mapped to the
+        color of the data points
+
+    '''
+
+    assert data.ndim == 2
+    assert responsibility.ndim == 2
+
+    D = data.shape[1]
+    N = data.shape[0]
+    K = responsibility.shape[1]
+
+    assert D == 2
+    assert N == responsibility.shape[0]
+
+    import numpy as np
+    from matplotlib import pyplot as plt
+    from matplotlib.cm import get_cmap
+
+    # index of the most likely component for each sample
+    indicators = np.argmax(responsibility, axis=1)
+
+    # same color range as in plot_mixture
+    if K > 1:
+        point_colors = indicators / (K - 1) * _max_color
+    else:
+        point_colors = np.zeros(N)
+    plt.scatter(data.T[0], data.T[1], c=point_colors, cmap=cmap)
