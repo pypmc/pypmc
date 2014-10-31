@@ -20,11 +20,15 @@ from pypmc.tools._linalg cimport bilinear_sym
 DTYPE = _np.float64
 ctypedef double DTYPE_t
 
-# TODO make responsibilities available as attribute. Most people use VB for clustering.
 class GaussianInference(object):
     '''Approximate a probability density by a Gaussian mixture with a variational
     Bayes approach. The motivation, notation, and derivation is explained in
     detail in chapter 10.2 in [Bis06]_.
+
+    Typical usage: call :meth:`run` until convergence. If interested
+    in clustering/classification, extract the responsibility matrix as
+    the attribute ``r``. Else get the Gaussian mixture density at the
+    mode of the variational posterior using :meth:`make_mixture`.
 
     .. seealso ::
 
