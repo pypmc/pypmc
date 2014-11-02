@@ -6,7 +6,7 @@ pypmc
 How to use this documentation
 =============================
 
-If you don't know yet whether pypmc is be the right tool for your
+If you don't know yet whether ``pypmc`` is the right tool for your
 needs, you should first read through the overview. There, we introduce
 the basic algorithms implemented by ``pypmc``. If you want to give
 ``pypmc`` a try, just follow the installation instructions. The user
