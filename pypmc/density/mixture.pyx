@@ -213,7 +213,8 @@ class MixtureDensity(ProbabilityDensity):
             return output_samples
 
 def create_gaussian_mixture(means, covs, weights=None):
-    """Creates a :py:class:`.MixtureDensity` with Gaussian (:py:class:`.Gauss`)
+    """
+    Create a :py:class:`.MixtureDensity` with Gaussian (:py:class:`.Gauss`)
     components. The output can be used for the clustering algorithms.
 
     .. seealso::
@@ -247,7 +248,8 @@ def create_gaussian_mixture(means, covs, weights=None):
     return MixtureDensity(components, weights)
 
 def recover_gaussian_mixture(mixture):
-    """Extracts the means, covariances and component weights from a
+    """
+    Extract the means, covariances and component weights from a
     :py:class:`.MixtureDensity`.
 
     .. seealso::
@@ -276,7 +278,8 @@ def recover_gaussian_mixture(mixture):
     return means, covs, weights
 
 def create_t_mixture(means, covs, dofs, weights=None):
-    """Creates a :py:class:`.MixtureDensity` with Student t
+    """
+    Create a :py:class:`.MixtureDensity` with Student t
     (:py:class:`.StudentT`) components. The output can be used for the
     clustering algorithms.
 
@@ -316,7 +319,8 @@ def create_t_mixture(means, covs, dofs, weights=None):
     return MixtureDensity(components, weights)
 
 def recover_t_mixture(mixture):
-    """Extracts the means, covariances, degrees of freedom and component
+    """
+    Extract the means, covariances, degrees of freedom and component
     weights from a :py:class:`.MixtureDensity`.
 
     .. seealso::
