@@ -51,13 +51,13 @@ and at the level of Gaussian mixtures, there is
 Proposal updates
 ----------------
 
-Starting with an initial guess, samples are drawn from the proposal
+Starting with an initial proposal, samples are drawn from the proposal
 :math:`q`, the importance weights are computed, and the proposal is
 updated using the samples and weights to more closely approximate the
 target density. The two main update algorithms included are:
 
 * Population Monte Carlo (PMC)
-* Variational Bayes
+* Variational Bayes (VB)
 
 PMC
 ---
@@ -71,19 +71,19 @@ improvements are:
   the user has to guess.
 * The power to combine the proposals of subsequent steps
   [Cor+12]_. This increases the effective sample size per wallclock
-  time and helps in reducing undesired samples with very large weight
+  time and helps in reducing undesired samples with very large weight --- *outliers* ---
   that adversely affect the variance of the integral estimate.
 
 Variational Bayes
 -----------------
 
-A powerful alternative is to use the variational Bayes algorithm
-[Bis06]_ to fit a Gaussian mixture to samples. We include a variant
-that also works with importance-weighted samples. Our implementation
-allows the user to set all values of the prior/posterior
-hyperparameters. Variational Bayes can therefore be used in a
-sequential manner to incrementally update the knowledge about the
-Gaussian mixture as new (importance) samples arrive.
+A powerful alternative to PMC is to use the variational Bayes
+algorithm [Bis06]_ to fit a Gaussian mixture to samples. We include a
+variant that also works with importance-weighted samples. Our
+implementation allows the user to set all values of the
+prior/posterior hyperparameters. Variational Bayes can therefore be
+used in a sequential manner to incrementally update the knowledge
+about the Gaussian mixture as new (importance) samples arrive.
 
 Performance
 -----------

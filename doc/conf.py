@@ -39,7 +39,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pypmc'
-copyright = u'2014, Frederik Beaujean and Stephan Jahn'
+copyright = u'2015, Frederik Beaujean and Stephan Jahn'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -69,7 +69,7 @@ exclude_patterns = ['_build']
 #default_role = None
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
-#add_function_parentheses = True
+add_function_parentheses = False
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).

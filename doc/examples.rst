@@ -32,6 +32,8 @@ Variational Bayes
 
 .. literalinclude:: ../examples/variational.py
 
+.. _ex-mcmc-vb:
+
 MCMC + variational Bayes
 ------------------------
 

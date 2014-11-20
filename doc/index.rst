@@ -16,12 +16,9 @@ them as a starting point to work on your problem. Finally, look
 through the reference guide if you need help on a specific function or
 class.
 
-Contents
-========
-
 .. toctree::
    :numbered:
-   :maxdepth: 2
+   :maxdepth: 3
 
    introduction
    installation
