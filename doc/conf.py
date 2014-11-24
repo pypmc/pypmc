@@ -170,18 +170,25 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'pypmcdoc'
 
+# mathjax doesn't support preambles
+pngmath_latex_preamble = r"""
+\usepackage{mathpazo}
+
+\newcommand{\vecgamma}{\vec{\gamma}}
+\newcommand{\vecth}{\vec{\theta}}
+"""
 
 # -- Options for LaTeX output --------------------------------------------------
 
 latex_elements = {
 # The paper size ('letterpaper' or 'a4paper').
-#'papersize': 'letterpaper',
+'papersize': 'a4paper',
 
 # The font size ('10pt', '11pt' or '12pt').
-#'pointsize': '10pt',
+'pointsize': '12pt',
 
-# Additional stuff for the LaTeX preamble.
-#'preamble': '',
+# reuse LaTeX preamble from html for pdf
+'preamble': pngmath_latex_preamble,
 }
 
 # Grouping the document tree into LaTeX files. List of tuples

@@ -22,7 +22,8 @@ help :
 	echo "                 Note: Cython modules cannot be analyzed" ; \
 	echo "    distcheck    runs 'check', check-sdist', 'run-examples' and"; \
 	echo "                 opens a browser with the built documentation"; \
-	echo "    doc          build the documetation using shpinx"; \
+	echo "    doc          build the html documentation using shpinx"; \
+	echo "    doc-pdf      build the pdf documentation using shpinx"; \
 	echo "    help         show this message"; \
 	echo "    run-examples run all examples using python 2 and 3" ; \
 	echo "    sdist        make a source distribution" ; \
@@ -113,14 +114,18 @@ check-fast : build
 doc : .build-system-default
 	cd doc; make html
 
+.PHONY : doc-pdf
+doc-pdf : .build-system-default
+	cd doc; make latexpdf
+
 .PHONY : run-examples
 run-examples : build
 	cd examples ; \
 	for file in $$(ls) ; \
 	do \
-	    echo running $${file}; \
-	    python2 $${file} ; \
-	    python3 $${file} ; \
+		echo running $${file}; \
+		python2 $${file} ; \
+		python3 $${file} ; \
 	done ; \
 	# run mpi examples in parallel \
 	echo parallel pmc ; \
@@ -152,7 +157,7 @@ distcheck : check check-sdist doc run-examples
 	xdg-open link_to_documentation
 
 .PHONY : show-todos
-grep_cmd = 	grep -i -R -G --color=auto [^"au""sphinx.ext."]todo
+grep_cmd =	grep -i -R -G --color=auto [^"au""sphinx.ext."]todo
 show-todos :
 	$(grep_cmd) pypmc
 	$(grep_cmd) examples
