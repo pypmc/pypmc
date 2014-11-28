@@ -165,8 +165,7 @@ class AdaptiveMarkovChain(MarkovChain):
     # - ProposalDensity by Multivariate in description of :param propoasal:
     __doc__ = MarkovChain.__doc__\
     .replace('MarkovChain(', 'AdaptiveMarkovChain(')\
-    .replace('A Markov chain', '''A Markov chain with proposal covariance adaptation as in [HST01]_,
-    [Wra+09]_''' , 1)\
+    .replace('A Markov chain', '''A Markov chain with proposal covariance adaptation as in [HST01]_''' , 1)\
     .replace('ProposalDensity', 'Multivariate')
 
     def __init__(self, *args, **kwargs):
@@ -246,7 +245,7 @@ class AdaptiveMarkovChain(MarkovChain):
 
         The ``damping`` :math:`\lambda` is neccessary to assure
         convergence and should be in [0,1]. A default value of 0.5 was
-        found to work well in practice. For details, see [Wra+09]_.
+        found to work well in practice. For details, see [HST01]_.
 
         2. **Rescale the covariance matrix**: Remember that the goal
         is to force the acceptance rate into a specific interval.

@@ -120,7 +120,7 @@ def gaussian_pmc(_np.ndarray[double, ndim=2] samples not None, density,
                  weights=None, latent=None, rb=True, mincount=0, copy=True):
     '''
     Adapt a Gaussian mixture ``density`` using the (M-)PMC algorithm
-    according to [Cap+08]_.
+    according to [Cap+08]_. Another useful reference is [Kil+09]_.
 
     :param samples:
 
@@ -269,7 +269,8 @@ def student_t_pmc(_np.ndarray[double, ndim=2] samples not None, density, weights
                   latent=None, rb=True, dof_solver_steps=100, mindof=1e-5, maxdof=1e3, mincount=0, copy=True):
     '''
     Adapt a Student t mixture ``density`` using the (M-)PMC algorithm
-    according to [Cap+08]_ and [HOD12]_.
+    according to [Cap+08]_ and [HOD12]_.Another useful reference is
+    [Kil+09]_.
 
     :param samples:
 
