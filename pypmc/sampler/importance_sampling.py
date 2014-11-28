@@ -10,7 +10,7 @@ from ..tools import History as _History
 from ..tools.indicator import merge_function_with_indicator as _indmerge
 
 def calculate_expectation(samples, f):
-    r'''Calculates the expectation value of function ``f`` using weighted
+    r'''Calculate the expectation value of function ``f`` using weighted
     samples (like the output of an importance-sampling run).
 
     Denoting :math:`x_n` as the sample n and :math:`w_n` as its (normalized)
@@ -39,7 +39,7 @@ def calculate_expectation(samples, f):
     return out/normalization
 
 def calculate_mean(samples):
-    r'''Calculates the mean of weighted samples (like the output of an
+    r'''Calculate the mean of weighted samples (like the output of an
     importance-sampling run).
 
     :param samples:
