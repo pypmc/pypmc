@@ -106,7 +106,7 @@ class TestMarkovChain(unittest.TestCase):
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
         self.assertEqual(len(mc.history[-1]), NumberOfRandomSteps//10)
-        mc.history.clear()
+        mc.clear()
         self.assertEqual(len(mc.history), 0)
 
         mc.run(NumberOfRandomSteps)

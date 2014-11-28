@@ -77,6 +77,16 @@ class MarkovChain(object):
         if not _np.isfinite(self.current_target_eval):
             raise ValueError('``target(start)`` must evaluate to a finite value and ``indicator(start)`` must be ``True``')
 
+    def clear(self):
+        '''Clear history of visited points and other internal variables to free memory.
+
+        .. note::
+            The current state that defines the Markov chain is untouched.
+
+        '''
+        # todo remove calls in examples etc. and replace by chain.clear()
+        self.history.clear()
+
     def run(self, N=1):
         '''Runs the chain and stores the history of visited points into
         the member variable ``self.history``. Returns the number of

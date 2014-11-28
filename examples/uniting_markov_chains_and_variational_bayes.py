@@ -84,7 +84,7 @@ for mc in mcs:
         mc.run(500)
         mc.adapt()
         if i == 0:
-            mc.history.clear()
+            mc.clear()
 
 mc_samples_sorted_by_chain = [mc.history[:] for mc in mcs]
 mc_samples = np.vstack(mc_samples_sorted_by_chain)

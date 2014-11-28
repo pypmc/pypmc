@@ -36,7 +36,7 @@ mc = pypmc.sampler.markov_chain.AdaptiveMarkovChain(log_target, prop, start)
 mc.run(10**4)
 
 # delete burn-in from history
-mc.history.clear()
+mc.clear()
 
 # run 100,000 steps adapting the proposal every 500 steps
 # hereby save the accept count which is returned by mc.run

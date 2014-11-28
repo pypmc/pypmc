@@ -62,7 +62,7 @@ mcs = [pypmc.sampler.markov_chain.AdaptiveMarkovChain(log_target, prop, start) f
 # run and discard burn-in
 for mc in mcs:
     mc.run(10**2)
-    mc.history.clear()
+    mc.clear()
 
 
 # run 10,000 steps adapting the proposal every 500 steps
