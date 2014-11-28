@@ -90,6 +90,9 @@ class MarkovChain(object):
             An int which defines the number of steps to run the chain.
 
         '''
+        if N <= 0:
+            return 0
+
         # set the accept function
         if self.proposal.symmetric:
             get_log_rho = self._get_log_rho_metropolis
