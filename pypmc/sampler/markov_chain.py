@@ -171,7 +171,7 @@ class AdaptiveMarkovChain(MarkovChain):
 
     def __init__(self, *args, **kwargs):
         # set adaptation params
-        self.adapt_count = 0
+        self.adapt_count = 1
 
         self.covar_scale_multiplier = kwargs.pop('covar_scale_multiplier' ,   1.5   )
 
@@ -326,8 +326,8 @@ class AdaptiveMarkovChain(MarkovChain):
 
 
     def adapt(self):
-        """Update the proposal's covariance matrix using the points
-        stored in ``self.points`` and the parameters which can be set via
+        """Update the proposal using the points
+        stored in ``self.history[-1]`` and the parameters which can be set via
         :py:meth:`.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
         described in detail.
@@ -336,12 +336,8 @@ class AdaptiveMarkovChain(MarkovChain):
             This function only uses the points obtained during the last run.
 
         """
-        self.adapt_count += 1
-
-        time_dependent_damping_factor = 1./self.adapt_count**self.damping
-
         last_run = self.history[-1]
-        accept_rate = float(self._last_accept_count)/len(last_run)
+        accept_rate = float(self._last_accept_count) / len(last_run)
 
         # careful with rowvar!
         # in this form it is expected that each column  of ``points``
@@ -350,11 +346,14 @@ class AdaptiveMarkovChain(MarkovChain):
         covar_estimator = _np.cov(last_run, rowvar=0)
 
         # update sigma
+        time_dependent_damping_factor = 1./self.adapt_count**self.damping
         self.unscaled_sigma = (1-time_dependent_damping_factor) * self.unscaled_sigma\
                                + time_dependent_damping_factor  * covar_estimator
         self._update_scale_factor(accept_rate)
 
         self.proposal.update(self.covar_scale_factor * self.unscaled_sigma)
+
+        self.adapt_count += 1
 
     def _update_scale_factor(self, accept_rate):
         '''Private function.
