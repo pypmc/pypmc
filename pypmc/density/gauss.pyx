@@ -39,12 +39,18 @@ class LocalGauss(LocalDensity):
         store it in the object instance
 
         """
-        # first check if matrix is symmetric
+        # first check if matrix is symmetric,
+        # because numpy cholesky-factors (A+A^T)/2, which is symmetric
+        # even if A is not
         if not _np.allclose(self.sigma, self.sigma.transpose()):
             raise _np.linalg.LinAlgError('Matrix is not symmetric')
         self.cholesky_sigma = _np.linalg.cholesky(self.sigma)
         self.inv_sigma      = _np.linalg.inv(self.sigma)
-        self.det_sigma      = _np.linalg.det(self.sigma)
+
+        # det(Sigma) = det(L L^T) = det(L)^2,
+        # and det(L) is triangular => product over diagonal
+        self.det_sigma      = _np.prod(_np.diag(self.cholesky_sigma))**2
+
         # sometime the cholesky decomposition does not fail although the
         # determinant is negative
         if self.det_sigma <= 0.:
