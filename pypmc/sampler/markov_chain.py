@@ -351,9 +351,10 @@ class AdaptiveMarkovChain(MarkovChain):
                                + time_dependent_damping_factor  * covar_estimator
         self._update_scale_factor(accept_rate)
 
-        self.proposal.update(self.covar_scale_factor * self.unscaled_sigma)
-
+        # increase count now before proposal update. It may fail and raise an exception.
         self.adapt_count += 1
+
+        self.proposal.update(self.covar_scale_factor * self.unscaled_sigma)
 
     def _update_scale_factor(self, accept_rate):
         '''Private function.
