@@ -101,6 +101,11 @@ _docstring_params_importance_sampler = """:param target:
             particular if it is known in advance how long the chains
             are run.
 
+    :param save_target_values:
+
+        Bool; if ``True``, store the evaluated ``target`` at every visited
+        point in ``self.target_values``
+
     :param rng:
 
         The rng passed to the proposal when calling proposal.propose
@@ -116,11 +121,14 @@ class ImportanceSampler(object):
     ``target`` using ``proposal``.
 
     """ + _docstring_params_importance_sampler
-    def __init__(self, target, proposal, indicator=None, prealloc=0, rng=_np.random.mtrand):
+    def __init__(self, target, proposal, indicator=None, prealloc=0,
+                 save_target_values=False, rng=_np.random.mtrand):
         self.proposal = _cp(proposal)
         self.rng      = rng
         self.target   = _indmerge(target, indicator, -_np.inf)
+        self.target_values = _History(1, prealloc) if save_target_values else None
         self.history  = _History(proposal.dim + 1, prealloc)
+        self.save_target_values  = bool(save_target_values)
 
     def clear(self):
         '''Clear history of samples and other internal variables to free memory.
@@ -130,6 +138,8 @@ class ImportanceSampler(object):
 
         '''
         self.history.clear()
+        if self.target_values is not None:
+            self.target_values.clear()
 
     def run(self, N=1, trace_sort=False):
         '''Runs the sampler and stores the history of visited points into
@@ -168,10 +178,18 @@ class ImportanceSampler(object):
 
     def _calculate_weights(self, this_run, N):
         """Calculates and saves the weights of a run."""
-        for i in range(N):
-            tmp = this_run[i, 1:]
-            tmp = self.target(tmp) - self.proposal.evaluate(tmp)
-            this_run[i,0] = _exp(tmp)
+        if not self.save_target_values:
+            for i in range(N):
+                tmp = this_run[i, 1:]
+                tmp = self.target(tmp) - self.proposal.evaluate(tmp)
+                this_run[i,0] = _exp(tmp)
+        else:
+            this_target_values = self.target_values.append(N)
+            for i in range(N):
+                tmp = this_run[i, 1:]
+                this_target_values[i] = self.target(tmp)
+                tmp = this_target_values[i] - self.proposal.evaluate(tmp)
+                this_run[i,0] = _exp(tmp)
 
     def _get_samples(self, N, trace_sort):
         """Saves N samples from ``self.proposal`` to ``self.history``
@@ -225,7 +243,7 @@ class DeterministicIS(ImportanceSampler):
 
     @_inherit_docstring(ImportanceSampler)
     def clear(self):
-        self.history.clear()
+        super(DeterministicIS, self).clear()
         self._deltas_targets_evaluated.clear()
         self.proposal_history = []
         try:
@@ -243,6 +261,10 @@ class DeterministicIS(ImportanceSampler):
 
         # allocate memory for new target and proposal evaluations
         this_deltas_targets = self._deltas_targets_evaluated.append(this_N)
+
+        # allocate memory for ``self.target_vales`` (target on log scale)
+        if self.target_values is not None:
+            this_log_target_values = self.target_values.append(this_N)[:,0]
 
         # allocate memory for new standard weights (if desired by user)
         try:
@@ -283,6 +305,8 @@ class DeterministicIS(ImportanceSampler):
             for i, sample in enumerate(this_samples):
                 tmp = self.target(sample)
                 this_std_weights[i] += tmp
+                if self.target_values is not None:
+                    this_log_target_values[i] = tmp
                 # exp because the self.target returns the log of the target
                 this_targets[i] = _exp(tmp)
                 this_std_weights[i] = _exp(this_std_weights[i])
@@ -290,8 +314,11 @@ class DeterministicIS(ImportanceSampler):
         else:
             # evaluate the target at the new samples
             for i, sample in enumerate(this_samples):
+                tmp = self.target(sample)
+                if self.target_values is not None:
+                    this_log_target_values[i] = tmp
                 # exp because the self.target returns the log of the target
-                this_targets[i] = _exp(self.target(sample))
+                this_targets[i] = _exp(tmp)
 
             # calculate the deltas for the new samples
             this_deltas[:] = 0.

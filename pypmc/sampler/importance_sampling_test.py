@@ -9,7 +9,7 @@ from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalize
 from nose.plugins.attrib import attr
 import numpy as np
 import unittest
-from math import log
+from math import exp, log
 
 rng_seed   = 215135183 # do not change!
 rng_steps  = 10000
@@ -193,6 +193,48 @@ class TestCalculateExpextaction(unittest.TestCase):
 
         np.testing.assert_almost_equal(cov, target_cov, decimal = 15) #double accuracy
 
+def check_save_target_values(test_case, sampler_type):
+    N = 10
+
+    prop_mean  = np.array( [4.1 , 1.  ])
+    prop_sigma = np.array([[0.1 , 0.  ]
+                           ,[0.  , 0.02]])
+
+    prop = density.gauss.Gauss(prop_mean, prop_sigma)
+
+    target_sigma = np.array([[0.1 , 0.04]
+                            ,[0.04, 0.02]])
+    target_mean  = np.array([4.3, 1.1])
+    log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(target_sigma))
+
+    sampler = sampler_type(log_target, prop, prealloc=N)
+    test_case.assertEqual(sampler.target_values, None)
+    sampler = sampler_type(log_target, prop, prealloc=N, save_target_values=True)
+
+    sampler.run(N)
+    test_case.assertEqual(len(sampler.history[-1]), N)
+
+    samples       = sampler.history[:]
+    target_values = sampler.target_values[:]
+
+    test_case.assertEqual(len(sampler.history), 1)
+    test_case.assertEqual(len(sampler.target_values), 1)
+
+    test_case.assertEqual(len(sampler.history[:]), N)
+    test_case.assertEqual(len(sampler.target_values[:]), N)
+
+    for i in range(10):
+        # check if target values are correctly saved
+        test_case.assertEqual(log_target(sampler.history[:][i,1:]), sampler.target_values[:][i,0])
+
+        # check if weights are calculated correctly
+        test_case.assertAlmostEqual(exp(log_target(sampler.history[:][i,1:])) / exp(prop.evaluate(sampler.history[:][i,1:])), sampler.history[:][i,0], delta=1e-15)
+
+    sampler.clear()
+
+    test_case.assertEqual(len(sampler.target_values), 0)
+    test_case.assertEqual(len(sampler.history), 0)
+
 class TestImportanceSampler(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
@@ -251,6 +293,9 @@ class TestImportanceSampler(unittest.TestCase):
         np.testing.assert_allclose(samples, target_samples[:less_steps])
 
         np.testing.assert_allclose(weights, target_weights)
+
+    def test_save_target_values(self):
+        check_save_target_values(self, ImportanceSampler)
 
 class TestDeterministicIS(unittest.TestCase):
     def setUp(self):
@@ -336,6 +381,9 @@ class TestDeterministicIS(unittest.TestCase):
         for i in range(10):
             self.assertAlmostEqual(dmx_weights[i], target_dmx_weights[i], places=6)
             self.assertAlmostEqual(std_weights[i], target_std_weights[i], places=6)
+
+    def test_save_target_values(self):
+        check_save_target_values(self, DeterministicIS)
 
 class TestCombineWeights(unittest.TestCase):
     # one dim samples
