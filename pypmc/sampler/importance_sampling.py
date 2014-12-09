@@ -122,6 +122,15 @@ class ImportanceSampler(object):
         self.target   = _indmerge(target, indicator, -_np.inf)
         self.history  = _History(proposal.dim + 1, prealloc)
 
+    def clear(self):
+        '''Clear history of samples and other internal variables to free memory.
+
+        .. note::
+            The proposal is untouched.
+
+        '''
+        self.history.clear()
+
     def run(self, N=1, trace_sort=False):
         '''Runs the sampler and stores the history of visited points into
         the member variable ``self.history``
@@ -214,8 +223,8 @@ class DeterministicIS(ImportanceSampler):
         # save all evaluated target and proposal values in this History object
         self._deltas_targets_evaluated = _History(2, self.history.prealloc)
 
+    @_inherit_docstring(ImportanceSampler)
     def clear(self):
-        """Deletes the history"""
         self.history.clear()
         self._deltas_targets_evaluated.clear()
         self.proposal_history = []
