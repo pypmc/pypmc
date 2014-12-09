@@ -174,6 +174,44 @@ class TestMarkovChain(unittest.TestCase):
         for i in range(50):
             self.assertAlmostEqual(mc.history[:6][i], np.arange(1,51)[i], float_acc)
 
+    def test_save_target_values(self):
+        N = 10
+
+        prop_sigma = np.array([[0.1 , 0.  ]
+                               ,[0.  , 0.02]])
+
+        prop = density.student_t.LocalGauss(prop_sigma)
+
+        target_sigma = offdiag_sigma
+        target_mean  = np.array([4.3, 1.1])
+        log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(offdiag_sigma))
+
+        start = np.array([-3.7, 10.6])
+
+        mc = MarkovChain(log_target, prop, start, prealloc=N)
+        self.assertEqual(mc.target_values, None)
+        mc = MarkovChain(log_target, prop, start, prealloc=N, save_target_values=True)
+
+        mc.run(N)
+        self.assertEqual(len(mc.history[-1]), N)
+        samples       = mc.history[:]
+        target_values = mc.target_values[:]
+
+        self.assertEqual(len(mc.target_values), 1)
+        self.assertEqual(len(mc.history), 1)
+
+        self.assertEqual(len(mc.target_values[:]), N)
+        self.assertEqual(len(mc.history[:]), N)
+
+        for i in range(10):
+            # check if target values are correctly saved
+            self.assertEqual(log_target(mc.history[:][i]), mc.target_values[:][i])
+
+        mc.clear()
+
+        self.assertEqual(len(mc.target_values), 0)
+        self.assertEqual(len(mc.history), 0)
+
 class TestAdaptiveMarkovChain(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)

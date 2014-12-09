@@ -52,6 +52,11 @@ class MarkovChain(object):
             particular if it is known in advance how long the chains
             are run.
 
+    :param save_target_values:
+
+        Bool; if ``True``, store the evaluated ``target`` at every visited
+        point in ``self.target_values``
+
     :param rng:
 
         The rng passed to the proposal when calling proposal.propose
@@ -66,13 +71,14 @@ class MarkovChain(object):
 
     """
     def __init__(self, target, proposal, start, indicator=None,
-                 prealloc=0, rng=_np.random.mtrand):
+                 prealloc=0, save_target_values=False, rng=_np.random.mtrand):
         # store input into instance
         self.current_point        = _np.array(start) # call array constructor to make sure to have a copy
         self.history              = _History(len(self.current_point), prealloc) # initialize history
         self.proposal             = _cp(proposal)
         self.rng                  = rng
         self.target               = _indmerge(target, indicator, -_np.inf)
+        self.target_values = _History(1, prealloc) if save_target_values else None
         self.current_target_eval  = self.target(self.current_point)
         if not _np.isfinite(self.current_target_eval):
             raise ValueError('``target(start)`` must evaluate to a finite value and ``indicator(start)`` must be ``True``')
@@ -85,6 +91,8 @@ class MarkovChain(object):
 
         '''
         self.history.clear()
+        if self.target_values is not None:
+            self.target_values.clear()
 
     def run(self, N=1):
         '''Runs the chain and stores the history of visited points into
@@ -109,6 +117,8 @@ class MarkovChain(object):
             get_log_rho = self._get_log_rho_metropolis_hastings
 
         # allocate an empty numpy array to store the run
+        if self.target_values is not None:
+            this_target_values = self.target_values.append(N)
         this_run     = self.history.append(N)
         accept_count = 0
 
@@ -122,7 +132,6 @@ class MarkovChain(object):
 
             # check for NaN
             if _np.isnan(log_rho): raise ValueError('encountered NaN')
-
 
             # accept if rho = 1
             if log_rho >=0:
@@ -143,6 +152,11 @@ class MarkovChain(object):
                 this_run[i_N] = self.current_point
                 #do not need to update self.current
                 #self.current = self.current
+
+            # save target value if desired
+            if self.target_values is not None:
+                this_target_values[i_N] = self.current_target_eval
+
         # ---------------------- end for --------------------------------
 
         return accept_count
