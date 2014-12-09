@@ -84,7 +84,6 @@ class MarkovChain(object):
             The current state that defines the Markov chain is untouched.
 
         '''
-        # todo remove calls in examples etc. and replace by chain.clear()
         self.history.clear()
 
     def run(self, N=1):
