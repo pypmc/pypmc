@@ -4,7 +4,7 @@ _max_color = 0.9
 
 def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
                  cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
-                 solid_edge=True):
+                 solid_edge=True, visualize_weights=False):
     '''Plot the (Gaussian) components of the ``mixture`` density as
     one-sigma ellipses in the ``(i,j)`` plane.
 
@@ -27,6 +27,10 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     :param solid_edge:
         Draw the edge of the ellipse as solid opaque line.
 
+    :param visualize_weights:
+        Colorize the components according to their weights if ``True``.
+        If ``False``, coloring is based on the component index.
+
     '''
     # imports inside the function because then "ImportError" is raised on
     # systems without 'matplotlib' only when 'plot_mixture' is called
@@ -40,7 +44,17 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     assert mixture.dim >= 2, '1D plot not supported'
 
     cmap = get_cmap(name=cmap)
-    colors = [cmap(k) for k in np.linspace(0, _max_color, len(mixture.components))]
+
+    if visualize_weights:
+        # colors according to weight
+        renormalized_component_weights  = np.array(mixture.weights)
+        renormalized_component_weights -= renormalized_component_weights.min()
+        if renormalized_component_weights.max() != 0:
+            renormalized_component_weights /= renormalized_component_weights.max()
+        colors = [cmap(k) for k in renormalized_component_weights]
+    else:
+        # colors according to index
+        colors = [cmap(k) for k in np.linspace(0, _max_color, len(mixture.components))]
 
     mask = mixture.weights >= cutoff
 
@@ -110,6 +124,13 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
 
     if center_style:
         plt.scatter(x_values[mask], y_values[mask], **center_style)
+
+    # TODO: write exaple that uses visualize_weights=True and plt.colorbar()
+    if visualize_weights:
+        # to enable plt.colorbar()
+        mappable = plt.gci()
+        mappable.set_array(mixture.weights)
+        mappable.set_cmap(cmap)
 
 def plot_responsibility(data, responsibility,
                         cmap='spectral'):

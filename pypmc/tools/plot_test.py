@@ -17,9 +17,11 @@ class TestPlotMixture(unittest.TestCase):
               np.array([ 1  , 1]))
 
     covs = [np.array([[1, -0.2], [-0.2, 1.]]), np.array([[10., -0.2], [-0.2, 0.9]])]
-    weights = [0.5, 0.5]
+    equal_weights = [0.5, 0.5]
+    unequal_weights = [0.3, 0.7]
     components = [Gauss(m, c) for m,c in zip(means, covs)]
-    input_components = MixtureDensity(components, weights)
+    input_components_equal_weight = MixtureDensity(components, equal_weights)
+    input_components_unequal_weight = MixtureDensity(components, unequal_weights)
 
     def setUp(self):
         import matplotlib.pyplot
@@ -27,14 +29,20 @@ class TestPlotMixture(unittest.TestCase):
 
     def test_valid(self):
         self.plt.figure(figsize=(5,5))
-        plot_mixture(self.input_components, 0, 1)
+        self.plt.subplot(221)
+        plot_mixture(self.input_components_unequal_weight, 0, 1, visualize_weights=True)
+        self.plt.colorbar()
+        self.plt.subplot(222)
+        plot_mixture(self.input_components_equal_weight, 0, 1)
+        self.plt.subplot(223)
+        plot_mixture(self.input_components_equal_weight, 0, 1, visualize_weights=True)
         # plt.savefig(self.__class__.__name__ + '.pdf')
         # saving a .pdf in python3 caused trouble --> .png is ok
         # self.plt.savefig(self.__class__.__name__ + '_python' + version[0] + '.png')
 
     def test_invalid(self):
         invalid_mix = MixtureDensity([Gauss(m, c) for m,c in zip(self.means, self.covs)],
-                                       self.weights)
+                                       self.equal_weights)
 
         # invalid covariance
         # must be hacked into MixtureProposal because it allows valid covariances only
@@ -42,9 +50,9 @@ class TestPlotMixture(unittest.TestCase):
 
         invalid_mix.components[0].sigma = invalid_cov
 
-        expected_fail_args = ((self.input_components, -1, 1), # indices must be non negative
-                              (self.input_components, 1, 1),  # indices must differ
-                              (invalid_mix, 0, 1))            # covariance matrix is invalid
+        expected_fail_args = ((self.input_components_equal_weight, -1, 1), # indices must be non negative
+                              (self.input_components_equal_weight, 1, 1),  # indices must differ
+                              (invalid_mix, 0, 1))                         # covariance matrix is invalid
 
         for a in expected_fail_args:
             with self.assertRaises(AssertionError) as cm:
