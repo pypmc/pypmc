@@ -125,7 +125,6 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     if center_style:
         plt.scatter(x_values[mask], y_values[mask], **center_style)
 
-    # TODO: write exaple that uses visualize_weights=True and plt.colorbar()
     if visualize_weights:
         # to enable plt.colorbar()
         mappable = plt.gci()

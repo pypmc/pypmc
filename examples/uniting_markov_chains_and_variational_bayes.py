@@ -184,7 +184,7 @@ integral_uncertainty_estimator = np.sqrt((weights**2).sum() / len(weights) - int
 print('analytical integral = 1')
 print('estimated  integral =', integral_estimator, '+-', integral_uncertainty_estimator)
 
-# Let's how good the proposal matches the target density: the closer
+# Let's see how good the proposal matches the target density: the closer
 # the values of perplexity and effective sample size (ESS) are to 1,
 # the better.  Outliers, or samples out in the tails of the target
 # with a very large weight, show up in the 2D marginal and reduce the
@@ -206,5 +206,7 @@ except ImportError:
 
 plt.figure()
 plt.hist2d(weighted_samples[:,1], weighted_samples[:,2], weights=weights, bins=100, cmap='gray_r')
-pypmc.tools.plot_mixture(sampler.proposal)
+pypmc.tools.plot_mixture(sampler.proposal, visualize_weights=True, cmap='jet')
+plt.colorbar()
+plt.title('colors visualize component weights')
 plt.show()
