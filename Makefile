@@ -80,10 +80,10 @@ build3 :
 	if type python3 ; then python3 setup.py build_ext --inplace ; fi
 
 .PHONY :
-check : check2.7 check3
+check : check2 check3
 
-.PHONY : check2.7
-check2.7 : build
+.PHONY : check2
+check2 : build
 	# type nosetestsX tests if the command nosetestsX can be invoked
 	if type nosetests-2.7 ; then nosetests-2.7 . --processes=-1 --process-timeout=60 ; fi
 	# run parallel tests only if mpi4py available
