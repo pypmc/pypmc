@@ -4,7 +4,7 @@ import numpy as _np
 from .base import ProbabilityDensity, LocalDensity
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
-from pypmc.tools._linalg cimport bilinear_sym
+from pypmc.tools._linalg cimport bilinear_sym, chol_inv_det
 from libc.math cimport log
 cimport numpy as _np
 
@@ -39,31 +39,16 @@ class LocalGauss(LocalDensity):
         store it in the object instance
 
         """
-        # first check if matrix is symmetric,
-        # because numpy cholesky-factors (A+A^T)/2, which is symmetric
-        # even if A is not
-        if not _np.allclose(self.sigma, self.sigma.transpose()):
-            raise _np.linalg.LinAlgError('Matrix is not symmetric')
-        self.cholesky_sigma = _np.linalg.cholesky(self.sigma)
-        self.inv_sigma      = _np.linalg.inv(self.sigma)
-
-        # det(Sigma) = det(L L^T) = det(L)^2,
-        # and det(L) is triangular => product over diagonal
-        self.det_sigma      = _np.prod(_np.diag(self.cholesky_sigma))**2
-
-        # sometime the cholesky decomposition does not fail although the
-        # determinant is negative
-        if self.det_sigma <= 0.:
-            raise _np.linalg.LinAlgError('Matrix is not positive definite')
+        self.cholesky_sigma, self.inv_sigma, self.log_det_sigma = chol_inv_det(self.sigma)
         self._compute_norm()
 
     def _get_gauss_sample(self, rng):
         """transform sample from standard gauss to Gauss(mean=0, sigma=sigma)"""
-        return _np.dot(self.cholesky_sigma, rng.normal(0,1,self.dim))
+        return _np.dot(self.cholesky_sigma, rng.normal(0, 1, self.dim))
 
     def _compute_norm(self):
         'Compute the normalization'
-        self.log_normalization = -.5 * self.dim * log(2 * _np.pi) - .5 * log(self.det_sigma)
+        self.log_normalization = -0.5 * self.dim * log(2 * _np.pi) - 0.5 * self.log_det_sigma
 
     @_inherit_docstring(LocalDensity)
     def evaluate(self, _np.ndarray[double, ndim=1] x, _np.ndarray[double, ndim=1] y):
@@ -111,9 +96,9 @@ class Gauss(ProbabilityDensity):
 
         self._local_gauss = LocalGauss(sigma)
 
-        self.inv_sigma   = self._local_gauss.inv_sigma # creates reference
-        self.det_sigma   = self._local_gauss.det_sigma # creates copy because det_sigma is a float
-        self.sigma       = self._local_gauss.sigma     # creates reference
+        self.inv_sigma     = self._local_gauss.inv_sigma # creates reference
+        self.log_det_sigma = self._local_gauss.log_det_sigma # creates copy because det_sigma is a float
+        self.sigma         = self._local_gauss.sigma     # creates reference
 
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
 

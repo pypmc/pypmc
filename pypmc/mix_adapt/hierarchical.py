@@ -224,7 +224,7 @@ class Hierarchical(object):
 def kullback_leibler(c1, c2):
     """Kullback Leibler divergence of two Gaussians, :math:`KL(1||2)`"""
     # todo improve speed with scipy.linalg.blas and preallocating vector, matrix of right dim
-    d = np.log(c2.det_sigma / c1.det_sigma)
+    d = c2.log_det_sigma - c1.log_det_sigma
     d += np.trace(c2.inv_sigma.dot(c1.sigma))
     mean_diff = c1.mu - c2.mu
     d += mean_diff.transpose().dot(c2.inv_sigma).dot(mean_diff)

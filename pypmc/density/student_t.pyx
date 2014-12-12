@@ -31,7 +31,7 @@ class LocalStudentT(LocalGauss):
 
     def _compute_norm(self):
         self.log_normalization = _gammaln(.5 * (self.dof + self.dim)) - _gammaln(.5 * self.dof) \
-                                 -0.5 * self.dim * log(self.dof * _np.pi) + .5 * log(_np.linalg.det(self.inv_sigma))
+                                 -0.5 * self.dim * log(self.dof * _np.pi) - 0.5 * self.log_det_sigma
 
     @_inherit_docstring(ProbabilityDensity)
     def evaluate(self, x , y):
@@ -98,7 +98,7 @@ class StudentT(ProbabilityDensity):
         self._local_t  = LocalStudentT(sigma, dof)
 
         self.inv_sigma = self._local_t.inv_sigma
-        self.det_sigma = self._local_t.det_sigma
+        self.log_det_sigma = self._local_t.log_det_sigma
         self.sigma     = self._local_t.sigma
 
         assert self.dim == self.sigma.shape[0], "Dimensions of mean (%d) and covariance matrix (%d) do not match!" %(self.dim,self.sigma.shape[0])
