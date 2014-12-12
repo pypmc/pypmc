@@ -47,23 +47,19 @@ target_mixture = pypmc.density.mixture.create_gaussian_mixture(component_means, 
 
 log_target = target_mixture.evaluate
 
-
 # choose initializations for the chains
 # Here we place two chains into the mode at [5, 0.01] and three into the mode at [-4,1].
 # In such a setup, the chains will only explore the mode where they are initialized.
 # Different random numbers are used in each chain.
 starts = [np.array([4.999, 0.])] * 2   +   [np.array([-4.0001, 0.999])] * 3
 
-
 # define the markov chain objects
 mcs = [pypmc.sampler.markov_chain.AdaptiveMarkovChain(log_target, prop, start) for start in starts]
-
 
 # run and discard burn-in
 for mc in mcs:
     mc.run(10**2)
     mc.clear()
-
 
 # run 10,000 steps adapting the proposal every 500 steps
 for mc in mcs:
@@ -71,10 +67,8 @@ for mc in mcs:
         mc.run(500)
         mc.adapt()
 
-
 # extract a reference to the histories of all visited points from all chains
 stacked_values = [mc.history[:] for mc in mcs]
-
 
 # find the chain groups
 # chains 0 and 1 are initialized in the same mode (at [5, 0.01])
@@ -82,19 +76,17 @@ stacked_values = [mc.history[:] for mc in mcs]
 # expect chain groups:
 expected_groups = [[0,1], [2,3,4]]
 
-
-# R value calculation only needs the means, variances (diagonal elements of covariance matrix) and number of samples
-# for simpler usage, r_group takes the full covariance matrix
+# R value calculation only needs the means, variances (diagonal
+# elements of covariance matrix) and number of samples,
+# axis=0 ensures that we get variances separately for each parameter.
 # critical_r can be set manually, here the default value is used
-found_groups = pypmc.mix_adapt.r_value.r_group([np.mean(chain,   axis=0) for chain in stacked_values],
-                                               [np.cov (chain, rowvar=0) for chain in stacked_values],
+found_groups = pypmc.mix_adapt.r_value.r_group([np.mean(chain, axis=0) for chain in stacked_values],
+                                               [np.var (chain, axis=0) for chain in stacked_values],
                                                len(stacked_values[0]))
-
 
 # print the result
 print("Expect %s" % expected_groups)
 print("Have   %s"    % found_groups)
-
 
 # Hint: ``stacked_values`` is an example of what `pypmc.mix_adapt.r_value.make_r_gaussmix()` expects as ``data``
 result = pypmc.mix_adapt.r_value.make_r_gaussmix(stacked_values)

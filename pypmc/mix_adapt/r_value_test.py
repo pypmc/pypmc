@@ -2,6 +2,7 @@
 
 """
 from .r_value import *
+from .r_value import _make_r_patches
 from ..density.mixture import recover_gaussian_mixture, recover_t_mixture
 import numpy as np
 import unittest
@@ -113,104 +114,13 @@ class TestRValue(unittest.TestCase):
         self.assertAlmostEqual(calculated_approx_R, target_approx_R)
         self.assertAlmostEqual(calculated_R, target_R)
 
-class TestMultivariateR(unittest.TestCase):
-    def test_invalid_input(self):
-        # ``means`` and ``covs`` must be equally long
-        two_means = np.array( [[1., 2.], [.5, 2.1]] )
-
-        three_covariances = np.array( [[[1.00, 0.01],
-                                        [0.01, 4.00]],
-
-                                       [[0.01, 0.00],
-                                        [0.00, 0.04]],
-
-                                       [[0.50, 0.00],
-                                        [0.00, 0.03]]] )
-
-        two_covs_wrong_dimension = np.array(  [[[1.00, 0.01, 0.00],
-                                                [0.01, 4.00, 0.00],
-                                                [0.00, 0.00, 2.00]],
-
-                                               [[0.01, 0.00, 0.03],
-                                                [0.00, 0.10, 0.00],
-                                                [0.03, 0.00, 0.75]]]   )
-
-        two_covs_not_square_matrices = np.array( [[[1.00, 0.01],
-                                                   [0.01, 4.00],
-                                                   [0.00, 0.00]],
-
-                                                  [[0.01, 0.00],
-                                                   [0.00, 0.10],
-                                                   [0.03, 0.00]]]   )
-
-        indices_3_dim = (0,2)
-
-        # ``means`` must be 2d
-        three_means_wrong_shape = np.array(  [1., 2., 3.]  )
-
-        # ``covs`` must be 3d
-        two_covariances_wrong_shape = np.array(  [1., 2.]  )
-
-        self.assertRaisesRegexp(AssertionError, '.*means.*not match.*covs',
-                                multivariate_r, two_means, three_covariances, 10)
-        self.assertRaisesRegexp(AssertionError, '.*means.*must.*[Mm]atrix',
-                                multivariate_r, three_means_wrong_shape, three_covariances, 10)
-        self.assertRaisesRegexp(AssertionError, '.*covs.*must.*2.*3[\ -]?[Dd]im',
-                                multivariate_r, two_means, two_covariances_wrong_shape, 10)
-        self.assertRaisesRegexp(AssertionError, '.*covs\.shape\[1\].*must match .*covs\.shape\[2\]',
-                                multivariate_r, two_means, two_covs_not_square_matrices, 10)
-        self.assertRaisesRegexp(AssertionError, 'Dimensionality.*means.*covs.*not match',
-                                multivariate_r, two_means, two_covs_wrong_dimension, 10)
-        self.assertRaisesRegexp(AssertionError, 'All.*indices.*less than 2',
-                                multivariate_r, multivariate_means, multivariate_covs, 10, indices=indices_3_dim)
-
-    def test_multivariate_r(self):
-        cov_calculated_multivariate_r = multivariate_r(multivariate_means, multivariate_covs, n)
-        cov_calculated_multivariate_approx_r = multivariate_r(multivariate_means, multivariate_covs, n, approx=True)
-        var_calculated_multivariate_r = multivariate_r(multivariate_means, variances, n)
-        var_calculated_multivariate_approx_r = multivariate_r(multivariate_means, variances, n, approx=True)
-
-        target_multivariate_r        = [90.444063973857212, 135.6615268882104  ]
-        target_multivariate_approx_r = [64.553881518372663,  96.528380573770065]
-
-
-        self.assertEqual(len(cov_calculated_multivariate_approx_r), 2)
-        self.assertEqual(len(cov_calculated_multivariate_r)       , 2)
-        self.assertEqual(len(var_calculated_multivariate_approx_r), 2)
-        self.assertEqual(len(var_calculated_multivariate_r)       , 2)
-
-        for i in range(2):
-            self.assertAlmostEqual(cov_calculated_multivariate_approx_r[i], target_multivariate_approx_r[i])
-            self.assertAlmostEqual(cov_calculated_multivariate_r       [i], target_multivariate_r       [i])
-            self.assertAlmostEqual(var_calculated_multivariate_approx_r[i], target_multivariate_approx_r[i])
-            self.assertAlmostEqual(var_calculated_multivariate_r       [i], target_multivariate_r       [i])
-
-    def test_indices(self):
-        calculated_multivariate_r = multivariate_r(multivariate_means, multivariate_covs, n, indices=(1,1))
-        calculated_multivariate_approx_r = multivariate_r(multivariate_means, multivariate_covs, n, approx=True, indices=(0,))
-
-        target_multivariate_r        = [135.6615268882104   , 135.6615268882104]
-        target_multivariate_approx_r = [ 64.553881518372663]
-
-
-        self.assertEqual(len(calculated_multivariate_approx_r), 1)
-        self.assertEqual(len(calculated_multivariate_r)       , 2)
-
-        self.assertAlmostEqual(calculated_multivariate_approx_r[0], target_multivariate_approx_r[0])
-        self.assertAlmostEqual(calculated_multivariate_r       [0], target_multivariate_r       [0])
-        self.assertAlmostEqual(calculated_multivariate_r       [1], target_multivariate_r       [1])
-
 class TestRGroup(unittest.TestCase):
     def test_group(self):
         target_groups = [[0, 4, 6], [1, 3, 7, 8], [2], [5, 9]]
 
-        cov_inferred_groups        = r_group(multivariate_means, multivariate_covs, n)
-        cov_inferred_groups_approx = r_group(multivariate_means, multivariate_covs, n, approx=True)
         var_inferred_groups        = r_group(multivariate_means, variances, n)
         var_inferred_groups_approx = r_group(multivariate_means, variances, n, approx=True)
 
-        np.testing.assert_equal(cov_inferred_groups,        target_groups)
-        np.testing.assert_equal(cov_inferred_groups_approx, target_groups)
         np.testing.assert_equal(var_inferred_groups,        target_groups)
         np.testing.assert_equal(var_inferred_groups_approx, target_groups)
 
@@ -220,60 +130,43 @@ class TestRGroup(unittest.TestCase):
 
         target_groups = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9]]
 
-        inferred_groups        = r_group(multivariate_means, multivariate_covs, n, critical_r)
-        inferred_groups_approx = r_group(multivariate_means, multivariate_covs, n, critical_r, approx=True)
+        inferred_groups        = r_group(multivariate_means, variances, n, critical_r)
+        inferred_groups_approx = r_group(multivariate_means, variances, n, critical_r, approx=True)
 
         np.testing.assert_equal(inferred_groups,        target_groups)
         np.testing.assert_equal(inferred_groups_approx, target_groups)
 
-    def test_indices(self):
-        means3d = np.array ([[  4.31915681    ,  1.08038315     ,   0.1           ],
-                             [  4.31864843    ,  1.11007763     ,  -0.2           ],
-                             [  4.31389518    ,  1.10076274     ,   0.            ],
-                             [  4.29077485    ,  1.1090809      ,   0.08          ],
-                             [  4.29175174    ,  1.09263979     ,  -0.8           ]])
-        covs_3d = np.array([[[  9.27501935e-03,   2.93898176e-03,   2.94712784e-03],
-                             [  2.93898176e-03,   2.27907650e-03,   2.18398826e-03],
-                             [  2.94712784e-03,   2.18398826e-03,   5.71229368e-02]],
+    def test_invalid_input(self):
+        # ``means`` and ``covs`` must be equally long
+        two_means = np.array( [[1., 2.], [.5, 2.1]] )
 
-                            [[  9.14057218e-03,   2.45045703e-03,  -6.75693542e-04],
-                             [  2.45045703e-03,   2.16242986e-03,  -2.27529109e-04],
-                             [ -6.75693542e-04,  -2.27529109e-04,   4.42518545e-02]],
+        covariances =       np.array( [[[1.00, 0.01],
+                                        [0.01, 4.00]],
 
-                            [[  1.20508676e-02,   4.44680466e-03,  -1.47851744e-04],
-                             [  4.44680466e-03,   3.04590236e-03,  -6.84309488e-05],
-                             [ -1.47851744e-04,  -6.84309488e-05,   3.66323621e-02]],
+                                       [[0.50, 0.00],
+                                        [0.00, 0.03]]] )
 
-                            [[  1.05334136e-02,   3.89969309e-03,  -2.94526373e-03],
-                             [  3.89969309e-03,   2.75030883e-03,  -8.85690874e-04],
-                             [ -2.94526373e-03,  -8.85690874e-04,   3.17552111e-02]],
+        three_variances = np.eye(3)
 
-                            [[  7.41327996e-03,   2.53320165e-03,  -1.90328907e-03],
-                             [  2.53320165e-03,   2.09785528e-03,  -1.92942666e-04],
-                             [ -1.90328907e-03,  -1.92942666e-04,   5.02877762e-02]]])
-        n = 500
+        two_vars_wrong_dimension = np.array([[1.00, 0.01, 0.00],
+                                             [0.01, 4.00, 0.00]])
 
-        # target_r_values        = [1.02977183,  1.07893712,  7.1196891 ]
-        # target_approx_r_values = [1.01934397,  1.06018193,  4.18999978]
+        indices_3_dim = (0,2)
 
-        # grouping using all dimensions should result in at least two groups
-        inferred_groups_all_dim        = r_group(means3d, covs_3d, n, approx=False)
-        inferred_groups_all_dim_approx = r_group(means3d, covs_3d, n, approx=True)
-        self.assertGreaterEqual(len(inferred_groups_all_dim_approx), 2)
-        self.assertGreaterEqual(len(inferred_groups_all_dim       ), 2)
+        # ``means`` must be 2d
+        three_means_wrong_shape = np.array(  [1., 2., 3.]  )
 
-        # neglecting the last dimension, the result should be one group
-        # with standard critical_r = 1.5
-        target_group_partial = range(5)
-        inferred_groups_partial_dim        = r_group(means3d, covs_3d, n, indices=(0,1), approx=False)
-        inferred_groups_partial_dim_approx = r_group(means3d, covs_3d, n, indices=(0,1), approx=True)
-        self.assertEqual(len(inferred_groups_partial_dim_approx   ), 1)
-        self.assertEqual(len(inferred_groups_partial_dim          ), 1)
-        self.assertEqual(len(inferred_groups_partial_dim_approx[0]), 5)
-        self.assertEqual(len(inferred_groups_partial_dim       [0]), 5)
-        for i in range(5):
-            self.assertEqual(inferred_groups_partial_dim_approx[0][i], target_group_partial[i])
-            self.assertEqual(inferred_groups_partial_dim       [0][i], target_group_partial[i])
+        # ``covs`` must be 2d
+        two_covariances_wrong_shape = np.array(  [1., 2.]  )
+
+        self.assertRaisesRegexp(AssertionError, '.*means.*not match.*variances',
+                                r_group, two_means, three_variances, 10)
+        self.assertRaisesRegexp(AssertionError, '.*means.*must.*[Mm]atrix',
+                                r_group, three_means_wrong_shape, three_variances, 10)
+        self.assertRaisesRegexp(AssertionError, '.*variances.*must.*2[\ -]?[Dd]im',
+                                r_group, two_means, two_covariances_wrong_shape, 10)
+        self.assertRaisesRegexp(AssertionError, 'Dimensionality.*means.*variances.*not match',
+                                r_group, two_means, two_vars_wrong_dimension, 10)
 
 # making mixtures out of data:
 
@@ -312,7 +205,7 @@ data = (
  [ 1.3, 1.8],
  [ 1.9, 1.4],
  [ 1.5, 1.8]],
- # chain 3
+# chain 3
 [[-0.1, -0.5],
  [ 0.3,  0.0],
  [-0.5,  0.4],
@@ -324,7 +217,7 @@ data = (
 critical_r = 2.
 
 target_groups = [[0,1,3], [2]]
-groups = r_group([np.mean(dat, axis=0) for dat in data], [np.cov(dat, rowvar=0) for dat in data], 6)
+groups = r_group([np.mean(dat, axis=0) for dat in data], [np.var(dat, axis=0) for dat in data], 6)
 np.testing.assert_equal(groups, target_groups)
 
 target_means = np.array([
@@ -352,6 +245,49 @@ target_covs  = np.array([
 
 target_weights = np.ones(4) / 4. # equal weights
 
+# agreement in first dimension but not in second
+index_data = (
+    # first chain
+    [[0.3001, 1.8],
+     [0.3001, 1.9],
+     [0.3, 2.2]],
+    # second chain
+    [[0.3, 2.3],
+     [0.3, 2.1],
+     [0.3001, 1.9]],
+    # third chain
+    [[0.3001, -12],
+     [0.3002, -12],
+     [0.3, -10]]
+)
+class TestMakeRPatches(unittest.TestCase):
+    def test_indices(self):
+        kwargs = dict(K_g=1, critical_r=1.5)
+
+        # same result for approximate and exact R value
+        for approx in [True, False]:
+            kwargs['approx'] = approx
+
+            # x[0] = 0.3 => only one group, one component
+            kwargs['indices'] = [0]
+            inferred_mixture = _make_r_patches(index_data, **kwargs)
+            self.assertEqual(len(inferred_mixture[0]), 1)
+
+            # variation in x[1] => two groups, two components
+            kwargs['indices'] = [0, 1]
+            inferred_mixture = _make_r_patches(index_data, **kwargs)
+            self.assertEqual(len(inferred_mixture[0]), 2)
+
+            # no indices = all indices
+            kwargs['indices'] = None
+            inferred_mixture = _make_r_patches(index_data, **kwargs)
+            self.assertEqual(len(inferred_mixture[0]), 2)
+
+            # invalid argument
+            kwargs['indices'] = []
+            self.assertRaisesRegexp(AssertionError, 'Invalid.*indices',
+                                    _make_r_patches, index_data, **kwargs)
+
 class TestMakeRGaussmix(unittest.TestCase):
     def test_error_messages(self):
         self.assertRaisesRegexp(AssertionError, 'Every chain.*same.*number.*points',
@@ -361,8 +297,8 @@ class TestMakeRGaussmix(unittest.TestCase):
         inferred_mixture = make_r_gaussmix(data, K_g=2, critical_r=critical_r)
         inferred_means, inferred_covs, inferred_weights = recover_gaussian_mixture(inferred_mixture)
 
-        np.testing.assert_allclose(inferred_means  , target_means  )
-        np.testing.assert_allclose(inferred_covs   , target_covs   )
+        np.testing.assert_allclose(inferred_means, target_means)
+        np.testing.assert_allclose(inferred_covs, target_covs)
         np.testing.assert_allclose(inferred_weights, target_weights)
 
 class TestMakeRTmix(unittest.TestCase):

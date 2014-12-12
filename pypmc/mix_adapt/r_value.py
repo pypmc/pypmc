@@ -27,12 +27,13 @@ def r_value(means, variances, n, approx=False):
     '''Calculate the Gelman-Rubin R value (Chapter 2.2 in [GR92]_).
 
     The R value can be used to quantify mixing of "multiple iterative
-    simulations" (e.g. Markov Chains). An R value "close to one"
-    indicates that all chains explored the same region.
+    simulations" (e.g. Markov Chains) in parameter space.  An R value
+    "close to one" indicates that all chains explored the same region
+    of the parameter.
 
     .. note::
 
-        The R value is defined only for 1D.
+        The R value is defined only in *one* dimension.
 
     :param means:
 
@@ -63,7 +64,7 @@ def r_value(means, variances, n, approx=False):
     W = _np.average(variances)
 
     # var_estimate is \hat{\sigma}^2
-    var_estimate = (n - 1) / n  *  W   +   B_over_n
+    var_estimate = (n - 1) / n  *  W + B_over_n
 
     if approx:
         return var_estimate / W
@@ -89,95 +90,34 @@ def r_value(means, variances, n, approx=False):
     return V / W * df / (df - 2)
 
 @_add_to_docstring(_manual_param_approx)
-@_add_to_docstring(''':param indices:
-
-        Iterable of Integers; calculate R value only for these dimensions.
-        Default is all.
-
-    ''')
-@_add_to_docstring(_manual_param_n %dict(var='covs'))
-def multivariate_r(means, covs, n, indices=None, approx=False):
-    '''Calculate the Gelman-Rubin R value (:py:func:`.r_value`) in each dimension
-    for the combination of ``n`` samples from ``m`` chains.
-
-    Each chain is summarized by its mean and variance along each
-    dimension. Correlations are ignored; i.e., only the diagonal
-    elements of the covariance matrices are considered. Return an
-    array with the R values.
-
-    :param means:
-
-        Matrix-like array; the mean value estimates
-
-    :param covs:
-
-        2- or 3-dimensional array; the (co-)variance estimates
-
-    '''
-    means = _np.asarray(means)
-    covs  = _np.asarray(covs)
-
-    assert means.ndim == 2, '``means`` must be matrix-like'
-    assert covs.ndim == 2 or covs.ndim == 3, '``covs`` must be 2- or 3-dimensional'
-    assert len(means) == len(covs), \
-    'Number of ``means`` (%i) does not match number of ``covs`` (%i)' %( len(means), len(covs) )
-    if covs.ndim == 3:
-        assert covs.shape[1] == covs.shape[2], \
-        '``covs.shape[1]`` (%i) must match ``covs.shape[2]`` (%i)' %( covs.shape[1], covs.shape[2] )
-    assert means.shape[1] == covs.shape[1], \
-    'Dimensionality of ``means`` (%i) and ``covs`` (%i) does not match' %( means.shape[1], covs.shape[1] )
-
-    dim = means.shape[1]
-    if indices is None:
-        indices = range(dim)
-    out = _np.empty(len(indices))
-
-    if covs.ndim == 3:
-        for out_index, dim_index in enumerate(indices):
-            assert dim_index < dim, 'All ``indices`` must be less than %i' %dim
-            out[out_index] = r_value(means[:,dim_index], covs[:,dim_index,dim_index], n, approx)
-    else:
-        for out_index, dim_index in enumerate(indices):
-            assert dim_index < dim, 'All ``indices`` must be less than %i' %dim
-            out[out_index] = r_value(means[:,dim_index], covs[:,dim_index], n, approx)
-
-    return out
-
-@_add_to_docstring(_manual_param_approx)
-@_add_to_docstring(''':param indices:
-
-        Iterable of Integers; calculate and check the R value only for
-        these dimensions. Default is all.
-
-    ''')
 @_add_to_docstring(''':param critical_r:
 
         Float; group the chains such that their common R value is below
         ``critical_r``.
 
     ''')
-@_add_to_docstring(_manual_param_n %dict(var='covs'))
-def r_group(means, covs, n, critical_r=1.5, indices=None, approx=False):
-    '''Group chains whose common :py:func:`.r_value` is less than
-    ``critical_r`` in every dimension considered.
-
-    .. seealso::
-
-        :py:func:`.multivariate_r`
-
+@_add_to_docstring(_manual_param_n %dict(var='variances'))
+def r_group(means, variances, n, critical_r=2., approx=False):
+    '''Group ``m`` (Markov) chains whose common :py:func:`.r_value` is
+    less than ``critical_r`` in each of the D dimensions.
 
     :param means:
 
-        Matrix-like array; the mean value estimates
+        (m x D) Matrix-like array; the mean value estimates.
 
-    :param covs:
+    :param variances:
 
-        3-dimensional array; the covariance estimates
+        (m x D) Matrix-like array; the variance estimates.
 
     '''
-    assert len(means) == len(covs)
+    assert len(means) == len(variances), \
+    'Number of ``means`` (%i) does not match number of ``variances`` (%i)' % (len(means), len(variances))
     means = _np.asarray(means)
-    covs  = _np.asarray(covs)
+    variances  = _np.asarray(variances)
+    assert means.ndim == 2, '``means`` must be matrix-like'
+    assert variances.ndim == 2, '``variances`` must be 2-dimensional'
+    assert means.shape[1] == variances.shape[1], \
+    'Dimensionality of ``means`` (%i) and ``variances`` (%i) does not match' % (means.shape[1], variances.shape[1])
 
     groups = []
 
@@ -185,8 +125,10 @@ def r_group(means, covs, n, critical_r=1.5, indices=None, approx=False):
         assigned = False
         # try to assign component i to an existing group
         for group in groups:
-            r_values = multivariate_r(means[group + [i]], covs[group + [i]], n, indices, approx)
-            if (r_values < critical_r).all():
+            rows = group + [i]
+            # R values for each parameter
+            r_values = _np.array([r_value(means[rows, j], variances[rows, j], n, approx) for j in range(means.shape[1])])
+            if _np.all(r_values < critical_r):
                 # add to group if R value small enough
                 group.append(i)
                 assigned = True
@@ -219,9 +161,18 @@ def _make_r_patches(data, K_g, critical_r, indices, approx):
     for item in data:
         assert len(item) == n, 'Every chain must bring the same number of points.'
 
-    chain_groups = r_group([_np.mean(chain_values, axis=0        ) for chain_values in data],
-                           [_np.var (chain_values, axis=0, ddof=1) for chain_values in data],
-                           n, critical_r, indices, approx)
+    data = [_np.asarray(d) for d in data]
+
+    if indices is None:
+        # choose all parameters
+        indices = _np.arange(data[0].shape[1])
+
+    assert len(indices) > 0, 'Invalid specification of parameter indices. Need a non-empty iterable, got ' + str(indices)
+
+    # select columns of parameters through indices
+    chain_groups = r_group([_np.mean(chain_values.T[indices], axis=1) for chain_values in data],
+                           [_np.var (chain_values.T[indices], axis=1, ddof=1) for chain_values in data],
+                           n, critical_r, approx)
 
     long_patches_means = []
     long_patches_covs = []
@@ -288,6 +239,11 @@ def make_r_gaussmix(data, K_g=15, critical_r=2., indices=None, approx=False):
 
         Integer; Iterable of Integers; use R value in these dimensions
         only. Default is all.
+
+    .. note::
+
+        If ``K_g`` is too large, some covariance matrices may not be positive definite.
+        Reduce ``K_g`` or increase ``len(data)``!
 
     '''
     return _mkgauss(*_make_r_patches(data, K_g, critical_r, indices, approx))
