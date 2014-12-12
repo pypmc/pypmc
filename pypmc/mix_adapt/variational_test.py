@@ -191,7 +191,7 @@ class TestGaussianInference(unittest.TestCase):
             print(cm.exception)
 
         # zero matrix not positive definite
-        with self.assertRaises(AssertionError) as cm:
+        with self.assertRaises(np.linalg.LinAlgError) as cm:
             GaussianInference(data, K, W=np.zeros((K, D, D)))
         print(cm.exception)
 
@@ -714,19 +714,21 @@ class TestWishart(unittest.TestCase):
     nu = 8.3
 
     def test_Wishart_log_B(self):
-        W = np.eye(3)
+        D = 3
+        W = np.eye(D)
+        log_det = 0.0
         nu = 6
 
-        log_B = Wishart_log_B(W, nu)
+        log_B = Wishart_log_B(D, nu, log_det)
         self.assertAlmostEqual(log_B, np.log(0.00013192862453429398))
 
-        log_B = Wishart_log_B(self.W, self.nu)
+        log_B = Wishart_log_B(len(self.W), self.nu, np.log(np.linalg.det(self.W)))
         self.assertAlmostEqual(log_B, -19.6714760251454)
 
     def test_Wishart_H(self):
         # compare with Mathematica
 
-        self.assertAlmostEqual(Wishart_H(self.W, self.nu), 11.4262373965875)
+        self.assertAlmostEqual(Wishart_H(len(self.W), self.nu, np.log(np.linalg.det(self.W))), 11.4262373965875)
 
     def test_Wishart_expect_log_lambda(self):
-        self.assertAlmostEqual(Wishart_expect_log_lambda(self.W, self.nu), 6.24348627492751)
+        self.assertAlmostEqual(Wishart_expect_log_lambda(len(self.W), self.nu, np.log(np.linalg.det(self.W))), 6.24348627492751)

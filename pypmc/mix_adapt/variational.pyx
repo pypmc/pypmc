@@ -8,6 +8,7 @@ import numpy as _np
 from scipy.special import gamma as _gamma
 from scipy.special import gammaln as _gammaln
 from scipy.special.basic import digamma as _digamma
+
 from ..density.gauss import Gauss
 from ..density.mixture import MixtureDensity, recover_gaussian_mixture as _unroll
 from ..tools._doc import _inherit_docstring, _add_to_docstring
@@ -15,7 +16,7 @@ from ..tools._regularize import regularize
 
 cimport numpy as _np
 from libc.math cimport exp, log
-from pypmc.tools._linalg cimport bilinear_sym
+from pypmc.tools._linalg cimport bilinear_sym, chol_inv_det
 
 DTYPE = _np.float64
 ctypedef double DTYPE_t
@@ -166,7 +167,7 @@ class GaussianInference(object):
 
             try:
                 W = (self.nu[k] - self.dim) * W
-                cov = _np.linalg.inv(W)
+                cov = chol_inv_det(W)[1]
                 components.append(Gauss(self.m[k], cov))
             except Exception as error:
                 print("ERROR: Could not create component %i." %k)
@@ -239,9 +240,13 @@ class GaussianInference(object):
         components_to_survive = _np.where(self.N_comp >= threshold)[0]
         self.K = len(components_to_survive)
 
+        # todo check length of members, then automatically prune. Or
+        # is there a K vector that should not be modified?
+
         # list all vector and matrix vmembers
         vmembers = ('alpha0', 'alpha', 'beta0', 'beta', 'expectation_det_ln_lambda',
-                   'expectation_ln_pi', 'N_comp', 'nu0', 'nu', 'm0', 'm', 'S', 'W0', 'inv_W0', 'W', 'x_mean_comp')
+                    'expectation_ln_pi', 'N_comp', 'nu0', 'nu', 'm0', 'm', 'S', 'W0', 'inv_W0', 'W',
+                    'log_det_W', 'log_det_W0', 'x_mean_comp')
         mmembers = ('expectation_gauss_exponent', 'log_rho', 'r')
 
         # shift surviving across dead components
@@ -320,7 +325,7 @@ class GaussianInference(object):
             bound = self.likelihood_bound()
 
             if verbose:
-                print('After update %d: bound=%g, K=%d, N_k=%s' % (i, bound, self.K, self.N_comp))
+                print('After update %d: bound=%.15g, K=%d, N_k=%s' % (i, bound, self.K, self.N_comp))
 
             if bound < old_bound:
                 print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
@@ -531,21 +536,28 @@ class GaussianInference(object):
         if self.W0 is None:
             self.W0     = _np.eye(self.dim)
             self.inv_W0 = self.W0.copy()
+            log_det = 0.0
         elif self.W0.shape == (self.dim, self.dim):
             self.W0     = _np.array(self.W0)
-            self.inv_W0 = _np.linalg.inv(self.W0)
+            self.inv_W0, log_det = chol_inv_det(self.W0)[1:]
         # handle both above cases
         if self.W0.shape == (self.dim, self.dim):
             self.W0 = _np.array([self.W0] * self.K)
             self.inv_W0 = _np.array([self.inv_W0] * self.K)
+            self.log_det_W0 = _np.array([log_det] * self.K)
         # full sequence of matrices given
         elif self.W0.shape == (self.K, self.dim, self.dim):
-            self.inv_W0 = _np.array([_np.linalg.inv(W0) for W0 in self.W0])
+            self.log_det_W0 = _np.empty((self.K,))
+            self.inv_W0 = _np.empty_like(self.W0)
+            for k in range(self.K):
+                self.inv_W0[k], self.log_det_W0[k] = chol_inv_det(self.W0[k])[1:]
         else:
             raise ValueError('W0 is neither None, nor a %s array, nor a %s array.' % ((self.dim, self.dim), (self.K, self.dim, self.dim)))
-        self.W      = kwargs.pop('W', self.W0.copy())
+        self.W = kwargs.pop('W', self.W0.copy())
         if self.W.shape != (self.K, self.dim, self.dim):
             raise ValueError('Shape of W %s does not match (K, d, d)=%s' % (self.W.shape, (self.K, self.dim, self.dim)))
+        # check if W valid covariance and compute determinant
+        self.log_det_W = _np.array([chol_inv_det(W)[2] for W in self.W])
 
         if kwargs: raise TypeError('unexpected keyword(s): ' + str(kwargs.keys()))
 
@@ -639,7 +651,14 @@ class GaussianInference(object):
         self.nu = component_weights * (c_nu - K)
 
         self.m = means
-        self.W = _np.array([_np.linalg.inv(covs[k]) / (self.nu[k] - self.dim) for k in range(self.K)])
+        self.W = _np.empty_like(covs)
+        for k in range(self.K):
+            # modify covariance in-place OK, as _unroll returns copies
+            covs[k] *= (self.nu[k] - self.dim)
+            self.W[k], self.log_det_W[k] = chol_inv_det(covs[k])[1:]
+
+        # det(W) = det(Cov^-1)
+        self.log_det_W *= -1
 
     def _update_log_rho(self):
         # (10.46)
@@ -726,11 +745,6 @@ class GaussianInference(object):
     def _update_expectation_det_ln_lambda(self):
         # (10.65)
 
-        # negative determinants from improper matrices trigger ValueError on some machines only;
-        # so test explicitly
-        dets = _np.array([_np.linalg.det(W) for W in self.W])
-        assert (dets > 0).all(), 'Some precision matrix is not positive definite in\n %s' % self.W
-
         self.expectation_det_ln_lambda[:] = 0.0
         tmp = _np.zeros_like(self.nu)
         for i in range(1, self.dim + 1):
@@ -741,7 +755,7 @@ class GaussianInference(object):
             self.expectation_det_ln_lambda += _digamma(tmp)
 
         self.expectation_det_ln_lambda += self.dim * log(2.)
-        self.expectation_det_ln_lambda += _np.log(dets)
+        self.expectation_det_ln_lambda += self.log_det_W
 
     def _update_expectation_gauss_exponent(self):
         # (10.64)
@@ -906,7 +920,8 @@ class GaussianInference(object):
             cov += self.S[k]
             cov *= self.N_comp[k]
             cov += self.inv_W0[k]
-            self.W[k] = _np.linalg.inv(cov)
+            self.W[k], log_det = chol_inv_det(cov)[1:]
+            self.log_det_W[k] = -log_det
 
     def _update_expectation_log_p_X(self):
         # (10.71)
@@ -952,7 +967,7 @@ class GaussianInference(object):
                    - self.beta0[k] * self.nu[k] * tmp.dot(self.W[k]).dot(tmp)
 
             # 2nd part: Wishart normalization
-            res +=  2 * Wishart_log_B(self.W0[k], self.nu0[k])
+            res +=  2 * Wishart_log_B(self.dim, self.nu0[k], self.log_det_W0[k])
 
             # 3rd part
             res += (self.nu0[k] - self.dim - 1) * self.expectation_det_ln_lambda[k]
@@ -990,7 +1005,7 @@ class GaussianInference(object):
         for k in range(self.K):
             res += 0.5 * (self.expectation_det_ln_lambda[k] + self.dim * log(self.beta[k] / (2 * _np.pi)))
             # Wishart entropy
-            res -= Wishart_H(self.W[k], self.nu[k])
+            res -= Wishart_H(self.dim, self.nu[k], self.log_det_W[k])
 
         self._expectation_log_q_mu_lambda = res
         return self._expectation_log_q_mu_lambda
@@ -1180,55 +1195,52 @@ class VBMerge(GaussianInference):
                     S[k,i,j] *= inv_N_comp[k]
                     S[k,j,i] = S[k,i,j]
 
-# todo move Wishart stuff to separate class, file?
-# todo doesn't check that nu > D - 1
-def Wishart_log_B(W, nu, det=None):
+def Wishart_log_B(D, nu, log_det):
     '''Compute first part of a Wishart distribution's normalization,
     (B.79) of [Bis06]_, on the log scale.
 
-    :param W:
+    :param D:
 
-        Covariance matrix of a Wishart distribution.
+        Dimension of parameter vector; i.e. ``W`` is a DxD matrix.
 
     :param nu:
 
         Degrees of freedom of a Wishart distribution.
 
-    :param det:
+    :param log_det:
 
-        The determinant of ``W``, :math:`|W|`. If `None`, recompute it.
+        The determinant of ``W``, :math:`|W|`.
 
     '''
+    assert D > 0, 'Invalid dimension: %s' % D
+    assert nu > D - 1, 'Invalid degree of freedom: %s' % nu
+    assert _np.isfinite(log_det), 'Non-finite log(det): %s' % log_det
 
-    if det is None:
-        det = _np.linalg.det(W)
-
-    log_B = -0.5 * nu * log(det)
-    log_B -= 0.5 * nu * len(W) * log(2)
-    log_B -= 0.25 * len(W) * (len(W) - 1) * log(_np.pi)
-    for i in range(1, len(W) + 1):
+    log_B = -0.5 * nu * log_det
+    log_B -= 0.5 * nu * D * log(2)
+    log_B -= 0.25 * D * (D - 1) * log(_np.pi)
+    for i in range(1, D + 1):
         log_B -= _gammaln(0.5 * (nu + 1 - i))
 
     return log_B
 
-def Wishart_expect_log_lambda(W, nu):
+def Wishart_expect_log_lambda(D, nu, log_det):
     ''' :math:`E[\log |\Lambda|]`, (B.81) of [Bis06]_ .'''
-    result = 0
-    for i in range(1, len(W) + 1):
-        result += _digamma(0.5 * (nu + 1 - i))
-    result += len(W) * log(2.)
-    result += log(_np.linalg.det(W))
-    return result
+    assert D > 0, 'Invalid dimension: %s' % D
+    assert nu > D - 1, 'Invalid degree of freedom: %s' % nu
+    assert _np.isfinite(log_det), 'Non-finite log(det): %s' % log_det
 
-def Wishart_H(W, nu):
+    result = 0
+    for i in range(1, D + 1):
+        result += _digamma(0.5 * (nu + 1 - i))
+    return result + D * log(2.) + log_det
+
+def Wishart_H(D, nu, log_det):
     '''Entropy of the Wishart distribution, (B.82) of [Bis06]_ .'''
 
-    log_B = Wishart_log_B(W, nu)
+    log_B = Wishart_log_B(D, nu, log_det)
 
-    expect_log_lambda = Wishart_expect_log_lambda(W, nu)
-
-    # dimension
-    D = len(W)
+    expect_log_lambda = Wishart_expect_log_lambda(D, nu, log_det)
 
     return -log_B - 0.5 * (nu - D - 1) * expect_log_lambda + 0.5 * nu * D
 
