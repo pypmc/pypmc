@@ -607,12 +607,12 @@ class GaussianInference(object):
             raise ValueError("Can't auto-initialize ``m`` with more output components than samples."
                              " Specify ``m`` explicitly.")
 
-        if initial_guess is 'first':
+        if initial_guess == 'first':
             # the idea behind this is to close to at least one datum such that
             # components do not die in the very first step only because of a bad
             # initialization
             return self.data[:self.K].copy()
-        elif initial_guess is 'random':
+        elif initial_guess == 'random':
             return self.data[_np.random.choice(self.N, size=self.K, replace=False)].copy()
         else:
             raise ValueError('Invalid ``initial_guess``: ' + str(initial_guess))
