@@ -88,7 +88,7 @@ check2 : build
 	if type nosetests-2.7 ; then nosetests-2.7 . --processes=-1 --process-timeout=60 ; fi
 	# run parallel tests only if mpi4py available
 	if python2 -c "import mpi4py" &>/dev/null ; then \
-	    mpirun -n 2 nosetests-2.7 ./pypmc/tools/parallel_sampler_test.py ; \
+	    mpirun -n 2 nosetests-2.7 . ; \
 	fi
 
 .PHONY : check3
@@ -97,7 +97,7 @@ check3 : build
 	type nosetests3 &>/dev/null && nosetests3 . --processes=-1 --process-timeout=60
 	# run parallel tests only if mpi4py available
 	if python3 -c "import mpi4py" &>/dev/null ; then \
-	    mpirun -n 2 nosetests3 ./pypmc/tools/parallel_sampler_test.py ; \
+	    mpirun -n 2 nosetests3 . ; \
 	fi
 
 .PHONY : check-fast
