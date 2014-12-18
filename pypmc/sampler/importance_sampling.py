@@ -168,6 +168,9 @@ class ImportanceSampler(object):
                 If True, the samples will be ordered by the components.
 
         '''
+        if N == 0:
+            return 0
+
         if trace_sort:
             this_run, origin = self._get_samples(N, trace_sort=True)
             self._calculate_weights(this_run, N)

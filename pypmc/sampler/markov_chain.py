@@ -107,7 +107,7 @@ class MarkovChain(object):
             An int which defines the number of steps to run the chain.
 
         '''
-        if N <= 0:
+        if N == 0:
             return 0
 
         # set the accept function
@@ -206,6 +206,8 @@ class AdaptiveMarkovChain(MarkovChain):
 
     @_inherit_docstring(MarkovChain)
     def run(self, N=1):
+        if N == 0:
+            return 0
         self._last_accept_count = super(AdaptiveMarkovChain, self).run(N)
         return self._last_accept_count
 
