@@ -209,7 +209,7 @@ def check_save_target_values(test_case, sampler_type):
     log_target = lambda x: unnormalized_log_pdf_gauss(x, target_mean, np.linalg.inv(target_sigma))
 
     sampler = sampler_type(log_target, prop, prealloc=N)
-    test_case.assertEqual(sampler.target_values, None)
+    assert sampler.target_values is None
     sampler = sampler_type(log_target, prop, prealloc=N, save_target_values=True)
 
     sampler.run(N)

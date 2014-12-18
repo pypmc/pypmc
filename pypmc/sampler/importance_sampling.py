@@ -128,7 +128,6 @@ class ImportanceSampler(object):
         self.target   = _indmerge(target, indicator, -_np.inf)
         self.target_values = _History(1, prealloc) if save_target_values else None
         self.history  = _History(proposal.dim + 1, prealloc)
-        self.save_target_values  = bool(save_target_values)
 
     def clear(self):
         '''Clear history of samples and other internal variables to free memory.
@@ -181,7 +180,7 @@ class ImportanceSampler(object):
 
     def _calculate_weights(self, this_run, N):
         """Calculates and saves the weights of a run."""
-        if not self.save_target_values:
+        if self.target_values is None:
             for i in range(N):
                 tmp = this_run[i, 1:]
                 tmp = self.target(tmp) - self.proposal.evaluate(tmp)
