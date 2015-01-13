@@ -50,7 +50,7 @@ class GaussianInference(object):
     :param weights:
 
         Vector-like array; The i-th of the :math:`N` entries contains the
-        weight of the i-th sample in ``data``.
+        weight of the i-th sample in ``data``. Weights must be nonnegative.
 
     :param initial_guess:
 
