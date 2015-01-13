@@ -387,6 +387,7 @@ class TestDeterministicIS(unittest.TestCase):
 
 class TestCombineWeights(unittest.TestCase):
     # one dim samples
+    # negative weights check _combine_weights_linear
     #                                 weights     positions
     weighted_samples_1 = np.array([[-5.44709992, -2.75569806],
                                    [ 2.71150098, -0.40966545],
@@ -435,6 +436,7 @@ class TestCombineWeights(unittest.TestCase):
         weighted_samples_1 = sam.history[0]
         weighted_samples_2 = sam.history[1]
 
+        # positive weights => check _combine_weights_log
         combined_weights = combine_weights([weighted_samples_1, weighted_samples_2],
                                            [first_proposal    , second_proposal   ])
 
