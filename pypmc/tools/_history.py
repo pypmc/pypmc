@@ -1,11 +1,11 @@
-'''Provides classes to organize data storage
+'''Provide classes to organize data storage
 
 '''
 
 import numpy as _np
 
 class History(object):
-    """Saves a history 1d-arrays.
+    """Save a history of 1d-arrays.
     Each call to :py:meth:`.append` is counted as a new "run".
 
     :param dim:
@@ -19,8 +19,8 @@ class History(object):
 
     Access:
 
-        ``self[run_nr]`` and ``self[run_begin:run_end]`` return
-        tuple(accept_count, points) for the runs specified (excluding run_end)
+        ``self[run_nr]`` and ``self[run_begin:run_end]`` return *one* array
+        that includes the samples for the runs specified (excluding run_end).
 
         .. warning::
             Index access returns a reference. Modification changes the history.
@@ -28,6 +28,21 @@ class History(object):
         .. hint::
             Negative numbers are supported, for example ``self[-1]`` returns
             the latest run.
+
+    Example:
+        >>> h = History(2)
+        >>> for i in range(2):
+        >>>     a = h.append(i+1)
+        >>>     a[:] = i+1
+        >>> h[0]
+        array([[ 1.,  1.]])
+        >>> h[1]
+        array([[ 2.,  2.],
+               [ 2.,  2.]])
+        >>> h[:]
+        array([[ 1.,  1.],
+               [ 2.,  2.],
+               [ 2.,  2.]])
 
     """
 #    :var _points:
@@ -61,10 +76,11 @@ class History(object):
 
     def append(self, new_points_len):
         '''Allocate memory for a new run and return a reference to that memory
+        wrapped in an array of size ``(new_points_len, self.dim)``.
 
         :param new_points_len:
 
-            Integer; the number of points to be stored in the target memory
+            Integer; the number of points to be stored in the target memory.
 
         '''
         new_points_len = int(new_points_len)
