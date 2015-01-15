@@ -412,7 +412,9 @@ class TestCombineWeights(unittest.TestCase):
                                    1.55337057, -4.72862573, -5.98542884,  6.41159914
                                   ])
 
-        combined_weights = combine_weights([self.weighted_samples_1, self.weighted_samples_2], [prop1, prop2])
+        combined_weights = combine_weights([self.weighted_samples_1[:,1:], self.weighted_samples_2[:,1:]],
+                                           [self.weighted_samples_1[:,0], self.weighted_samples_2[:,0]],
+                                            [prop1, prop2])
 
         assert type(combined_weights) is np.ndarray
         self.assertEqual(combined_weights.shape, (10,))
@@ -437,7 +439,9 @@ class TestCombineWeights(unittest.TestCase):
         weighted_samples_2 = sam.history[1]
 
         # positive weights => check _combine_weights_log
-        combined_weights = combine_weights([weighted_samples_1, weighted_samples_2],
+        combined_weights = combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
+                                           [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
+                                           #[weighted_samples_1, weighted_samples_2],
                                            [first_proposal    , second_proposal   ])
 
         for j in range(dim):
@@ -455,13 +459,25 @@ class TestCombineWeights(unittest.TestCase):
 
 
         # should be OK
-        combine_weights([weighted_samples_1, weighted_samples_2], [perfect_prop, perfect_prop])
+        combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
+                        [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
+                        [perfect_prop, perfect_prop])
 
         with self.assertRaisesRegexp(AssertionError, 'Got 2 importance-sampling runs but 1 proposal densities'):
-            combine_weights([weighted_samples_1, weighted_samples_2], [perfect_prop])
+            combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
+                            [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
+                            [perfect_prop])
 
-        with self.assertRaisesRegexp(AssertionError, "``weighted_samples\[0\]`` is not matrix like."):
-            combine_weights([range(9), weighted_samples_2], [perfect_prop, perfect_prop])
+        with self.assertRaisesRegexp(AssertionError, 'Got 2 importance-sampling runs but 1 weights'):
+            combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
+                            [weighted_samples_1[:,0]],
+                            [perfect_prop, perfect_prop])
 
-        with self.assertRaisesRegexp(AssertionError, "Dimension of weighted_samples\[0\] \(2\) does not match the dimension of weighted_samples\[1\] \(1\)"):
-            combine_weights([weighted_samples_1, [[10., 11.]]], [perfect_prop, perfect_prop])
+        with self.assertRaisesRegexp(AssertionError, "``samples\[0\]`` is not matrix like."):
+            combine_weights([range(9), weighted_samples_2[:,1:]],
+                            [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
+                            [perfect_prop, perfect_prop])
+
+        with self.assertRaisesRegexp(AssertionError, "Dimension of samples\[0\] \(2\) does not match the dimension of samples\[1\] \(1\)"):
+            combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:2]],
+                            [weighted_samples_1[:,0],  weighted_samples_2[:,0]],[perfect_prop, perfect_prop])

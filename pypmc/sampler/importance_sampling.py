@@ -338,96 +338,106 @@ class DeterministicIS(ImportanceSampler):
         # calculate the weights (Algorithm1 in [Cor+12])
         all_weights[:] = all_targets / (all_deltas / len(all_weights_samples))
 
-def combine_weights(weighted_samples, proposals):
+def combine_weights(samples, weights, proposals):
     """Calculate the `deterministic mixture weights` according to
-    [Cor+12]_ given weighted samples from the standard importance
-    sampler :py:class:`.ImportanceSampler` and their proposal
-    densities.
+    [Cor+12]_ given ``samples``, standard ``weights`` and their ``proposals`` for a
+    number of steps in which importance samples are computed for the same target
+    density, but different proposals.
 
-    :param weighted_samples:
+    :param samples:
 
-        Iterable of matrix-like arrays; the weighted samples whose
-        importance weights shall be combined. The first column of each
-        array is interpreted as the weight (on the linear scale!), the
-        rest of each row as the sample.  The output of multiple runs
-        using :py:meth:`.ImportanceSampler.run()` with different
-        proposal densities qualifies as input here.
+        Iterable of matrix-like arrays; the weighted samples whose importance
+        weights shall be combined. One sample per row in each array, one array
+        for each step, or different proposal.
+
+    :param weights:
+
+        Iterable of 1D arrays; the standard importance weights
+        :math:`P(x_i^t)/q_t(x_i^t)`. Each array in the iterable contains all
+        weights of the samples of step ``t``, they array's size has to match the
+        ``t``-th entry in samples.
 
     :param proposals:
 
         Iterable of :py:class:`pypmc.density.base.ProbabilityDensity` instances;
-        the proposal densities from which the ``weighted_samples`` have been
+        the proposal densities from which the ``samples`` have been
         drawn.
 
     """
     # shallow copy --> can safely modify (need numpy arrays --> can overwrite with np.asarray)
-    weighted_samples = list(weighted_samples)
+    samples = list(samples)
+    weights = list(weights)
 
-    assert len(weighted_samples) == len(proposals), \
-    "Got %i importance-sampling runs but %i proposal densities" % (len(weighted_samples), len(proposals))
+    assert len(samples) == len(weights), \
+    "Got %i importance-sampling runs but %i weights" % (len(samples), len(weights))
+
+    assert len(samples) == len(proposals), \
+    "Got %i importance-sampling runs but %i proposal densities" % (len(samples), len(proposals))
 
     # number of samples from each proposal
     N = _np.empty(len(proposals))
     N_total = 0
 
-    # basic consistency checks, conversion to numpy array and counting total number of samples
-    for i in range(len(weighted_samples)):
-        weighted_samples[i] = _np.asarray(weighted_samples[i])
-        assert len(weighted_samples[i].shape) == 2, '``weighted_samples[%i]`` is not matrix like.' % i
-        dim = weighted_samples[0].shape[-1] - 1
-        assert weighted_samples[i].shape[-1] - 1 == dim, \
-            "Dimension of weighted_samples[0] (%i) does not match the dimension of weighted_samples[%i] (%i)" \
-                % (dim, i, weighted_samples[i].shape[-1] - 1)
-        N[i] = len(weighted_samples[i])
+    # basic consistency checks, conversion to numpy array and counting of the total number of samples
+    for i in range(len(N)):
+        samples[i] = _np.asarray(samples[i])
+        assert len(samples[i].shape) == 2, '``samples[%i]`` is not matrix like.' % i
+        dim = samples[0].shape[-1]
+        assert samples[i].shape[-1] == dim, \
+            "Dimension of samples[0] (%i) does not match the dimension of samples[%i] (%i)" \
+            % (dim, i, samples[i].shape[-1])
+        N[i] = len(samples[i])
         N_total += N[i]
+
+        weights[i] = _np.asarray(weights[i])
+        assert N[i] == len(weights[i]), \
+            'Length of weights[%i] (%i) does not match length of samples[%i] (%i)' \
+            % (i, N[i], i, len(weights[i]))
 
     combined_weights_history = _History(1, N_total)
 
     # if all weights positive => prefer log scale
     all_positive = True
-    for w in weighted_samples:
-        all_positive &= (w[:,0] >= 0.0).all()
+    for w in weights:
+        all_positive &= (w[:] >= 0.0).all()
         if not all_positive:
-            return _combine_weights_linear(weighted_samples, proposals, combined_weights_history, N_total)
-    return _combine_weights_log(weighted_samples, proposals, combined_weights_history, N_total, N)
+            return _combine_weights_linear(samples, weights, proposals, combined_weights_history, N_total, N)
+    return _combine_weights_log(samples, weights, proposals, combined_weights_history, N_total, N)
 
-def _combine_weights_linear(weighted_samples, proposals, combined_weights_history, N_total):
+def _combine_weights_linear(samples, weights, proposals, combined_weights_history, N_total, N):
     # now the actual combination: [Cor+12], Eq. (3)
 
     # on linear scale
-    for i, (w_x, this_proposal) in enumerate(zip(weighted_samples, proposals)):
-        this_combined_weights = combined_weights_history.append(len(w_x))
-        this_weights = w_x[:,0 ]
-        this_samples = w_x[:,1:]
+    for t, this_proposal in enumerate(proposals):
+        this_combined_weights = combined_weights_history.append(N[t])
 
         this_combined_weight_denominator = 0.0
-        for prop, samples_from_prop in zip(proposals, weighted_samples):
-            this_combined_weight_denominator += len(samples_from_prop) * _np.exp(prop.multi_evaluate(this_samples))
+        for j, prop in enumerate(proposals):
+            this_combined_weight_denominator += N[j] * _np.exp(prop.multi_evaluate(samples[t]))
         this_combined_weight_denominator /= N_total
 
-        this_target_values = _np.exp(this_proposal.multi_evaluate(this_samples)) * this_weights
+        this_target_values = _np.exp(this_proposal.multi_evaluate(samples[t])) * weights[t]
 
         this_combined_weights[:][:,0] = this_target_values / this_combined_weight_denominator
 
     return combined_weights_history[:][:,0]
 
-def _combine_weights_log(weighted_samples, proposals, combined_weights_history, N_total, N):
+def _combine_weights_log(samples, weights, proposals, combined_weights_history, N_total, N):
     # on log scale in their notation
     # log w_i^t = log(omega_i^t) + log(q_i^t) + log(\sum_j N_j) - log(\sum_l N_l exp(log(q_l(y_i^t))))
     # where omega is the ordinary importance weight
-    for t, (w_x, this_proposal) in enumerate(zip(weighted_samples, proposals)):
+    for t, this_proposal in enumerate(proposals):
         # "subarray" for this step t, part of big array of all mixture weights
-        combined_weights = combined_weights_history.append(len(w_x))
-        # these are on the linear scale
-        ordinary_weights = w_x[:,0]
+        combined_weights = combined_weights_history.append(N[t])
+
         # actually collection of vectors y^t_i for all i
-        y = w_x[:,1:]
+        y = samples[t]
 
         # evaluate proposal at step t for all the samples
         log_q_t = this_proposal.multi_evaluate(y)
 
         # mixture weights on log scale
-        log_w_t = _np.log(ordinary_weights).copy()
+        log_w_t = _np.log(weights[t]).copy()
         log_w_t += log_q_t
         log_w_t += _np.log(N_total)
 
