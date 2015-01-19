@@ -6,6 +6,7 @@ from .importance_sampling import *
 from .. import density
 from ..density.mixture_test import DummyComponent
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
+from ..tools import History
 from nose.plugins.attrib import attr
 import numpy as np
 import unittest
@@ -415,11 +416,12 @@ class TestCombineWeights(unittest.TestCase):
         combined_weights = combine_weights([self.weighted_samples_1[:,1:], self.weighted_samples_2[:,1:]],
                                            [self.weighted_samples_1[:,0], self.weighted_samples_2[:,0]],
                                             [prop1, prop2])
-
-        assert type(combined_weights) is np.ndarray
-        self.assertEqual(combined_weights.shape, (10,))
-        for i in range(10):
-            self.assertAlmostEqual(combined_weights[i], target_combined_weights[i])
+        assert type(combined_weights) is History
+        self.assertEqual(combined_weights[:].shape, (10,1))
+        for i in range(6):
+            self.assertAlmostEqual(combined_weights[0][i,0], target_combined_weights[i])
+        for i in range(4):
+            self.assertAlmostEqual(combined_weights[1][i,0], target_combined_weights[6 + i])
 
     def test_cross_check_with_deterministic_is(self):
         # repeat the same test as above in the deterministic IS test, but by hand => same numbers
@@ -450,7 +452,7 @@ class TestCombineWeights(unittest.TestCase):
                 self.assertAlmostEqual(np.vstack([weighted_samples_1, weighted_samples_2])[:,1:][i,j], target_samples[i,j])
 
         for i, target_weight_i in enumerate(target_combined_weights):
-            self.assertAlmostEqual(combined_weights[i], target_weight_i, places=6)
+            self.assertAlmostEqual(combined_weights[:][i,0], target_weight_i, places=6)
 
     def test_error_messages(self):
         # add a zero column to the end

@@ -344,6 +344,9 @@ def combine_weights(samples, weights, proposals):
     number of steps in which importance samples are computed for the same target
     density, but different proposals.
 
+    Return the weights as a :class:`pypmc.tools.History` such that the
+    weights for each proposal are easily accessible.
+
     :param samples:
 
         Iterable of matrix-like arrays; the weighted samples whose importance
@@ -399,10 +402,16 @@ def combine_weights(samples, weights, proposals):
     # if all weights positive => prefer log scale
     all_positive = True
     for w in weights:
-        all_positive &= (w[:] >= 0.0).all()
+        all_positive &= (w[:] > 0.0).all()
         if not all_positive:
-            return _combine_weights_linear(samples, weights, proposals, combined_weights_history, N_total, N)
-    return _combine_weights_log(samples, weights, proposals, combined_weights_history, N_total, N)
+            break
+    if all_positive:
+        combined_weights_history = _combine_weights_log(samples, weights, proposals, combined_weights_history, N_total, N)
+    else:
+        combined_weights_history = _combine_weights_linear(samples, weights, proposals, combined_weights_history, N_total, N)
+
+    assert _np.isfinite(combined_weights_history[:][:,0]).all(), 'Encountered inf or nan mixture weights'
+    return combined_weights_history
 
 def _combine_weights_linear(samples, weights, proposals, combined_weights_history, N_total, N):
     # now the actual combination: [Cor+12], Eq. (3)
@@ -420,7 +429,7 @@ def _combine_weights_linear(samples, weights, proposals, combined_weights_histor
 
         this_combined_weights[:][:,0] = this_target_values / this_combined_weight_denominator
 
-    return combined_weights_history[:][:,0]
+    return combined_weights_history
 
 def _combine_weights_log(samples, weights, proposals, combined_weights_history, N_total, N):
     # on log scale in their notation
@@ -436,7 +445,7 @@ def _combine_weights_log(samples, weights, proposals, combined_weights_history, 
         # evaluate proposal at step t for all the samples
         log_q_t = this_proposal.multi_evaluate(y)
 
-        # mixture weights on log scale
+        # mixture weights on log scale: assume w>0!
         log_w_t = _np.log(weights[t]).copy()
         log_w_t += log_q_t
         log_w_t += _np.log(N_total)
@@ -459,4 +468,7 @@ def _combine_weights_log(samples, weights, proposals, combined_weights_history, 
         combined_weights[:][:,0] = _np.exp(log_w_t)
 
     # return mixture weights for ALL steps
-    return combined_weights_history[:][:,0]
+    sum_w = combined_weights_history[:][:,0].sum()
+    assert sum_w > 0, 'Sum of weights <=0 (%g)' % sum_w
+
+    return combined_weights_history
