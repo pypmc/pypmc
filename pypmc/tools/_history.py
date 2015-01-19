@@ -43,6 +43,8 @@ class History(object):
         array([[ 1.,  1.],
                [ 2.,  2.],
                [ 2.,  2.]])
+        >>> len(h) # number of runs
+        2
 
     """
 #    :var _points:
