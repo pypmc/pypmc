@@ -34,12 +34,12 @@ class History(object):
         >>> for i in range(2):
         >>>     a = h.append(i+1)
         >>>     a[:] = i+1
-        >>> h[0]
+        >>> h[0] # first run
         array([[ 1.,  1.]])
-        >>> h[1]
+        >>> h[1] # second run
         array([[ 2.,  2.],
                [ 2.,  2.]])
-        >>> h[:]
+        >>> h[:] # entire history
         array([[ 1.,  1.],
                [ 2.,  2.],
                [ 2.,  2.]])
