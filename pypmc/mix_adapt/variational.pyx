@@ -50,7 +50,7 @@ class GaussianInference(object):
     :param weights:
 
         Vector-like array; The i-th of the :math:`N` entries contains the
-        weight of the i-th sample in ``data``. Weights must be nonnegative.
+        weight of the i-th sample in ``data``. Weights must be nonnegative and finite.
 
     :param initial_guess:
 
@@ -81,8 +81,12 @@ class GaussianInference(object):
         if weights is not None:
             assert weights.shape == (self.N,), \
                     "The number of samples (%s) does not match the number of weights (%s)" %(self.N, weights.shape[0])
+            assert _np.isfinite(weights).all(), \
+                    'Some weights are not finite; i.e., inf or nan\n' + str(weights)
             # normalize weights to N (not one)
-            self.weights = self.N * weights / weights.sum()
+            sum_w = weights.sum()
+            assert sum_w > 0, 'Sum of weights <= 0 (%g)' % sum_w
+            self.weights = self.N * (weights / sum_w)
 
             # use weighted update formulae
             self._update_N_comp = self._update_N_comp_weighted
@@ -741,6 +745,8 @@ class GaussianInference(object):
                 if r[n,k] == 0.0:
                     r[n,k] = tiny
                 log_rho[n,k] += log_norm_inv
+        if not _np.isfinite(self.r).any():
+            raise _np.linalg.LinAlgError('Encountered inf or nan in update of responsibilities\n' + str(self.r))
 
     def _update_expectation_det_ln_lambda(self):
         # (10.65)
@@ -842,11 +848,11 @@ class GaussianInference(object):
         cdef:
             DTYPE_t w
             DTYPE_t [:] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
-            DTYPE_t [:] inv_N_comp =  self.inv_N_comp
-            DTYPE_t [:] weights =  self.weights
+            DTYPE_t [:] inv_N_comp = self.inv_N_comp
+            DTYPE_t [:] weights = self.weights
             DTYPE_t [:,:] data  = self.data
-            DTYPE_t [:,:] x_mean_comp =  self.x_mean_comp
-            DTYPE_t [:,:] r =  self.r
+            DTYPE_t [:,:] x_mean_comp = self.x_mean_comp
+            DTYPE_t [:,:] r = self.r
             DTYPE_t [:,:,:] S = self.S
 
             size_t K = self.K
@@ -873,17 +879,20 @@ class GaussianInference(object):
                     S[k,i,j] *= inv_N_comp[k]
                     S[k,j,i] = S[k,i,j]
 
+        if not _np.isfinite(self.S).any():
+            raise _np.linalg.LinAlgError('Encountered inf or nan in update of sample covariance\n' + str(self.S))
+
     def _update_S(self):
         # (10.53)
 
         # temp vector and matrix to store outer product
         cdef:
-            DTYPE_t [:] tmpv  = _np.empty_like(self.data[0], dtype=DTYPE)
+            DTYPE_t [:] tmpv = _np.empty_like(self.data[0], dtype=DTYPE)
             DTYPE_t [:,:,:] S = self.S
-            DTYPE_t [:,:] data  = self.data
-            DTYPE_t [:,:] x_mean_comp =  self.x_mean_comp
-            DTYPE_t [:,:] r =  self.r
-            DTYPE_t [:] inv_N_comp =  self.inv_N_comp
+            DTYPE_t [:,:] data = self.data
+            DTYPE_t [:,:] x_mean_comp = self.x_mean_comp
+            DTYPE_t [:,:] r = self.r
+            DTYPE_t [:] inv_N_comp = self.inv_N_comp
 
             size_t K = self.K
             size_t N = len(r)
@@ -908,6 +917,9 @@ class GaussianInference(object):
                 for j in range(i + 1):
                     S[k,i,j] *= inv_N_comp[k]
                     S[k,j,i] = S[k,i,j]
+
+        if not _np.isfinite(self.S).any():
+            raise _np.linalg.LinAlgError('Encountered inf or nan in update of sample covariance\n' + str(self.S))
 
     def _update_W(self):
         # (10.62)
