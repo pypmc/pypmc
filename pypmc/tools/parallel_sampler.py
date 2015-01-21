@@ -47,7 +47,7 @@ class MPISampler(object):
             for i in range(1, self._size):
                 self.history_list.append(self._comm.recv(source=i, tag=self.mpi_tag))
         else:
-            self._comm.send(self.sampler.history, tag=self.mpi_tag)
+            self._comm.send(self.sampler.history, dest=0, tag=self.mpi_tag)
 
     def run(self, N=1, *args, **kwargs):
         '''Call the parallelized sampler's ``run`` method. Each process
@@ -89,8 +89,8 @@ class MPISampler(object):
             return master_return
 
         else: #if self._rank != 0:
-            self._comm.send(self.sampler.history, tag=self.mpi_tag)
-            self._comm.send(individual_return   , tag=self.mpi_tag)
+            self._comm.send(self.sampler.history, dest=0, tag=self.mpi_tag)
+            self._comm.send(individual_return   , dest=0, tag=self.mpi_tag)
             return individual_return
 
     def clear(self):
