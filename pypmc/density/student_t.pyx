@@ -7,7 +7,7 @@ from .gauss import LocalGauss
 from ..tools._doc import _inherit_docstring, _add_to_docstring
 
 from pypmc.tools._linalg cimport bilinear_sym
-from libc.math cimport log
+from libc.math cimport log, sqrt
 cimport numpy as _np
 
 class LocalStudentT(LocalGauss):
@@ -41,7 +41,8 @@ class LocalStudentT(LocalGauss):
     @_add_to_docstring('''    .. important::\n
                 ``rng`` must return a numpy array of N samples from:\n
                 - **rng.normal(0,1,N)**: standard gaussian distribution
-                - **rng.chisquare(degree_of_freedom, N)**: any chi-squared
+                ``rng`` must return one sample as float from:\n
+                - **rng.chisquare(degree_of_freedom)**: any chi-squared
                   distribution''')
     @_inherit_docstring(ProbabilityDensity)
     def propose(self, y, rng = _np.random.mtrand):
@@ -50,7 +51,7 @@ class LocalStudentT(LocalGauss):
         # and  Z and V are independent
         # then Z*sqrt(dof/V) is t-distributed with dof degrees of freedom and std deviation sigma
 
-        return y + self._get_gauss_sample(rng) * _np.sqrt(self.dof / rng.chisquare(self.dof))
+        return y + self._get_gauss_sample(rng) * sqrt(self.dof / rng.chisquare(self.dof))
 
 class StudentT(ProbabilityDensity):
     r"""A Student's t probability density. Can be used as a component in
@@ -74,7 +75,8 @@ class StudentT(ProbabilityDensity):
         self._tmp = _np.empty_like(self.mu)
 
     def update(self, mu, sigma, double dof):
-        r"""Re-initialize the density with new mean, covariance matrix and
+        r"""
+        Re-initialize the density with new mean, covariance matrix and
         degrees of freedom.
 
         :param mu:
@@ -90,12 +92,19 @@ class StudentT(ProbabilityDensity):
 
             Float; the degrees of freedom :math:`\nu`
 
+        .. note::
+
+            On ``LinAlgError``, the old ``mu``, ``sigma``, and ``dof``
+            are plugged in and the proposal remains in a valid state.
+
         """
+        # first check if ``sigma`` is a valid covariance matrix
+        new_local_t = LocalStudentT(sigma, dof)
+        self._local_t = new_local_t
+
         self.mu        = _np.array(mu)
         self.dim       = len(self.mu)
         self.dof       = dof
-
-        self._local_t  = LocalStudentT(sigma, dof)
 
         self.inv_sigma = self._local_t.inv_sigma
         self.log_det_sigma = self._local_t.log_det_sigma

@@ -19,10 +19,34 @@ asymmetric_sigma  = np.array([[0.01 , 0.003 ]
 offdiag_sigma  = np.array([[0.01 , 0.003 ]
                           ,[0.003, 0.0025]])
 
+class FakeRNG(object):
+    def normal(self, a, b, N):
+        return np.array(N*[1.])
+    def chisquare(self, degree_of_freedom):
+        # print 'in FakeRNG: degree_of_freedom', degree_of_freedom
+        assert type(degree_of_freedom) == float
+        return degree_of_freedom
+fake_rng = FakeRNG()
+
 class TestLocalStudentT(unittest.TestCase):
     def setUp(self):
         print('"StudentT" needs .LocalGauss.')
         print('When this test fails, first make sure that .LocalGauss works.')
+
+    def test_update(self):
+        dof = 1.5
+        t = LocalStudentT(offdiag_sigma, dof)
+        sample = t.propose(np.array([0.,0.]), fake_rng)
+        evaluate_at_sample = t.evaluate(np.array([0.,0.]), sample)
+
+        self.assertRaises(np.linalg.LinAlgError, t.update, singular_sigma)
+        self.assertRaises(np.linalg.LinAlgError, t.update, asymmetric_sigma)
+
+        # check that the internal variables of ``g`` do not change after LinAlgError
+        np.testing.assert_equal(t.sigma, offdiag_sigma)
+        self.assertEqual(t.dim, 2)
+        np.testing.assert_equal(t.propose (np.array([0.,0.]), fake_rng), sample)
+        np.testing.assert_equal(t.evaluate(np.array([0.,0.]), sample), evaluate_at_sample)
 
     def test_bad_dof(self):
         expected_error_msg = ".*dof.*must.*((larger)|(greater)).*(0|(zero))"
@@ -160,6 +184,24 @@ class TestStudentT(unittest.TestCase):
     def setUp(self):
         print('"StudentT" needs .LocalStudentT.')
         print('When this test fails, first make sure that .LocalStudentT works.')
+
+    def test_update(self):
+        dof = 1.5
+
+        t = StudentT(self.mean, offdiag_sigma, dof)
+        sample = t.propose(1, fake_rng)[0]
+        evaluate_at_sample = t.evaluate(sample)
+
+        self.assertRaises(np.linalg.LinAlgError, t.update, self.point1, singular_sigma, 5.3)
+        self.assertRaises(np.linalg.LinAlgError, t.update, self.point2, asymmetric_sigma, 5.4)
+
+        # check that the internal variables of ``g`` do not change after LinAlgError
+        np.testing.assert_equal(t.sigma, offdiag_sigma)
+        np.testing.assert_equal(t.mu, self.mean)
+        self.assertEqual(t.dim, 2)
+        self.assertEqual(t.dof, dof)
+        np.testing.assert_equal(t.propose(1, fake_rng)[0], sample)
+        np.testing.assert_equal(t.evaluate(sample), evaluate_at_sample)
 
     def test_dim_mismatch(self):
         mu    = np.ones(2)

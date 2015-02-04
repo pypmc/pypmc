@@ -21,25 +21,30 @@ class LocalGauss(LocalDensity):
         self.update(sigma)
 
     def update(self, sigma):
-        """Re-initilize the proposal with a new covariance matrix.
+        r"""
+        Re-initialize the proposal with a new covariance matrix.
 
         :param sigma:
 
             Matrix-like array; the new covariance-matrix.
 
+        .. note::
+
+            On ``LinAlgError``, the old covariance matrix is plugged in
+            and the proposal remains in a valid state.
+
         """
         # turn scalar into 1x1 matrix if needed
-        self.sigma = _np.asarray(_np.matrix(sigma, dtype=float, copy=True))
-        self.dim   = self.sigma.shape[0]
-        self._sigma_decompose()
+        sigma = _np.asarray(_np.matrix(sigma, dtype=float, copy=True))
 
-    def _sigma_decompose(self):
-        """Private function to calculate the Cholesky decomposition, the
-        inverse and the normalisation of the covariance matrix sigma and
-        store it in the object instance
+        # If ``sigma`` is invalid, the following line raises ``LinAlgError``
+        # and the proposal remains in the old state. In particular, no internal
+        # variable is changed.
+        self.cholesky_sigma, self.inv_sigma, self.log_det_sigma = chol_inv_det(sigma)
 
-        """
-        self.cholesky_sigma, self.inv_sigma, self.log_det_sigma = chol_inv_det(self.sigma)
+        # update internals only if consistency checks inside ``chol_inv_det`` pass
+        self.sigma = sigma
+        self.dim = self.sigma.shape[0]
         self._compute_norm()
 
     def _get_gauss_sample(self, rng):
@@ -79,7 +84,8 @@ class Gauss(ProbabilityDensity):
         self._tmp = _np.empty_like(self.mu)
 
     def update(self, mu, sigma):
-        r"""Re-initialize the density with new mean and covariance matrix.
+        r"""
+        Re-initialize the density with new mean and covariance matrix.
 
         :param mu:
 
@@ -90,11 +96,18 @@ class Gauss(ProbabilityDensity):
             Matrix-like array; the gaussian's covariance matrix
             :math:`\Sigma`
 
+        .. note::
+
+            On ``LinAlgError``, the old ``mu`` and ``sigma`` are plugged
+            in and the proposal remains in a valid state.
+
         """
+        # first check if ``sigma`` is a valid covariance matrix
+        new_local_gauss = LocalGauss(sigma)
+        self._local_gauss = new_local_gauss
+
         self.mu          = _np.array(mu)
         self.dim         = len(self.mu)
-
-        self._local_gauss = LocalGauss(sigma)
 
         self.inv_sigma     = self._local_gauss.inv_sigma # creates reference
         self.log_det_sigma = self._local_gauss.log_det_sigma # creates copy because det_sigma is a float

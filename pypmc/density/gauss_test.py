@@ -3,6 +3,7 @@
 """
 
 from .gauss import *
+from .student_t_test import fake_rng
 import numpy as np
 import unittest
 
@@ -20,6 +21,20 @@ offdiag_sigma  = np.array([[0.01 , 0.003 ]
                           ,[0.003, 0.0025]])
 
 class TestLocalGauss(unittest.TestCase):
+    def test_update(self):
+        g = LocalGauss(offdiag_sigma)
+        sample = g.propose(np.array([0.,0.]), fake_rng)
+        evaluate_at_sample = g.evaluate(np.array([0.,0.]), sample)
+
+        self.assertRaises(np.linalg.LinAlgError, g.update, singular_sigma)
+        self.assertRaises(np.linalg.LinAlgError, g.update, asymmetric_sigma)
+
+        # check that the internal variables of ``g`` do not change after LinAlgError
+        np.testing.assert_equal(g.sigma, offdiag_sigma)
+        self.assertEqual(g.dim, 2)
+        np.testing.assert_equal(g.propose (np.array([0.,0.]), fake_rng), sample)
+        np.testing.assert_equal(g.evaluate(np.array([0.,0.]), sample), evaluate_at_sample)
+
     def test_badCovarianceInput(self):
         sigma = singular_sigma
         self.assertRaises(np.linalg.LinAlgError, LocalGauss, (singular_sigma))
@@ -106,6 +121,21 @@ class TestGauss(unittest.TestCase):
     def setUp(self):
         print('"Gauss" needs .LocalGauss.')
         print('When this test fails, first make sure that .LocalGauss works.')
+
+    def test_update(self):
+        g = Gauss(self.mean, offdiag_sigma)
+        sample = g.propose(1, fake_rng)[0]
+        evaluate_at_sample = g.evaluate(sample)
+
+        self.assertRaises(np.linalg.LinAlgError, g.update, self.point, singular_sigma)
+        self.assertRaises(np.linalg.LinAlgError, g.update, self.point, asymmetric_sigma)
+
+        # check that the internal variables of ``g`` do not change after LinAlgError
+        np.testing.assert_equal(g.sigma, offdiag_sigma)
+        np.testing.assert_equal(g.mu, self.mean)
+        self.assertEqual(g.dim, 2)
+        np.testing.assert_equal(g.propose(1, fake_rng)[0], sample)
+        np.testing.assert_equal(g.evaluate(sample), evaluate_at_sample)
 
     def test_dim_mismatch(self):
         mu    = np.ones(2)
