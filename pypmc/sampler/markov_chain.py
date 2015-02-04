@@ -62,8 +62,8 @@ class MarkovChain(object):
         The rng passed to the proposal when calling proposal.propose
 
         .. important::
-            ``rng`` must return a numpy array of N samples from the
-            uniform distribution [0,1) when calling **rng.rand(N)**
+            ``rng`` must return a sample from the uniform distribution
+            in [0,1) when calling **rng.rand()**
 
         .. seealso::
             ``rng`` must also fulfill the requirements of your proposal
@@ -214,7 +214,7 @@ class AdaptiveMarkovChain(MarkovChain):
     def set_adapt_params(self, *args, **kwargs):
         r"""Sets variables for covariance adaptation.
 
-        When ``adapt`` is called, the proposal's covariance matrix is
+        When :meth:`.adapt` is called, the proposal's covariance matrix is
         adapted in order to improve the chain's performance. The aim
         is to improve the efficiency of the chain by making better
         proposals and forcing the acceptance rate :math:`\alpha` of
