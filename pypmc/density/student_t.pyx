@@ -162,5 +162,5 @@ class StudentT(ProbabilityDensity):
     def propose(self, int N=1, rng=_np.random.mtrand):
         output = _np.empty((N,self.dim))
         for i in range(N):
-            output[i] = self._local_t.propose(self.mu)
+            output[i] = self._local_t.propose(self.mu, rng)
         return output
