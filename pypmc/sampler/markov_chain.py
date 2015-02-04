@@ -73,7 +73,7 @@ class MarkovChain(object):
     def __init__(self, target, proposal, start, indicator=None,
                  prealloc=0, save_target_values=False, rng=_np.random.mtrand):
         # store input into instance
-        self.current_point        = _np.array(start) # call array constructor to make sure to have a copy
+        self.current_point        = _np.array(start, dtype=float) # call array constructor to make sure to have a copy
         self.history              = _History(len(self.current_point), prealloc) # initialize history
         self.proposal             = _cp(proposal)
         self.rng                  = rng
