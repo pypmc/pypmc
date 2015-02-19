@@ -18,6 +18,18 @@ rng_seed = 215135153
 
 NumberOfRandomSteps = 50000
 
+class RejectAllRNG(object):
+    def normal(self, a, b, N):
+        return np.array(N*[1.])
+    def chisquare(self, degree_of_freedom):
+        # print 'in FakeRNG: degree_of_freedom', degree_of_freedom
+        assert type(degree_of_freedom) == float
+        return degree_of_freedom
+    def rand(self):
+        # this makes the Markov chain reject every sample
+        return 1.
+reject_rng = RejectAllRNG()
+
 def raise_not_implemented(x):
     if (x == np.array((0.,1.))).all():
         return 1.
@@ -268,6 +280,59 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
         self.assertTrue(scale_up_visited)
         self.assertTrue(scale_down_visited)
+
+    def test_enhanced_adapt(self):
+        # test the behavior of ``.adapt`` if the standard approach fails
+        dim = 3
+        initial_prop_sigma = np.array([[0.1 , 0.03, 0.01]
+                                      ,[0.03, 0.02, 0.0 ]
+                                      ,[0.01, 0.0 , 1.0 ]])
+        prop = density.gauss.LocalGauss(initial_prop_sigma)
+        start1 = (1,1,1)
+        start2 = (0,0,0)
+        log_target = lambda x: 1. if (x == (0,0,0)).all() else 0.
+
+        # check that the diagonalized matrix is used if the standard approach fails
+        # -------------------------------------------------------------------------
+
+        mc = AdaptiveMarkovChain(log_target, prop, start1)
+
+        # in three dimensions, the covariance matrix estimated from two samples
+        # is neccessarily singular
+        accept_count = mc.run(2)
+
+        # make sure that both samples are accepted to yield valid variance etimates
+        self.assertEqual(accept_count, 2)
+
+        mc.adapt()
+
+        target_unscaled_sigma = np.cov(mc.history[-1], rowvar=0)
+        target_covar_scale_factor = 2.38**2 / dim * 1.5
+        target_proposal_sigma = np.diag(np.diag(mc.covar_scale_factor * mc.unscaled_sigma))
+
+        np.testing.assert_equal(mc.unscaled_sigma, target_unscaled_sigma)
+        self.assertAlmostEqual(mc.covar_scale_factor, target_covar_scale_factor)
+        np.testing.assert_almost_equal(mc.proposal.sigma, target_proposal_sigma, decimal=13)
+
+        # check that the covariance is scaled if the diagonalization approach fails
+        # -------------------------------------------------------------------------
+
+        # reject_rng and start at (0,0,0) --> reject every sample to make sure that
+        # even the diagonalized covariance matrix is singular
+        mc = AdaptiveMarkovChain(log_target, prop, start2, rng=reject_rng)
+
+        accept_count = mc.run(10)
+        self.assertEqual(accept_count, 0)
+
+        mc.adapt()
+
+        target_unscaled_sigma = np.zeros((3,3))
+        target_covar_scale_factor = 2.38**2 / dim / 1.5
+        target_proposal_sigma = initial_prop_sigma / 1.5
+
+        np.testing.assert_equal(mc.unscaled_sigma, target_unscaled_sigma)
+        self.assertAlmostEqual(mc.covar_scale_factor, target_covar_scale_factor)
+        np.testing.assert_almost_equal(mc.proposal.sigma, target_proposal_sigma, decimal=13)
 
     def test_set_adapt_parameters(self):
         log_target = lambda x: unnormalized_log_pdf_gauss(x, zero_mean, np.linalg.inv(offdiag_sigma))

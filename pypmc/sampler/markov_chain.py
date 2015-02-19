@@ -1,6 +1,6 @@
 """Collect Markov Chain"""
 
-from __future__ import division as _div
+from __future__ import division as _div, print_function as _print
 from copy import deepcopy as _cp
 import numpy as _np
 from ..tools import History as _History
@@ -340,11 +340,14 @@ class AdaptiveMarkovChain(MarkovChain):
 
 
     def adapt(self):
-        """Update the proposal using the points
+        r"""Update the proposal using the points
         stored in ``self.history[-1]`` and the parameters which can be set via
         :py:meth:`.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
-        described in detail.
+        described in detail. If the resulting matrix is not a valid covariance,
+        its offdiagonal elements are set to zero and a warning is printed. If
+        that also fails, the proposal's covariance matrix is divided by the
+        ``covar_scale_multiplier`` :math:`\beta`.
 
         .. note::
             This function only uses the points obtained during the last run.
@@ -364,11 +367,25 @@ class AdaptiveMarkovChain(MarkovChain):
         self.unscaled_sigma = (1-time_dependent_damping_factor) * self.unscaled_sigma\
                                + time_dependent_damping_factor  * covar_estimator
         self._update_scale_factor(accept_rate)
+        scaled_sigma = self.covar_scale_factor * self.unscaled_sigma
 
         # increase count now before proposal update. It may fail and raise an exception.
         self.adapt_count += 1
 
-        self.proposal.update(self.covar_scale_factor * self.unscaled_sigma)
+        try:
+            self.proposal.update(scaled_sigma)
+        except _np.linalg.LinAlgError:
+            print("WARNING: Markov chain self adaptation failed; trying diagonalization ... ", end='')
+            # try to insert offdiagonal elements only
+            diagonal_matrix = _np.zeros_like(scaled_sigma)
+            _np.fill_diagonal(diagonal_matrix, _np.diag(scaled_sigma))
+            try:
+                self.proposal.update(diagonal_matrix)
+                print('success')
+            except _np.linalg.LinAlgError:
+                print('fail')
+                # just scale the old covariance matrix if everything else fails
+                self.proposal.update(self.proposal.sigma / self.covar_scale_multiplier)
 
     def _update_scale_factor(self, accept_rate):
         '''Private function.
