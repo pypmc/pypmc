@@ -570,7 +570,8 @@ densities that contain similar information. How to combine them? A
 simple merge would be overly complex, as similar information is stored
 in every mixture. How then to compress this collection into one
 Gaussian mixture with less components but similar descriptive power?
-We provide two algorithms for this task.
+We provide two algorithms for this task illustrated in the example
+:ref:`ex-mix-red`.
 
 Hierarchical clustering
 ~~~~~~~~~~~~~~~~~~~~~~~

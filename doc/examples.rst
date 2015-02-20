@@ -32,6 +32,13 @@ Variational Bayes
 
 .. plot:: ../examples/variational.py
 
+.. _ex-mix-red:
+
+Mixture reduction
+-----------------
+
+.. plot:: ../examples/mixture_reduction.py
+
 .. _ex-mcmc-vb:
 
 MCMC + variational Bayes
