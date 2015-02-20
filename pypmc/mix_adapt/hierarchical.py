@@ -8,13 +8,13 @@ import scipy.linalg as linalg
 class Hierarchical(object):
     """Hierarchical clustering as described in [GR04]_.
 
-    Find a Gaussian mixture density with components :math:`g_j` that
-    most closely matches the Gaussian mixture density specified by
-    ``f`` and its components :math:`f_i`, but with less
-    components. The algorithm is an iterative EM procedure alternating
-    between a *regroup* and a *refit* step, and requires an
-    ``initial_guess`` of the output density that defines the maximum
-    number of components to use.
+    Find a Gaussian mixture density :math:`g` with components
+    :math:`g_j` that most closely matches the Gaussian mixture density
+    specified by :math:`f` and its components :math:`f_i`, but with
+    less components. The algorithm is an iterative EM procedure
+    alternating between a *regroup* and a *refit* step, and requires
+    an ``initial_guess`` of the output density that defines the
+    maximum number of components to use.
 
     :param input_components:
 
@@ -32,12 +32,8 @@ class Hierarchical(object):
 
         :py:func:`pypmc.density.mixture.create_gaussian_mixture`
 
-    :param verbose:
-
-        Output information on progress of algorithm.
-
     """
-    def __init__(self, input_components, initial_guess, verbose=False):
+    def __init__(self, input_components, initial_guess):
 
         # read and verify component numbers
         self.nin = len(input_components.components)
@@ -49,8 +45,6 @@ class Hierarchical(object):
         self.f = input_components
         self.g = copy.deepcopy(initial_guess)
 
-        self._verbose = verbose
-
         # inverse map: several inputs can map to one output, so need list
         self.inv_map = {}
         for j in range(self.nout):
@@ -59,7 +53,7 @@ class Hierarchical(object):
         # the i-th element is :math:`min_j KL(f_i || g_j)`
         self.min_kl = np.zeros(self.nin) + np.inf
 
-    def _cleanup(self, kill):
+    def _cleanup(self, kill, verbose):
         """Look for dead components (weight=0) and remove them
         if enabled by ``kill``.
         Resize storage. Recompute determinant and covariance.
@@ -70,7 +64,7 @@ class Hierarchical(object):
 
             self.nout -= len(removed_indices)
 
-            if self._verbose and removed_indices:
+            if verbose and removed_indices:
                 print('Removing %s' % removed_indices)
 
             for j in removed_indices:
@@ -159,13 +153,14 @@ class Hierarchical(object):
             assert j_min is not None
             self.inv_map[j_min].append(i)
 
-    def run(self, eps=1e-4, kill=True, max_steps=50):
-        r"""Perform the clustering on the input components
-        updating the initial guess.
+    def run(self, eps=1e-4, kill=True, max_steps=50, verbose=False):
+        r"""Perform the clustering on the input components updating the initial
+        guess. The result is available in the member ``self.g``.
 
         Return the number of iterations at convergence, or None.
 
         :param eps:
+
             If relative change of distance between current and last step falls below ``eps``,
             declare convergence:
 
@@ -173,31 +168,37 @@ class Hierarchical(object):
                 0 < \frac{d^t - d^{t-1}}{d^t} < \varepsilon
 
         :param kill:
+
              If a component is assigned zero weight (no input components), it is removed.
 
         :param max_steps:
+
              Perform a maximum number of update steps.
+
+        :param verbose:
+
+             Output information on progress of algorithm.
 
         """
         old_distance = np.finfo(np.float64).max
         new_distance = np.finfo(np.float64).max
 
-        if self._verbose:
+        if verbose:
             print('Starting hierarchical clustering with %d components.' % len(self.g.components))
         converged = False
         for step in range(1, max_steps + 1):
-            self._cleanup(kill)
+            self._cleanup(kill, verbose)
             self._regroup()
             self._refit()
 
             new_distance = self._distance()
             assert new_distance >= 0, 'Found non-positive distance %d' % new_distance
 
-            if self._verbose:
+            if verbose:
                 print('Distance in step %d: %g' % (step, new_distance))
             if new_distance == old_distance:
                 converged = True
-                if self._verbose:
+                if verbose:
                     print('Exact minimum found after %d steps' % step)
                 break
 
@@ -206,15 +207,15 @@ class Hierarchical(object):
 
             if rel_change < eps and not converged and step > 0:
                 converged = True
-                if self._verbose and new_distance != old_distance:
+                if verbose and new_distance != old_distance:
                     print('Close enough to local minimum after %d steps' % step)
                 break
 
             # save distance for comparison in next step
             old_distance = new_distance
 
-        self._cleanup(kill)
-        if self._verbose:
+        self._cleanup(kill, verbose)
+        if verbose:
             print('%d components remain.' % len(self.g.components))
 
         if converged:

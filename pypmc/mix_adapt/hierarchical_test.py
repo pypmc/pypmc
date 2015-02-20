@@ -29,8 +29,8 @@ class TestHierarchical(unittest.TestCase):
     initial_guess2 = MixtureDensity([Gauss(np.zeros(2) + 0.1, cov*3), Gauss(np.zeros(2) - 0.1, cov*3),])
 
     def test_prune(self):
-        h = Hierarchical(self.input_components1, self.initial_guess1, verbose=True)
-        h.run()
+        h = Hierarchical(self.input_components1, self.initial_guess1)
+        h.run(verbose=True)
         sol = h.g
 
         # only one component should survive and have weight 1.0
@@ -46,8 +46,8 @@ class TestHierarchical(unittest.TestCase):
         self.assertAlmostEqual(sol.components[0].sigma[0,1], 0, delta=0.1)
 
     def test_cluster(self):
-        h = Hierarchical(self.input_components2, self.initial_guess2, verbose=True)
-        h.run()
+        h = Hierarchical(self.input_components2, self.initial_guess2)
+        h.run(verbose=True)
         sol = h.g
 
         # both components should survive and have equal weight
