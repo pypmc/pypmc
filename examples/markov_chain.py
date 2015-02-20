@@ -4,7 +4,7 @@ import numpy as np
 import pypmc
 
 # define a proposal
-prop_dof   = 50.
+prop_dof   = 1.
 prop_sigma = np.array([[0.1 , 0.  ]
                       ,[0.  , 0.02]])
 prop = pypmc.density.student_t.LocalStudentT(prop_sigma, prop_dof)
