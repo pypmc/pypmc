@@ -172,8 +172,6 @@ htmlhelp_basename = 'pypmcdoc'
 
 # mathjax doesn't support preambles
 pngmath_latex_preamble = r"""
-\usepackage{mathpazo}
-
 \newcommand{\vecgamma}{\vec{\gamma}}
 \newcommand{\vecth}{\vec{\theta}}
 """
@@ -188,7 +186,9 @@ latex_elements = {
 'pointsize': '12pt',
 
 # reuse LaTeX preamble from html for pdf
-'preamble': pngmath_latex_preamble,
+'preamble':
+    r'\usepackage{mathpazo}' + '\n' +
+    pngmath_latex_preamble,
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
