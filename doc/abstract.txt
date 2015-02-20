@@ -8,7 +8,8 @@ t components to the target density. The package is able to efficiently
 integrate multimodal functions in up to about 30-40 dimensions at the
 level of 1% accuracy or less. For many problems, this is achieved
 without requiring any manual input from the user about details of the
-function.
+function. Importance sampling supports parallelization on multiple
+machines via ``mpi4py``.
 
 Useful tools that can be used stand-alone include:
 
