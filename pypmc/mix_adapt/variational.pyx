@@ -647,14 +647,19 @@ class GaussianInference(object):
         N = self.N
         K = self.K
 
+        # solve Dirichlet mode as fct. of alpha
         c_alpha = self.alpha0.sum() + N
         self.alpha = component_weights * (c_alpha - K) + 1
 
-        c_beta = self.beta0.sum() + N
-        self.beta = component_weights * (c_beta - K)
+        # beta_0 + N_k
+        self.beta = self.beta0 + N * component_weights
 
-        c_nu = self.nu0.sum() + N
-        self.nu = component_weights * (c_nu - K)
+        # nu_0 + N_k
+        self.nu = self.nu0 + N * component_weights
+
+        assert (self.alpha > 0.0).all()
+        assert (self.beta > 0.0).all()
+        assert (self.nu > self.dim - 1).all()
 
         self.m = means
         self.W = _np.empty_like(covs)

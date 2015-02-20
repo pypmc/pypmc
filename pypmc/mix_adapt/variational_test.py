@@ -110,11 +110,11 @@ class TestGaussianInference(unittest.TestCase):
         # alpha_k = weight_k * (c_alpha - K) + 1; c_alpha = sum(alpha0) + N
         c_alpha = 2.*20. + N; target_alpha = normalized_weights * (c_alpha - K) + 1
 
-        # beta_k = weight_k * (c_beta - K); c_beta = sum(beta0) + N
-        c_beta = 2.*30. + N; target_beta = normalized_weights * (c_beta - K)
+        # beta_k = beta_0 + N_k
+        target_beta = beta0 + normalized_weights * N
 
-        # nu_k = weight_k * (c_nu - K); c_nu = sum(nu0) + N
-        c_nu = 2.*40. + N; target_nu = normalized_weights * (c_nu - K)
+        # nu_k = nu_0 + N_k
+        target_nu = nu0 + normalized_weights * N
 
         target_m     = np.array([mean1, mean2])
         target_W     = np.array([np.linalg.inv(covariance1) / (target_nu[0] - 2.),
