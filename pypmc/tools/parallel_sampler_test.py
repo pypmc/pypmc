@@ -59,7 +59,7 @@ class TestMPISampler(unittest.TestCase):
         start = np.array([-3.7, 10.6])
 
         # should be able to create an MPISampler with these syntaxes
-        psampler = MPISampler(AdaptiveMarkovChain, MPI.COMM_WORLD, 1, log_target, prop, start, prealloc=NumberOfRandomSteps)
+        psampler = MPISampler(AdaptiveMarkovChain, MPI.COMM_WORLD, log_target, prop, start, prealloc=NumberOfRandomSteps)
         psampler = MPISampler(AdaptiveMarkovChain, target=log_target, proposal=prop, start=start)
 
         self.assertEqual(len(psampler.sampler.history), 0)
@@ -68,8 +68,7 @@ class TestMPISampler(unittest.TestCase):
             for history_instance in psampler.history_list:
                 self.assertEqual(len(history_instance), 0)
         else:
-            with self.assertRaises(AttributeError):
-                psampler.history_list
+            self.assertTrue(psampler.history_list is None)
 
         # prerun for burn-in
         psampler.run(NumberOfRandomSteps//10)
@@ -81,8 +80,7 @@ class TestMPISampler(unittest.TestCase):
                 self.assertEqual(len(history_instance), 1)
                 self.assertEqual(len(history_instance[-1]), NumberOfRandomSteps//10)
         else:
-            with self.assertRaises(AttributeError):
-                psampler.history_list
+            self.assertTrue(psampler.history_list is None)
 
         psampler.clear()
 
@@ -92,8 +90,7 @@ class TestMPISampler(unittest.TestCase):
             for history_instance in psampler.history_list:
                 self.assertEqual(len(history_instance), 0)
         else:
-            with self.assertRaises(AttributeError):
-                psampler.history_list
+            self.assertTrue(psampler.history_list is None)
 
         for i in range(10):
             psampler.run(NumberOfRandomSteps//10)
