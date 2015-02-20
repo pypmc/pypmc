@@ -178,10 +178,11 @@ distcheck : check check-sdist doc
 	xdg-open link_to_documentation
 
 .PHONY : show-todos
-grep_cmd = grep -i -R -G --color=auto [^"au""sphinx.ext."]todo
+grep_cmd = ack-grep -i --no-html --no-cc [^"au""sphinx.ext."]todo
 show-todos :
 	@ # suppress errors here
 	@ # note that no todo found is considered as error
+	$(grep_cmd) doc ; \
 	$(grep_cmd) pypmc ; \
 	$(grep_cmd) examples ; echo \
 
