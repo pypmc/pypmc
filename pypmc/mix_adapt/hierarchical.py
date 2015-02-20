@@ -80,8 +80,6 @@ class Hierarchical(object):
         Use Eq. (7) and below in [GR04]_
 
         """
-        # todo parallelize
-
         # temporary variables for manipulation
         mu_diff = np.empty_like(self.f.components[0].mu)
         sigma   = np.empty_like(self.f.components[0].sigma)
@@ -139,7 +137,6 @@ class Hierarchical(object):
         for j in range(self.nout):
             self.inv_map[j] = []
 
-        # todo parallelize
         # find smallest divergence between input component i
         # and output component j of the cluster mixture density
         for i in range(self.nin):
@@ -224,7 +221,6 @@ class Hierarchical(object):
 
 def kullback_leibler(c1, c2):
     """Kullback Leibler divergence of two Gaussians, :math:`KL(1||2)`"""
-    # todo improve speed with scipy.linalg.blas and preallocating vector, matrix of right dim
     d = c2.log_det_sigma - c1.log_det_sigma
     d += np.trace(c2.inv_sigma.dot(c1.sigma))
     mean_diff = c1.mu - c2.mu

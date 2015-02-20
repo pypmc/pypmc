@@ -194,7 +194,6 @@ class MixtureDensity(ProbabilityDensity):
         current_write_start = 0
         output_samples = _np.empty((N,self.dim))
 
-        #TODO: parallelize the sampling from components
         for i, comp in enumerate(self.components):
             if to_get[i] != 0:
                 output_samples[current_write_start:current_write_start + to_get[i]] = comp.propose(to_get[i])
