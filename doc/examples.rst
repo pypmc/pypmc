@@ -7,7 +7,7 @@ in the ``examples/`` directory.
 MCMC
 ----
 
-.. literalinclude:: ../examples/markov_chain.py
+.. plot:: ../examples/markov_chain.py
 
 PMC
 ---
@@ -15,26 +15,26 @@ PMC
 Serial
 ^^^^^^
 
-.. literalinclude:: ../examples/pmc.py
+.. plot:: ../examples/pmc.py
 
 Parallel
 ^^^^^^^^
 
-.. literalinclude:: ../examples/pmc_mpi.py
+.. plot:: ../examples/pmc_mpi.py
 
 Grouping by Gelman-Rubin R value
 --------------------------------
 
-.. literalinclude:: ../examples/r_group.py
+.. plot:: ../examples/r_group.py
 
 Variational Bayes
 -----------------
 
-.. literalinclude:: ../examples/variational.py
+.. plot:: ../examples/variational.py
 
 .. _ex-mcmc-vb:
 
 MCMC + variational Bayes
 ------------------------
 
-.. literalinclude:: ../examples/uniting_markov_chains_and_variational_bayes.py
+.. plot:: ../examples/uniting_markov_chains_and_variational_bayes.py
