@@ -212,7 +212,7 @@ function that computes :math:`log(P(x))` for an input vector
   sampler = ImportanceSampler(log_target, log_proposal)
 
 Optionally, the ``sampler`` accepts an :class:`~pypmc.tools.indicator`;
-todo see :ref:`indicator`. What to do with ``sampler``? Run it::
+see :ref:`indicator`. What to do with ``sampler``? Run it::
 
   sampler.run(N=500)
 
@@ -461,7 +461,7 @@ your python shell and you should get plots similar to those shown modulo the ran
    K = 6
    vb = GaussianInference(data, components=K,
                           alpha=10*np.ones(K),
-                          nu=5*np.ones(K))
+                          nu=3*np.ones(K))
 
    # plot data and initial guess
    plt.subplot(1, 2, 1)
@@ -489,14 +489,6 @@ your python shell and you should get plots similar to those shown modulo the ran
    plt.title('Final')
    plt.show()
 
-.. todo::
-
-   How is covariance chosen? From the plot, it is not a unit matrix
-
-.. todo::
-
-   Replace ~ by lower heading hierarchy below
-
 Initialization
 ^^^^^^^^^^^^^^
 
@@ -518,11 +510,16 @@ Note that the ``vb`` object carries the posterior distribution of
 hyperparameters describing a Gaussian mixture. Invoking
 ``make_mixture()`` singles out the mixture at the mode of the
 posterior. To have a well defined mode one needs ``nu[k] > d`` and
-``alpha[k] > 0`` for at least one component ``k``. That's why the we
-set these values in the constructor of ``GaussianInference`` so we can
+``alpha[k] > 0`` for at least one component ``k``. We set :math:`\nu=3`
+such that the covariance at the mode of the Wishart distribution
+
+.. math::
+   \boldsymbol{\Sigma} = (\nu - d) \boldsymbol{W}^{-1} = \boldsymbol{W}^{-1}
+
+equals :math:`\boldsymbol{W}^{-1}` for :math:`d=2`. This allows us to
 plot the initial guess. The default placement
-``GaussianInference(...initial_guess="random")`` is to randomly
-select ``K`` data points and start with a Gaussian of unit covariance
+``GaussianInference(...initial_guess="random")`` is to randomly select
+``K`` data points and start with a Gaussian of unit covariance
 there. ``K`` is the maximum number of components and has to be chosen
 by user. A safe procedure is to choose ``K`` larger than desired, and
 let variational Bayes figures out the right value.
