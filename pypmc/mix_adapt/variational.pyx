@@ -67,7 +67,7 @@ class GaussianInference(object):
         If a `MixtureDensity`, override other (default) values of the parameters
         ``m``, ``W`` and ``alpha``.
 
-        Default: "random"
+        Default: "first"
 
     All keyword arguments are processed by :py:meth:`set_variational_parameters`.
 
