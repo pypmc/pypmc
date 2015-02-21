@@ -32,7 +32,7 @@ The two densities --- Gauss and student's t --- supported by pypmc
 come in two variants whose methods have identical names but differ in
 their arguments. The standard classes are
 :class:`~pypmc.density.gauss.Gauss` and
-:class:`~pypmc.density.student_t.LocalStudentT`::
+:class:`~pypmc.density.student_t.StudentT`::
 
   mean = np.zeros(2)
   sigma = np.array([[ 0.1,  -0.001],
