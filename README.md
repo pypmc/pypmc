@@ -2,7 +2,7 @@ pypmc
 =====
 
 ``pypmc`` is a python package focusing on adaptive importance
-sampling.  It can be used for integration and sampling from a
+sampling. It can be used for integration and sampling from a
 user-defined target density. A typical application is Bayesian
 inference, where one wants to sample from the posterior to marginalize
 over parameters and to compute the evidence. The key idea is to create
@@ -32,7 +32,7 @@ Getting started
 
 Fully documented examples are shipped in the ``examples`` subdirectory
 of the source distribution or available online on
-[GitHub](https://github.com/fredRos/pypmc/tree/master/examples).  Feel
+[GitHub](https://github.com/fredRos/pypmc/tree/master/examples). Feel
 free to save and modify them according to your needs.
 
 Documentation
