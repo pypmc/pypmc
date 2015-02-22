@@ -39,11 +39,12 @@ class LocalStudentT(LocalGauss):
             * log(1. + bilinear_sym(self.inv_sigma, x - y) / self.dof)
 
     @_add_to_docstring('''    .. important::\n
-                ``rng`` must return a numpy array of N samples from:\n
-                - **rng.normal(0,1,N)**: standard gaussian distribution
-                ``rng`` must return one sample as float from:\n
-                - **rng.chisquare(degree_of_freedom)**: any chi-squared
-                  distribution''')
+                ``rng`` must return\n
+                - a numpy array of N samples from
+                  **rng.normal(0,1,N)**: standard gaussian distribution
+                - sample as float from
+                  **rng.chisquare(degree_of_freedom)**: any chi-squared
+                  distribution\n\n''')
     @_inherit_docstring(ProbabilityDensity)
     def propose(self, y, rng = _np.random.mtrand):
         # when Z is normally distributed with expected value 0 and std deviation sigma

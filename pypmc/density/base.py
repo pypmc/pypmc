@@ -60,7 +60,7 @@ class ProbabilityDensity(object):
 
         :param rng:
 
-            State of a random number generator like numpy.random.mtrand
+            State of a random number generator like ``numpy.random.mtrand``
 
         """
         raise NotImplementedError()
