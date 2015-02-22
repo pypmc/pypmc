@@ -178,13 +178,21 @@ distcheck : check check-sdist doc
 	xdg-open link_to_documentation
 
 .PHONY : show-todos
-grep_cmd = ack-grep -i --no-html --no-cc [^"au""sphinx.ext."]todo
+grep_cmd = ack-grep -i --no-html --no-cc --no-make [^"au""sphinx.ext."]todo
+begin_red = "\033[0;31m"
+end_red   = "\033[0m"
 show-todos :
 	@ # suppress errors here
 	@ # note that no todo found is considered as error
-	$(grep_cmd) doc ; \
-	$(grep_cmd) pypmc ; \
-	$(grep_cmd) examples ; echo \
+	$(grep_cmd) . ; \
+	echo ; 	echo ; \
+	echo $(begin_red)"********************************************************"$(end_red) ; \
+	echo $(begin_red)"* The following file types are NOT searched for TODOs: *"$(end_red) ; \
+	echo $(begin_red)"* o c source                                           *"$(end_red) ; \
+	echo $(begin_red)"* o html source                                        *"$(end_red) ; \
+	echo $(begin_red)"* o makefiles                                          *"$(end_red) ; \
+	echo $(begin_red)"********************************************************"$(end_red) ; \
+	echo
 
 .PHONY : coverage
 coverage : .build-system-default
