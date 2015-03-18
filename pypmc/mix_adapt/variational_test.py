@@ -335,15 +335,14 @@ class TestGaussianInference(unittest.TestCase):
         sam = importance_sampling.ImportanceSampler(log_target, prop, rng = np.random.mtrand)
         sam.run(10**4)
 
-        weighted_samples = sam.history[:]
         # -----------------------------------------------------------------------------------------------
 
         rtol = .05
         atol = .01
         rtol_sigma = .12
 
-        weights = weighted_samples[:,0 ]
-        samples = weighted_samples[:,1:]
+        weights = sam.weights[:][:,0 ]
+        samples = sam.samples[:]
 
         clust = GaussianInference(samples, 2, weights=weights, m=np.vstack((prop_mean1,prop_mean2)))
         converged = clust.run(verbose=True)

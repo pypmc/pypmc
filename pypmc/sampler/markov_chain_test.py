@@ -117,13 +117,13 @@ class TestMarkovChain(unittest.TestCase):
 
         #prerun for burn-in
         mc.run(int(NumberOfRandomSteps/10))
-        self.assertEqual(len(mc.history[-1]), NumberOfRandomSteps//10)
+        self.assertEqual(len(mc.samples[-1]), NumberOfRandomSteps//10)
         mc.clear()
-        self.assertEqual(len(mc.history), 0)
+        self.assertEqual(len(mc.samples), 0)
 
         mc.run(NumberOfRandomSteps)
 
-        values = mc.history[:]
+        values = mc.samples[:]
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -176,7 +176,7 @@ class TestMarkovChain(unittest.TestCase):
 
         # check runs
         for run in range(10):
-            this_run        = mc.history[run]
+            this_run        = mc.samples[run]
             self.assertEqual(len(this_run), 10)
             this_run_target = np.arange(1.,11.)+(run)*10
             for i in range(10):
@@ -184,7 +184,7 @@ class TestMarkovChain(unittest.TestCase):
 
         # check slicing
         for i in range(50):
-            self.assertAlmostEqual(mc.history[:6][i], np.arange(1,51)[i], float_acc)
+            self.assertAlmostEqual(mc.samples[:6][i], np.arange(1,51)[i], float_acc)
 
     def test_save_target_values(self):
         N = 10
@@ -205,24 +205,24 @@ class TestMarkovChain(unittest.TestCase):
         mc = MarkovChain(log_target, prop, start, prealloc=N, save_target_values=True)
 
         mc.run(N)
-        self.assertEqual(len(mc.history[-1]), N)
-        samples       = mc.history[:]
+        self.assertEqual(len(mc.samples[-1]), N)
+        samples       = mc.samples[:]
         target_values = mc.target_values[:]
 
         self.assertEqual(len(mc.target_values), 1)
-        self.assertEqual(len(mc.history), 1)
+        self.assertEqual(len(mc.samples), 1)
 
         self.assertEqual(len(mc.target_values[:]), N)
-        self.assertEqual(len(mc.history[:]), N)
+        self.assertEqual(len(mc.samples[:]), N)
 
         for i in range(10):
             # check if target values are correctly saved
-            self.assertEqual(log_target(mc.history[:][i]), mc.target_values[:][i])
+            self.assertEqual(log_target(mc.samples[:][i]), mc.target_values[:][i])
 
         mc.clear()
 
         self.assertEqual(len(mc.target_values), 0)
-        self.assertEqual(len(mc.history), 0)
+        self.assertEqual(len(mc.samples), 0)
 
 class TestAdaptiveMarkovChain(unittest.TestCase):
     def setUp(self):
@@ -265,7 +265,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
             covar_scale_factor = mc.covar_scale_factor
 
-        values = mc.history[:]
+        values = mc.samples[:]
 
         mean0 = values[:,0].mean()
         mean1 = values[:,1].mean()
@@ -306,7 +306,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
 
         mc.adapt()
 
-        target_unscaled_sigma = np.cov(mc.history[-1], rowvar=0)
+        target_unscaled_sigma = np.cov(mc.samples[-1], rowvar=0)
         target_covar_scale_factor = 2.38**2 / dim * 1.5
         target_proposal_sigma = np.diag(np.diag(mc.covar_scale_factor * mc.unscaled_sigma))
 

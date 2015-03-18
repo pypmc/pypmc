@@ -86,7 +86,7 @@ for mc in mcs:
         if i == 0:
             mc.clear()
 
-mc_samples_sorted_by_chain = [mc.history[:] for mc in mcs]
+mc_samples_sorted_by_chain = [mc.samples[:] for mc in mcs]
 mc_samples = np.vstack(mc_samples_sorted_by_chain)
 
 means = np.zeros((len(mcs), dim))
@@ -134,17 +134,16 @@ vb.run(1000, rel_tol=1e-8, abs_tol=1e-5, prune=vb_prune, verbose=True)
 # extract the most probable Gaussian mixture given the samples
 vbmix = vb.make_mixture()
 
-# Now we can instantiate an importance sampler. We take
-# "DeterministicIS" here which combines the samples from different
-# proposal densities. We draw 1,000 importance samples and use these
-# for a proposal update using variational Bayes again. In case there
-# are multiple modes and the chains did not mix, we need this step to
-# infer the right component weights because the component weight is
-# given by how many chains it attracted, which could be highly
-# dependent on the starting points and independent of the correct
+# Now we can instantiate an importance sampler. We draw 1,000
+# importance samples and use these for a proposal update using
+# variational Bayes again. In case there are multiple modes and
+# the chains did not mix, we need this step to infer the right
+# component weights because the component weight is given by
+# how many chains it attracted, which could be highly dependent
+# on the starting points and independent of the correct
 # probability mass.
 print('running importance sampling ...')
-sampler = pypmc.sampler.importance_sampling.DeterministicIS(log_target, vbmix)
+sampler = pypmc.sampler.importance_sampling.ImportanceSampler(log_target, vbmix)
 sampler.run(1000)
 
 # The variational Bayes allows us, unlike PMC, to include the
@@ -156,28 +155,33 @@ sampler.run(1000)
 # weights.
 prior_for_proposal_update = vb.posterior2prior()
 prior_for_proposal_update.pop('alpha0')
-vb2 = pypmc.mix_adapt.variational.GaussianInference(sampler.history[:][:,1:],
+vb2 = pypmc.mix_adapt.variational.GaussianInference(sampler.samples[:],
                                                     initial_guess=vbmix,
-                                                    weights=sampler.history[:][:,0],
+                                                    weights=sampler.weights[:][:,0],
                                                     **prior_for_proposal_update)
 
-# Note: This time we leave "prune" at the default value "1" because all
-#       pruning should already have been done in the first variational
-#       Bayes.
+# Note: This time we leave "prune" at the default value "1" because we
+#       want to keep all components that are expected to contribute
+#       with at least one effective sample per importance sampling run.
 print('running variational Bayes ...')
 vb2.run(1000, rel_tol=1e-8, abs_tol=1e-5, verbose=True)
+vb2mix = vb2.make_mixture()
 
 # Now we draw another 10,000 samples with the updated proposal
-sampler.proposal = vb2.make_mixture()
+sampler.proposal = vb2mix
 print('running importance sampling ...')
 sampler.run(10**4)
 
-# The integral can then be estimated from the weights. The error is also
-# estimated out of the weights. By the central limit theorem, the integral
-# estimator has a gaussian distribution.
-weighted_samples = sampler.history[:]
-weights = weighted_samples[:,0]
+# We can combine the samples and weights from the two runs, see reference [Cor+12].
+weights = pypmc.sampler.importance_sampling.combine_weights([samples[:]      for samples in sampler.samples],
+                                                            [weights[:][:,0] for weights in sampler.weights],
+                                                            [vbmix, vb2mix]                                 ) \
+                                                            [:][:,0]
+samples = sampler.samples[:]
 
+# The integral can then be estimated from the weights. The error is also
+# estimated from the weights. By the central limit theorem, the integral
+# estimator has a gaussian distribution.
 integral_estimator = weights.sum() / len(weights)
 integral_uncertainty_estimator = np.sqrt((weights**2).sum() / len(weights) - integral_estimator**2) / np.sqrt(len(weights)-1)
 
@@ -205,7 +209,7 @@ except ImportError:
     exit(1)
 
 plt.figure()
-plt.hist2d(weighted_samples[:,1], weighted_samples[:,2], weights=weights, bins=100, cmap='gray_r')
+plt.hist2d(samples[:,0], samples[:,1], weights=weights, bins=100, cmap='gray_r')
 pypmc.tools.plot_mixture(sampler.proposal, visualize_weights=True, cmap='jet')
 plt.colorbar()
 plt.title('colors visualize component weights')

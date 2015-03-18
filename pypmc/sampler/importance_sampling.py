@@ -9,7 +9,7 @@ from ..tools._doc import _inherit_docstring
 from ..tools import History as _History
 from ..tools.indicator import merge_function_with_indicator as _indmerge
 
-def calculate_expectation(samples, f):
+def calculate_expectation(samples, weights, f):
     r'''Calculate the expectation value of function ``f`` using weighted
     samples (like the output of an importance-sampling run).
 
@@ -23,50 +23,63 @@ def calculate_expectation(samples, f):
 
     :param samples:
 
-        Matrix-like numpy array; the samples to be used. The first column
-        is used as (unnormalized) weights.
+        Matrix-like numpy array; the samples to be used.
+
+    :param weights:
+
+        Vector-like numpy array; the (unnormalized) importance weights.
 
     :param f:
 
         Callable, the function to be evaluated.
 
     '''
+    assert len(samples) == len(weights), "The number of samples (got %i) must equal the number of weights (got %i)." % (len(samples),len(weights))
     normalization = 0.
     out           = 0.
-    for point in samples:
-        normalization += point[0]
-        out += point[0] * f(point[1:])
+    for weight, sample in zip(weights, samples):
+        normalization += weight
+        out += weight * f(sample)
     return out/normalization
 
-def calculate_mean(samples):
+def calculate_mean(samples, weights):
     r'''Calculate the mean of weighted samples (like the output of an
     importance-sampling run).
 
     :param samples:
 
-        Matrix-like numpy array; the samples to be used. The first column
-        is used as (unnormalized) weights.
+        Matrix-like numpy array; the samples to be used.
+
+    :param weights:
+
+        Vector-like numpy array; the (unnormalized) importance weights.
 
     '''
-    return _np.average(samples[:,1:], axis=0, weights=samples[:,0])
+    assert len(samples) == len(weights), "The number of samples (got %i) must equal the number of weights (got %i)." % (len(samples),len(weights))
+    return _np.average(samples, axis=0, weights=weights)
 
-def calculate_covariance(samples):
+def calculate_covariance(samples, weights):
     r'''Calculates the covariance matrix of weighted samples (like the output of an
     importance-sampling run).
 
     :param samples:
 
-        Matrix-like numpy array; the samples to be used. The first column
-        is used as (unnormalized) weights.
+        Matrix-like numpy array; the samples to be used.
+
+    :param weights:
+
+        Vector-like numpy array; the (unnormalized) importance weights.
 
     '''
-    sum_weights_sq = (samples[:,0].sum())**2
-    sum_sq_weights = (samples[:,0]**2).sum()
+    assert len(samples) == len(weights), "The number of samples (got %i) must equal the number of weights (got %i)." % (len(samples),len(weights))
 
-    mean  = calculate_mean(samples)
+    sum_weights_sq = (weights.sum())**2
+    sum_sq_weights = (weights**2).sum()
+
+    mean  = calculate_mean(samples, weights)
 
     return sum_weights_sq / (sum_weights_sq - sum_sq_weights)  *\
-           calculate_expectation(samples, lambda x: _np.einsum('i,j', x - mean, x - mean))
+           calculate_expectation(samples, weights, lambda x: _np.einsum('i,j', x - mean, x - mean))
 
 _docstring_params_importance_sampler = """:param target:
 
@@ -92,9 +105,8 @@ _docstring_params_importance_sampler = """:param target:
 
     :param prealloc:
 
-        An integer, defines the number of Points for which memory in
-        ``history`` is allocated. If more memory is needed, it will be
-        allocated on demand.
+        Integer; the number of samples for which memory is preallocated.
+        If more memory is needed, it will be allocated on demand.
 
         .. hint::
             Preallocating memory can speed up the calculation, in
@@ -123,11 +135,12 @@ class ImportanceSampler(object):
     """ + _docstring_params_importance_sampler
     def __init__(self, target, proposal, indicator=None, prealloc=0,
                  save_target_values=False, rng=_np.random.mtrand):
-        self.proposal = _cp(proposal)
-        self.rng      = rng
-        self.target   = _indmerge(target, indicator, -_np.inf)
+        self.proposal      = _cp(proposal)
+        self.rng           = rng
+        self.target        = _indmerge(target, indicator, -_np.inf)
         self.target_values = _History(1, prealloc) if save_target_values else None
-        self.history  = _History(proposal.dim + 1, prealloc)
+        self.weights       = _History(1, prealloc)
+        self.samples       = _History(proposal.dim, prealloc)
 
     def clear(self):
         '''Clear history of samples and other internal variables to free memory.
@@ -136,20 +149,22 @@ class ImportanceSampler(object):
             The proposal is untouched.
 
         '''
-        self.history.clear()
+        self.samples.clear()
+        self.weights.clear()
         if self.target_values is not None:
             self.target_values.clear()
 
     def run(self, N=1, trace_sort=False):
-        '''Runs the sampler and stores the history of visited points into
-        the member variable ``self.history``
+        '''Run the sampler, store the history of visited points into
+        the member variable ``self.samples`` and the importance weights
+        into ``self.weights``.
 
         .. seealso::
             :py:class:`pypmc.tools.History`
 
         :param N:
 
-            An int which defines the number of steps to run the chain.
+            Integer; the number of samples to be drawn.
 
         :param trace_sort:
 
@@ -171,47 +186,48 @@ class ImportanceSampler(object):
             return 0
 
         if trace_sort:
-            this_run, origin = self._get_samples(N, trace_sort=True)
-            self._calculate_weights(this_run, N)
+            this_samples, origin = self._get_samples(N, trace_sort=True)
+            self._calculate_weights(this_samples, N)
             return origin
         else:
-            this_run = self._get_samples(N, trace_sort=False)
-            self._calculate_weights(this_run, N)
+            this_samples = self._get_samples(N, trace_sort=False)
+            self._calculate_weights(this_samples, N)
 
-    def _calculate_weights(self, this_run, N):
-        """Calculates and saves the weights of a run."""
+    def _calculate_weights(self, this_samples, N):
+        """Calculate and save the weights of a run."""
+
+        this_weights = self.weights.append(N)[:,0]
+
         if self.target_values is None:
             for i in range(N):
-                tmp = this_run[i, 1:]
-                tmp = self.target(tmp) - self.proposal.evaluate(tmp)
-                this_run[i,0] = _exp(tmp)
+                tmp = self.target(this_samples[i]) - self.proposal.evaluate(this_samples[i])
+                this_weights[i] = _exp(tmp)
         else:
             this_target_values = self.target_values.append(N)
             for i in range(N):
-                tmp = this_run[i, 1:]
-                this_target_values[i] = self.target(tmp)
-                tmp = this_target_values[i] - self.proposal.evaluate(tmp)
-                this_run[i,0] = _exp(tmp)
+                this_target_values[i] = self.target(this_samples[i])
+                tmp = this_target_values[i] - self.proposal.evaluate(this_samples[i])
+                this_weights[i] = _exp(tmp)
 
     def _get_samples(self, N, trace_sort):
-        """Saves N samples from ``self.proposal`` to ``self.history``
-        Does NOT calculate the weights.
+        """Save N samples from ``self.proposal`` to ``self.samples``
+        This function does NOT calculate the weights.
 
-        Returns a reference to the samples in ``self.history``.
-        If trace is True, additionally returns an array indicating
-        the responsible component. (MixtureDensity only)
+        Return a reference to this run's samples in ``self.samples``.
+        If ``trace_sort`` is True, additionally return an array
+        indicating the responsible component. (MixtureDensity only)
 
         """
         # allocate an empty numpy array to store the run and append accept count
         # (importance sampling accepts all points)
-        this_run = self.history.append(N)
+        this_run = self.samples.append(N)
 
         # store the proposed points (weights are still to be calculated)
         if trace_sort:
-            this_run[:,1:], origin = self.proposal.propose(N, self.rng, trace=True, shuffle=False)
+            this_run[:], origin = self.proposal.propose(N, self.rng, trace=True, shuffle=False)
             return this_run, origin
         else:
-            this_run[:,1:] = self.proposal.propose(N, self.rng)
+            this_run[:] = self.proposal.propose(N, self.rng)
             return this_run
 
 def combine_weights(samples, weights, proposals):

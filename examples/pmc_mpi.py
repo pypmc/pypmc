@@ -100,16 +100,14 @@ for i in range(10):
 
         # Now let PMC run only in the master process:
 
-        # ``sampler.history_list`` stores the weighted samples sorted by the resposible process:
-        # The History object which is held by process i can be accessed via
-        # ``sampler.history_list[i]``. The master process (i=0) also produces samples.
+        # ``sampler.samples_list`` and ``sampler.weights_list`` store the weighted samples
+        # sorted by the resposible process:
+        # The History objects that are held by process i can be accessed via
+        # ``sampler.<samples/weights>_list[i]``. The master process (i=0) also produces samples.
 
-        # Combine the weighted samples to an array of 1,000 samples
-        weighted_samples = np.vstack([history_item[-1] for history_item in parallel_sampler.history_list])
-
-        # Remember that the first column of ``weighted_samples`` are the importance ``weights``.
-        weights = weighted_samples[:,0 ]
-        samples = weighted_samples[:,1:]
+        # Combine the weights and samples to two arrays of 1,000 samples
+        samples = np.vstack([history_item[-1] for history_item in parallel_sampler.samples_list])
+        weights = np.vstack([history_item[-1] for history_item in parallel_sampler.weights_list])[:,0]
 
         # The latent variables are stored in ``last_generating_components``.
         # ``last_generating_components[i]`` returns an array with the generating
@@ -135,10 +133,12 @@ for i in range(10):
 
 # only the master process shall print out any final information
 if comm.Get_rank() == 0:
-    all_weighted_samples  = np.vstack([history_item[ :] for history_item in parallel_sampler.history_list])
-    last_weighted_samples = np.vstack([history_item[-1] for history_item in parallel_sampler.history_list])
+    all_samples  = np.vstack([history_item[ :] for history_item in parallel_sampler.samples_list])
+    all_weights  = np.vstack([history_item[ :] for history_item in parallel_sampler.weights_list])
+    last_samples = np.vstack([history_item[-1] for history_item in parallel_sampler.samples_list])
+    last_weights = np.vstack([history_item[-1] for history_item in parallel_sampler.weights_list])
     print("\rsampling finished", end=', ')
-    print("collected " + str(len(all_weighted_samples)) + " samples")
+    print("collected " + str(len(all_samples)) + " samples")
     print(  '------------------------------------------')
     print('\n')
 
@@ -196,7 +196,7 @@ if comm.Get_rank() == 0:
 
     plt.subplot(224)
     plt.title('weighted samples')
-    plt.hist2d(last_weighted_samples[:,1], last_weighted_samples[:,2], weights=last_weighted_samples[:,0], cmap='gray_r', bins=200)
+    plt.hist2d(last_samples[:,0], last_samples[:,1], weights=last_weights[:,0], cmap='gray_r', bins=200)
     set_axlimits()
 
     plt.show()

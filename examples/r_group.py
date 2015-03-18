@@ -67,8 +67,8 @@ for mc in mcs:
         mc.run(500)
         mc.adapt()
 
-# extract a reference to the histories of all visited points from all chains
-stacked_values = [mc.history[:] for mc in mcs]
+# extract a reference to the samples from all chains
+stacked_values = [mc.samples[:] for mc in mcs]
 
 # find the chain groups
 # chains 0 and 1 are initialized in the same mode (at [5, 0.01])

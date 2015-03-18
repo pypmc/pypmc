@@ -29,14 +29,14 @@ class MPISampler(object):
         self._rank = comm.Get_rank()
         self._size = comm.Get_size() # emcee uses "comm.Get_size() - 1" here for special master treatment
 
-        # master collects history from other processes
-        self.history_list = self._comm.gather(self.sampler.history, root=0)
+        # master collects samples and weights from other processes
+        self.clear()
 
     def run(self, N=1, *args, **kwargs):
         '''Call the parallelized sampler's ``run`` method. Each process
         will run for ``N`` iterations. Then, the master process (process with
-        ``rank = 0``) collects the data from all processes and stores it into
-        ``self.history_list``.
+        ``rank = 0``) collects the samples and weights from all processes and
+        stores it into ``self.samples_list`` and ``self.weights_list``.
         Master process:   Return a list of the return values from the workers.
         Other  processes: Return the same as the sequential sampler.
 
@@ -57,8 +57,10 @@ class MPISampler(object):
         '''
         individual_return = self.sampler.run(N, *args, **kwargs)
 
-        # all workers send history to master
-        self.history_list = self._comm.gather(self.sampler.history, root=0)
+        # all workers send samples and weights to master
+        self.samples_list = self._comm.gather(self.sampler.samples, root=0)
+        if hasattr(self.sampler, 'weights'):
+            self.weights_list = self._comm.gather(self.sampler.weights, root=0)
 
         # master returns list of worker return values
         master_return = self._comm.gather(individual_return, root=0)
@@ -70,8 +72,9 @@ class MPISampler(object):
 
     def clear(self):
         """Delete the history."""
-        if self._rank == 0:
-            for entry in self.history_list:
-                entry.clear()
-
         self.sampler.clear()
+        self.samples_list = self._comm.gather(self.sampler.samples, root=0)
+        if hasattr(self.sampler, 'weights'):
+            self.weights_list = self._comm.gather(self.sampler.weights, root=0)
+        else:
+            self.weights_list = None

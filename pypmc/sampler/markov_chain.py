@@ -43,9 +43,9 @@ class MarkovChain(object):
 
     :param prealloc:
 
-        An integer, defines the number of Markov chain points for
-        which memory in ``history`` is allocated. If more memory is
-        needed, it will be allocated on demand.
+        Integer; the number of Markov chain samples for which memory in
+        ``self.samples`` is allocated. If more memory is needed, it will
+        be allocated on demand.
 
         .. hint::
             Preallocating memory can speed up the calculation, in
@@ -74,7 +74,7 @@ class MarkovChain(object):
                  prealloc=0, save_target_values=False, rng=_np.random.mtrand):
         # store input into instance
         self.current_point        = _np.array(start, dtype=float) # call array constructor to make sure to have a copy
-        self.history              = _History(len(self.current_point), prealloc) # initialize history
+        self.samples              = _History(len(self.current_point), prealloc)
         self.proposal             = _cp(proposal)
         self.rng                  = rng
         self.target               = _indmerge(target, indicator, -_np.inf)
@@ -84,19 +84,20 @@ class MarkovChain(object):
             raise ValueError('``target(start)`` must evaluate to a finite value and ``indicator(start)`` must be ``True``')
 
     def clear(self):
-        '''Clear history of visited points and other internal variables to free memory.
+        '''Clear history of visited points (stored in ``self.samples``) and
+        other internal variables to free memory.
 
         .. note::
             The current state that defines the Markov chain is untouched.
 
         '''
-        self.history.clear()
+        self.samples.clear()
         if self.target_values is not None:
             self.target_values.clear()
 
     def run(self, N=1):
-        '''Runs the chain and stores the history of visited points into
-        the member variable ``self.history``. Returns the number of
+        '''Run the chain and store the history of visited points into
+        the member variable ``self.samples``. Returns the number of
         accepted points during the run.
 
         .. seealso::
@@ -119,7 +120,7 @@ class MarkovChain(object):
         # allocate an empty numpy array to store the run
         if self.target_values is not None:
             this_target_values = self.target_values.append(N)
-        this_run     = self.history.append(N)
+        this_run     = self.samples.append(N)
         accept_count = 0
 
         for i_N in range(N):
@@ -341,7 +342,7 @@ class AdaptiveMarkovChain(MarkovChain):
 
     def adapt(self):
         r"""Update the proposal using the points
-        stored in ``self.history[-1]`` and the parameters which can be set via
+        stored in ``self.samples[-1]`` and the parameters which can be set via
         :py:meth:`.set_adapt_params`.
         In the above referenced function's docstring, the algorithm is
         described in detail. If the resulting matrix is not a valid covariance,
@@ -353,7 +354,7 @@ class AdaptiveMarkovChain(MarkovChain):
             This function only uses the points obtained during the last run.
 
         """
-        last_run = self.history[-1]
+        last_run = self.samples[-1]
         accept_rate = float(self._last_accept_count) / len(last_run)
 
         # careful with rowvar!

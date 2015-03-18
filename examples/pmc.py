@@ -66,9 +66,8 @@ for i in range(10):
     generating_components.append(sampler.run(10**3, trace_sort=True))
 
     # get a reference to the weights and samples that have just been generated
-    weighted_samples = sampler.history[-1]
-    weights = weighted_samples[:, 0]
-    samples = weighted_samples[:,1:]
+    samples = sampler.samples[:]
+    weights = sampler.weights[:][:,0]
 
     # update the proposal using the pmc algorithm in the non Rao-Blackwellized form
     pypmc.mix_adapt.pmc.gaussian_pmc(samples, sampler.proposal, weights, generating_components[-1],
@@ -127,7 +126,7 @@ set_axlimits()
 
 plt.subplot(224)
 plt.title('weighted samples')
-plt.hist2d(sampler.history[-1][:,1], sampler.history[-1][:,2], weights=sampler.history[-1][:,0], cmap='gray_r', bins=200)
+plt.hist2d(sampler.samples[-1][:,0], sampler.samples[-1][:,1], weights=sampler.weights[-1][:,0], cmap='gray_r', bins=200)
 set_axlimits()
 
 plt.show()

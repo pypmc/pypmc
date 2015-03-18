@@ -62,42 +62,46 @@ class TestMPISampler(unittest.TestCase):
         psampler = MPISampler(AdaptiveMarkovChain, MPI.COMM_WORLD, log_target, prop, start, prealloc=NumberOfRandomSteps)
         psampler = MPISampler(AdaptiveMarkovChain, target=log_target, proposal=prop, start=start)
 
-        self.assertEqual(len(psampler.sampler.history), 0)
+        self.assertEqual(len(psampler.sampler.samples), 0)
         if rank == 0:
-            self.assertEqual(len(psampler.history_list), size)
-            for history_instance in psampler.history_list:
+            self.assertEqual(len(psampler.samples_list), size)
+            for history_instance in psampler.samples_list:
                 self.assertEqual(len(history_instance), 0)
+            self.assertTrue(psampler.weights_list is None)
         else:
-            self.assertTrue(psampler.history_list is None)
+            self.assertTrue(psampler.samples_list is None)
+            self.assertTrue(psampler.weights_list is None)
 
         # prerun for burn-in
         psampler.run(NumberOfRandomSteps//10)
 
-        self.assertEqual(len(psampler.sampler.history), 1)
+        self.assertEqual(len(psampler.sampler.samples), 1)
         if rank == 0:
-            self.assertEqual(len(psampler.history_list), size)
-            for history_instance in psampler.history_list:
+            self.assertEqual(len(psampler.samples_list), size)
+            for history_instance in psampler.samples_list:
                 self.assertEqual(len(history_instance), 1)
                 self.assertEqual(len(history_instance[-1]), NumberOfRandomSteps//10)
+            self.assertTrue(psampler.weights_list is None)
         else:
-            self.assertTrue(psampler.history_list is None)
+            self.assertTrue(psampler.samples_list is None)
+            self.assertTrue(psampler.weights_list is None)
 
         psampler.clear()
 
-        self.assertEqual(len(psampler.sampler.history), 0)
+        self.assertEqual(len(psampler.sampler.samples), 0)
         if rank == 0:
-            self.assertEqual(len(psampler.history_list), size)
-            for history_instance in psampler.history_list:
+            self.assertEqual(len(psampler.samples_list), size)
+            for history_instance in psampler.samples_list:
                 self.assertEqual(len(history_instance), 0)
         else:
-            self.assertTrue(psampler.history_list is None)
+            self.assertTrue(psampler.samples_list is None)
 
         for i in range(10):
             psampler.run(NumberOfRandomSteps//10)
             # Note: each process only uses its own samples for proposal adaptation
             psampler.sampler.adapt()
 
-        process_own_values = psampler.sampler.history[:]
+        process_own_values = psampler.sampler.samples[:]
 
         sample_mean = process_own_values.mean(axis=0)
         sample_cov  = np.cov(process_own_values, rowvar=0)
@@ -106,7 +110,7 @@ class TestMPISampler(unittest.TestCase):
         np.testing.assert_allclose(sample_cov , target_sigma, delta_cov )
 
         if rank == 0:
-            gathered_samples = [history_item[:] for history_item in psampler.history_list]
+            gathered_samples = [history_item[:] for history_item in psampler.samples_list]
             # each process should have produced exactly the same samples because of
             # exactly the same random seed
             for samples in gathered_samples:
@@ -134,11 +138,11 @@ class TestMPISampler(unittest.TestCase):
         if rank != 0:
             for i in range(5):
                 assert float(i) in run_output
-                self.assertEqual(float(run_output[i]), psampler.sampler.history[:][i][1])
+                self.assertEqual(float(run_output[i]), psampler.sampler.samples[:][i][0])
         else:
             self.assertEqual(len(run_output), size)
             for process_id in range(size):
                 self.assertEqual( len(run_output[process_id]), NumberOfRandomSteps )
                 for sample_index in range(NumberOfRandomSteps):
-                    self.assertEqual(psampler.history_list[process_id][:][sample_index][1],
+                    self.assertEqual(psampler.samples_list[process_id][:][sample_index][0],
                                      float(run_output[process_id][sample_index])           )

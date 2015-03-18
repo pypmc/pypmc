@@ -76,19 +76,18 @@ def unimodal_sampling(instance, ImportanceSamplerClass):
     sam = ImportanceSamplerClass(log_target, prop, prealloc = rng_steps, indicator = None, rng = np.random.mtrand)
     for i in range(10):
         sam.run(rng_steps//10)
-    weighted_points = sam.history[:]
-    num_samples = len(weighted_points)
+    weights = sam.weights[:][:,0]
+    samples = sam.samples[:]
 
-    sampled_mean = calculate_mean      (weighted_points)
-    sampled_cov  = calculate_covariance(weighted_points)
+    instance.assertEqual(len(samples), len(weights))
+    num_samples = len(samples)
+
+    sampled_mean = calculate_mean      (samples, weights)
+    sampled_cov  = calculate_covariance(samples, weights)
 
     instance.assertEqual(num_samples, rng_steps)
     np.testing.assert_almost_equal(sampled_mean, mean , decimal = minus_log_ten_delta_mean)
     np.testing.assert_almost_equal(sampled_cov , sigma, decimal = minus_log_ten_delta_cov )
-
-    # test correcness of weights
-    sampled_weights = weighted_points[:,0 ]
-    samples         = weighted_points[:,1:]
 
 def bimodal_sampling(instance, ImportanceSamplerClass):
     # test weighted sampling from a bimodal Gaussian mixture using a Student-t mixture proposal
@@ -136,35 +135,40 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
     for i in range(5):
         sam.run(rng_steps//5)
 
-    weighted_points = sam.history[:]
-    num_samples = len(weighted_points)
+    weights = sam.weights[:][:,0]
+    samples = sam.samples[:]
+
+    instance.assertEqual(len(weights), len(samples))
+    num_samples = len(weights)
     instance.assertEqual(num_samples, rng_steps)
 
 
     # separate samples from component (+5,0) and (-5,0) by sign of first coordinate
-    negative_samples = weighted_points[np.where(weighted_points[:,1]<0.)]
-    positive_samples = weighted_points[np.where(weighted_points[:,1]>0.)]
+    negative_weights = weights[np.where(samples[:,0]<0.)]
+    negative_samples = samples[np.where(samples[:,0]<0.)]
+    positive_weights = weights[np.where(samples[:,0]>0.)]
+    positive_samples = samples[np.where(samples[:,0]>0.)]
 
-    instance.assertEqual(len(positive_samples) + len(negative_samples), rng_steps)
+    instance.assertEqual(len(positive_weights) + len(negative_weights), rng_steps)
 
     # check abundances
-    negative_weightsum = negative_samples[:,0].sum()
-    positive_weightsum = positive_samples[:,0].sum()
+    negative_weightsum = negative_weights.sum()
+    positive_weightsum = positive_weights.sum()
     total_weightsum    = positive_weightsum + negative_weightsum
 
     instance.assertAlmostEqual(negative_weightsum / total_weightsum, target_abundances[0], delta = delta_abun)
     instance.assertAlmostEqual(positive_weightsum / total_weightsum, target_abundances[1], delta = delta_abun)
 
     # check means
-    sampled_mean1 = calculate_mean(negative_samples)
-    sampled_mean2 = calculate_mean(positive_samples)
+    sampled_mean1 = calculate_mean(negative_samples, negative_weights)
+    sampled_mean2 = calculate_mean(positive_samples, positive_weights)
 
     np.testing.assert_allclose(sampled_mean1, mean1, atol = delta_mean)
     np.testing.assert_allclose(sampled_mean2, mean2, atol = delta_mean)
 
     # check covars
-    sampled_cov1 = calculate_covariance(negative_samples)
-    sampled_cov2 = calculate_covariance(positive_samples)
+    sampled_cov1 = calculate_covariance(negative_samples, negative_weights)
+    sampled_cov2 = calculate_covariance(positive_samples, positive_weights)
 
     np.testing.assert_allclose(sampled_cov1, sigma1, atol = delta_sigma1)
     np.testing.assert_allclose(sampled_cov2, sigma2, atol = delta_sigma2)
@@ -172,23 +176,33 @@ def bimodal_sampling(instance, ImportanceSamplerClass):
 #-----------------------------------------------------------------------------------------------------------------
 
 class TestCalculateExpextaction(unittest.TestCase):
+    samples = np.array([[0. , 4.5 ],
+                        [4. , 5.5 ],
+                        [2. , 5.  ]])
+
+    weights = np.array([1. ,2. ,5. ])
+
+    def test_error_messages(self):
+        too_many_weights = [1.,2.,3.,4.]
+
+        with self.assertRaisesRegexp(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
+            calculate_expectation(self.samples, too_many_weights, lambda x: x)
+
+        with self.assertRaisesRegexp(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
+            calculate_mean(self.samples, too_many_weights)
+
+        with self.assertRaisesRegexp(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
+            calculate_covariance(self.samples, too_many_weights)
+
     def test_calculate(self):
-        points                       = np.array([[0. , 4.5 ],
-                                                 [4. , 5.5 ],
-                                                 [2. , 5.  ]])
-
-        weights                      = np.array([[1. ,2. ,5. ]]).transpose()
-
-        weighted_points = np.hstack((weights, points))
-
-        mean1       = calculate_expectation(weighted_points, lambda x: x)
-        mean2       = calculate_mean(weighted_points)
+        mean1       = calculate_expectation(self.samples, self.weights, lambda x: x)
+        mean2       = calculate_mean(self.samples, self.weights)
         target_mean = np.array([2.25, 5.0625])
 
         np.testing.assert_almost_equal(mean1, target_mean, decimal = 15) #double accuracy
         np.testing.assert_almost_equal(mean2, target_mean, decimal = 15) #double accuracy
 
-        cov        = calculate_covariance(weighted_points)
+        cov        = calculate_covariance(self.samples, self.weights)
         target_cov = 8./34. * np.array([[11.5   , 2.875  ],
                                         [2.875  , 0.71875]])
 
@@ -213,28 +227,30 @@ def check_save_target_values(test_case, sampler_type):
     sampler = sampler_type(log_target, prop, prealloc=N, save_target_values=True)
 
     sampler.run(N)
-    test_case.assertEqual(len(sampler.history[-1]), N)
+    test_case.assertEqual(len(sampler.samples[-1]), N)
+    test_case.assertEqual(len(sampler.weights[-1]), N)
 
-    samples       = sampler.history[:]
+    samples       = sampler.samples[:]
     target_values = sampler.target_values[:]
 
-    test_case.assertEqual(len(sampler.history), 1)
+    test_case.assertEqual(len(sampler.samples), 1)
     test_case.assertEqual(len(sampler.target_values), 1)
 
-    test_case.assertEqual(len(sampler.history[:]), N)
+    test_case.assertEqual(len(sampler.samples[:]), N)
     test_case.assertEqual(len(sampler.target_values[:]), N)
 
     for i in range(10):
         # check if target values are correctly saved
-        test_case.assertEqual(log_target(sampler.history[:][i,1:]), sampler.target_values[:][i,0])
+        test_case.assertEqual(log_target(samples[i]), sampler.target_values[:][i,0])
 
         # check if weights are calculated correctly
-        test_case.assertAlmostEqual(exp(log_target(sampler.history[:][i,1:])) / exp(prop.evaluate(sampler.history[:][i,1:])), sampler.history[:][i,0], delta=1e-15)
+        test_case.assertAlmostEqual(exp(log_target(samples[i])) / exp(prop.evaluate(samples[i])), sampler.weights[:][i,0], delta=1e-15)
 
     sampler.clear()
 
     test_case.assertEqual(len(sampler.target_values), 0)
-    test_case.assertEqual(len(sampler.history), 0)
+    test_case.assertEqual(len(sampler.samples), 0)
+    test_case.assertEqual(len(sampler.weights), 0)
 
 class TestImportanceSampler(unittest.TestCase):
     def setUp(self):
@@ -249,10 +265,10 @@ class TestImportanceSampler(unittest.TestCase):
         sam  = ImportanceSampler(dummy_target, prop)
 
         origins = sam.run(50, trace_sort=True)
-        samples = sam.history[-1]
+        samples = sam.samples[-1]
 
         for i in range(50):
-            self.assertAlmostEqual(samples[i][1], origins[i], delta=1.e-15)
+            self.assertAlmostEqual(samples[i][0], origins[i], delta=1.e-15)
 
     def test_indicator(self):
         prop = density.gauss.Gauss(np.ones(5), np.eye(5))
@@ -264,8 +280,7 @@ class TestImportanceSampler(unittest.TestCase):
         with_ind  = ImportanceSampler(raise_not_implemented, prop, indicator)
         with_ind.run()
 
-        weighted_samples = with_ind.history[:]
-        weights = weighted_samples[:,0]
+        weights = with_ind.weights[:][:,0]
 
         # samples out of support should have zero weight
         np.testing.assert_allclose(weights, 0.)
@@ -285,10 +300,9 @@ class TestImportanceSampler(unittest.TestCase):
 
         sam = ImportanceSampler(log_target, perturbed_prop, rng=np.random.mtrand)
         sam.run(less_steps)
-        weights_sampels = sam.history[:]
 
-        weights = weights_sampels[:,0 ]
-        samples = weights_sampels[:,1:]
+        weights = sam.weights[:][:,0 ]
+        samples = sam.samples[:]
 
         # samples must be the target_samples --> calculate target_weights by hand
         np.testing.assert_allclose(samples, target_samples[:less_steps])
@@ -348,19 +362,23 @@ class TestCombineWeights(unittest.TestCase):
         sam.proposal.components[0].update(mu, cov) # set proposal = normalized target (i.e. perfect_prop)
         sam.run(less_steps)
 
-        weighted_samples_1 = sam.history[0]
-        weighted_samples_2 = sam.history[1]
+        weights_1 = sam.weights[0][:,0]
+        weights_2 = sam.weights[1][:,0]
+        samples_1 = sam.samples[0]
+        samples_2 = sam.samples[1]
+
+        samples_combined = np.vstack([samples_1, samples_2])
 
         # positive weights => check _combine_weights_log
-        combined_weights = combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
-                                           [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
+        combined_weights = combine_weights([samples_1, samples_2],
+                                           [weights_1, weights_2],
                                            #[weighted_samples_1, weighted_samples_2],
                                            [first_proposal    , second_proposal   ])
 
         for j in range(dim):
             # samples should be the target_samples --> need exactly these samples to calculate by hand
             for i in range(2*less_steps):
-                self.assertAlmostEqual(np.vstack([weighted_samples_1, weighted_samples_2])[:,1:][i,j], target_samples[i,j])
+                self.assertAlmostEqual(samples_combined[i,j], target_samples[i,j])
 
         for i, target_weight_i in enumerate(target_combined_weights):
             self.assertAlmostEqual(combined_weights[:][i,0], target_weight_i, places=6)
