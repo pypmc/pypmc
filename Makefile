@@ -123,17 +123,17 @@ run-examples : build
 	cd examples ; \
 	for file in $$(ls) ; do \
 	    echo running $${file} with python2 && \
-	    python2 $${file} && \
+	    python2 $${file} || exit 1 && \
 	    echo running $${file} with python3 && \
-	    python3 $${file} && \
+	    python3 $${file} || exit 1 && \
 	    \
 	    # execute with mpirun if mpi4py appears in the file \
 	    if grep -Fq 'mpi4py' $${file} ; then \
 		echo "$${file}" is mpi parallelized && \
 		echo running $${file} in parallel with python2 && \
-		mpirun -n 2 python2 $${file} && \
+		mpirun -n 2 python2 $${file} || exit 1 && \
 		echo running $${file} in parallel with python3 && \
-		mpirun -n 2 python3 $${file} ; \
+		mpirun -n 2 python3 $${file} || exit 1  ; \
 	    fi \
 	; \
 	done
