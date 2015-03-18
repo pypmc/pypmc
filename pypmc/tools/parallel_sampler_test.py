@@ -7,7 +7,7 @@ In order to run tests in parallel, you have to execute this test with
 import numpy as np
 from nose.plugins.attrib import attr
 from ..sampler.markov_chain import MarkovChain, AdaptiveMarkovChain
-from ..sampler.importance_sampling import ImportanceSampler, DeterministicIS
+from ..sampler.importance_sampling import ImportanceSampler
 from ..density.mixture_test import DummyComponent
 from .. import density
 from ._probability_densities import unnormalized_log_pdf_gauss
@@ -142,32 +142,3 @@ class TestMPISampler(unittest.TestCase):
                 for sample_index in range(NumberOfRandomSteps):
                     self.assertEqual(psampler.history_list[process_id][:][sample_index][1],
                                      float(run_output[process_id][sample_index])           )
-
-    def test_special_case_DeterministicIS(self):
-        # DeterministicIS changes the History --> are the changes sent to the master process?
-
-        NumberOfRandomSteps = 100
-        dummy_target = lambda x: 1.
-        dummy_prop1  = density.mixture.MixtureDensity( [DummyComponent(eval_to=1.)] )
-        dummy_prop2  = density.mixture.MixtureDensity( [DummyComponent(eval_to=2.)] )
-
-        psampler = MPISampler(DeterministicIS, target=dummy_target, proposal=dummy_prop1)
-
-        psampler.run(NumberOfRandomSteps//2)
-
-        if rank == 0:
-            all_weighted_samples = np.vstack( [item[:] for item in psampler.history_list] )
-            all_weights = all_weighted_samples[:,0]
-            self.assertEqual(len(all_weights), size * NumberOfRandomSteps//2)
-            np.testing.assert_almost_equal(  all_weights, np.exp(dummy_target([]) - dummy_prop1.evaluate([]))  )
-
-        psampler.sampler.proposal = dummy_prop2
-        psampler.run(NumberOfRandomSteps//2)
-
-        if rank == 0:
-            all_weighted_samples = np.vstack( [item[:] for item in psampler.history_list] )
-            all_weights = all_weighted_samples[:,0]
-            target_Cornuet_recalculated_weights  = np.exp(dummy_target([]))
-            target_Cornuet_recalculated_weights /= .5 * np.exp(dummy_prop1.evaluate([])) + .5 * np.exp(dummy_prop2.evaluate([]))
-            self.assertEqual(len(all_weights), size * NumberOfRandomSteps)
-            np.testing.assert_almost_equal(all_weights, target_Cornuet_recalculated_weights)

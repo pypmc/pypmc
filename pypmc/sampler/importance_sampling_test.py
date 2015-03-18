@@ -298,94 +298,6 @@ class TestImportanceSampler(unittest.TestCase):
     def test_save_target_values(self):
         check_save_target_values(self, ImportanceSampler)
 
-class TestDeterministicIS(unittest.TestCase):
-    def setUp(self):
-        np.random.mtrand.seed(rng_seed)
-
-    @attr('slow')
-    def test_unimodal_sampling(self):
-        unimodal_sampling(self, DeterministicIS)
-
-    @attr('slow')
-    def test_bimodal_sampling(self):
-        bimodal_sampling(self, DeterministicIS)
-
-    def test_weights(self):
-        target_weights_first  = np.array([5.64485430502, 4.21621342833, 6.19074100415, 6.57693562598, 1.39850240669])
-
-        target_weights_second = np.array([ 4.51833133,  3.97876579,  4.68361755,  4.79001426,  2.03969365,
-                                           4.42676502,  4.7814771 ,  4.38248357,  4.42923761,  4.80564581  ])
-
-        sam = DeterministicIS(log_target, perturbed_prop, rng=np.random.mtrand)
-
-        sam.run(less_steps)
-        samples_weights_first_step = sam.history[:].copy() # need a copy because weights will be overwritten
-        sam.proposal.components[0].update(mu, cov) # set proposal = normalized target (i.e. perfect_prop)
-        sam.run(less_steps)
-        samples_weights_second_step = sam.history[:]
-
-        # first column is weight -> cut it to get samples only
-        samples_first  = samples_weights_first_step [:,1:]
-        samples_second = samples_weights_second_step[:,1:]
-
-        weights_first  = samples_weights_first_step [:,0]
-        weights_second = samples_weights_second_step[:,0]
-
-        for j in range(dim):
-            # first samples should be unchanged (bitwise equal), only the weights should differ
-            for i in range(less_steps):
-                self.assertEqual(samples_first[i,j] , samples_second[i,j])
-            # samples should be the target_samples --> need exactly these samples to calculate by hand
-            for i in range(2*less_steps):
-                self.assertAlmostEqual(samples_second[i,j], target_samples[i,j])
-
-        # check weights before adaptation
-        for i, sample in enumerate(samples_first):
-            self.assertAlmostEqual(weights_first[i], target_weights_first[i], places=6)
-
-        # check weights after adaptation
-        for i, sample in enumerate(samples_second):
-            self.assertAlmostEqual(weights_second[i], target_weights_second[i], places=6)
-
-        # standard weights should not have been saved
-        with self.assertRaises(AttributeError):
-            sam.std_weights
-
-    def test_clear(self):
-        N = 20
-        prop = density.mixture.MixtureDensity((density.gauss.Gauss(mu, cov),))
-        pmc = DeterministicIS(log_target, prop, rng=np.random.mtrand)
-        pmc.run(N)
-        pmc.history.clear()
-        self.assertRaisesRegexp(AssertionError, r'^Inconsistent state(.*)try ["\'`]*self.clear', pmc.run)
-        pmc.clear()
-        pmc.run(N)
-        weighted_samples = pmc.history[:]
-        self.assertEqual(len(weighted_samples), 20)
-
-    def test_std_weights(self):
-        target_dmx_weights = np.array([ 4.51833133,  3.97876579,  4.68361755,  4.79001426,  2.03969365,
-                                        4.42676502,  4.7814771 ,  4.38248357,  4.42923761,  4.80564581  ])
-
-        target_std_weights = np.array([5.64485430502, 4.21621342833, 6.19074100415, 6.57693562598, 1.39850240669] +
-                                      [3.76663727037] * 5)
-
-        sam = DeterministicIS(log_target, perturbed_prop, rng=np.random.mtrand, std_weights=True)
-        sam.run(less_steps)
-        sam.proposal.components[0].update(mu, cov) # set proposal = normalized target (i.e. perfect_prop)
-        sam.run(less_steps)
-
-        # check weights
-        dmx_weights = sam.history    [:][:,0]
-        std_weights = sam.std_weights[:][:,0]
-
-        for i in range(10):
-            self.assertAlmostEqual(dmx_weights[i], target_dmx_weights[i], places=6)
-            self.assertAlmostEqual(std_weights[i], target_std_weights[i], places=6)
-
-    def test_save_target_values(self):
-        check_save_target_values(self, DeterministicIS)
-
 class TestCombineWeights(unittest.TestCase):
     # one dim samples
     # negative weights check _combine_weights_linear
@@ -404,7 +316,7 @@ class TestCombineWeights(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
 
-    def test_combine_weights(self):
+    def test_combine_weights_linear(self):
         prop1 = density.gauss.Gauss([0.0], [1.0]) # standard Gauss
         prop2 = density.student_t.StudentT(mu=[0.0], sigma=[1.0], dof=1.0)
 
@@ -423,8 +335,7 @@ class TestCombineWeights(unittest.TestCase):
         for i in range(4):
             self.assertAlmostEqual(combined_weights[1][i,0], target_combined_weights[6 + i])
 
-    def test_cross_check_with_deterministic_is(self):
-        # repeat the same test as above in the deterministic IS test, but by hand => same numbers
+    def test_combine_weights_log(self):
         target_combined_weights = np.array([ 4.51833133,  3.97876579,  4.68361755,  4.79001426,  2.03969365,
                                              4.42676502,  4.7814771 ,  4.38248357,  4.42923761,  4.80564581  ])
 

@@ -246,34 +246,29 @@ If weighted samples from the same target but different proposal
 densities are available, the weights can be combined in a clever way
 as though they were drawn from the mixture of individual proposals
 [Cor+12]_. This preserves the unbiasedness of the :ref:`fundamental
-esimate of importance sampling <fundamental_IS>`. The motivation to
+estimate of importance sampling <fundamental_IS>`. The motivation to
 combine multiple proposals is to improve the variance of the estimator
-by reducing the affect of `outliers`; i.e., samples with very large
-weights in the tails of :math:`q`. For :math:`T` proposals each with
-:math:`N_l` samples, the combined importance weight of sample
-:math:`x` becomes
+by reducing the effect of `outliers`; i.e., samples with very large
+weights in the tails of :math:`q`. For proposals :math:`\{q_l:
+l=1 \dots T\}` and :math:`N_l` available samples per proposal, the
+combined importance weight of sample :math:`x` becomes
 
 .. math::
    P(x) / \frac{1}{\sum_{k=0}^T N_k} \sum_{l=0}^T N_l q_l(x)
 
-The deterministic-mixture importance sampler
-:class:`~pypmc.sampler.importance_sampling.DeterministicIS` is
-constructed like the regular importance sampler, and accepts one
-additional keyword argument `std_weights`: if `True`, the standard
-importance weights as computed in the regular importance sampler are
-stored as a :class:`~pypmc.tools.History` object in the attribute
-``sampler.std_weights``.
-
-Note than multiple calls to ``sampler.run()`` automatically perform the
-combination of weights such that ``sampler.history`` is always up to
-date.
+The function
+:class:`~pypmc.sampler.importance_sampling.combine_weights` takes the
+samples and regular importance weights as lists of arrays and the
+proposals as a list and returns the combined weights as
+:class:`~pypmc.tools.History` object such that the weights for each
+proposal are easily accessible.
 
 Comparison
 ~~~~~~~~~~
 
 Compared to the regular
-:class:`~pypmc.sampler.importance_sampling.ImportanceSampler`, the
-:class:`~pypmc.sampler.importance_sampling.DeterministicIS` requires
+:class:`~pypmc.sampler.importance_sampling.ImportanceSampler`,
+:class:`~pypmc.sampler.importance_sampling.combined_weights` requires
 more memory and slightly more cpu, but usually increases the relative
 effective sample size, and in most cases significantly increases the
 total effective sample size compared to throwing away samples from all

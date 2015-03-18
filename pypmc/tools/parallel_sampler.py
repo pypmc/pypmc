@@ -74,8 +74,4 @@ class MPISampler(object):
             for entry in self.history_list:
                 entry.clear()
 
-        # special treatment for DeterministicIS --> needs more clearing than just the history
-        try:
-            self.sampler.clear()
-        except AttributeError:
-            self.sampler.history.clear()
+        self.sampler.clear()

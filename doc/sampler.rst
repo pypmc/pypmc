@@ -15,6 +15,5 @@ Importance Sampling
 -------------------
 
 .. automodule:: pypmc.sampler.importance_sampling
-	:exclude-members: ImportanceSampler, DeterministicIS
+	:exclude-members: ImportanceSampler
 .. autoclass::  pypmc.sampler.importance_sampling.ImportanceSampler(target, proposal, indicator=None, prealloc=0, rng=numpy.random.mtrand)
-.. autoclass::  pypmc.sampler.importance_sampling.DeterministicIS(target, proposal, indicator=None, prealloc=0, rng=numpy.random.mtrand, std_weights=False)
