@@ -246,9 +246,9 @@ def gaussian_pmc(_np.ndarray[double, ndim=2] samples not None, density,
 
 cdef class _DOFCondition(object):
     '''Implements the first order condition for the degree of freedom of
-    a StudentT mixture: The member function :py:meth:`.ccall` must
+    a StudentT mixture: The member function :py:meth:`.__call__` must
     evalutate to zero. This means, a root finder should be run on
-    :py:meth:`.ccall`.
+    :py:meth:`.__call__`.
 
     .. seealso::
         equation (16) in [HOD12]_
