@@ -2,6 +2,18 @@
 
 """
 
+# TODO: convergence criterion:
+# the pmc algorithms are designed to maximize (5) in [Cap+08]
+# that corresponds to calculating (where "weights" corresponds to the self-normalized importance weights):
+#
+# out = 0.0
+# for sample,weight in zip(samples,weights):
+#     out += log_proposal(sample) * weight
+#
+# which is equivalent to:
+#
+# out = (proposal.multi_evaluate(samples) * weights).sum()
+
 from __future__ import division
 from ..density.gauss import Gauss
 from ..density.student_t import StudentT
