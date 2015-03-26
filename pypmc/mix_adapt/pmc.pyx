@@ -444,7 +444,7 @@ class PMC(object):
             bound = self.log_likelihood()
 
             if verbose:
-                print('After update %d: bound=%.15g, K=%i' % (i, bound, len(self.density)))
+                print('After update %d: bound=%.15g, K=%i, component_weights=%s' % (i, bound, len(self.density), self.density.weights))
 
             if bound < old_bound:
                 print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
