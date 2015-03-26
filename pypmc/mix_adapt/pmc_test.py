@@ -6,6 +6,7 @@ from .pmc import *
 from .. import density
 import numpy as np
 import unittest
+from nose.plugins.attrib import attr
 
 class TestGaussianPMCNoOverlap(unittest.TestCase):
     # proposal density
@@ -319,6 +320,123 @@ class TestGaussianPMCWithOverlap(unittest.TestCase):
         self.assertGreater(adapted_prop.weights[0], 0.)
         self.assertLess(adapted_prop.weights[1], 1.)
         self.assertGreater(adapted_prop.weights[1], 0.)
+
+class TestGaussianPMCMultipleUpdates(unittest.TestCase):
+    # proposal density
+    mu1 = np.array( [ 10., -1.0, 8.0] )
+    mu2 = np.array( [-10.,  7.4, 0.5] )
+
+    cov1 = np.array([[1.15 , 0.875, 0.0],
+                     [0.875, 0.75 ,-0.2],
+                     [0.0  ,-0.2  , 1.1]])
+
+    cov2 = np.array([[1.0  , 0.01 , 0.1],
+                     [0.01 , 0.75 , 0.0],
+                     [0.1  , 0.0  , 2.1]])
+
+    inv_cov1 = np.linalg.inv(cov1)
+    inv_cov2 = np.linalg.inv(cov2)
+
+    gauss1 = density.gauss.Gauss(mu1+.001, cov1+.001)
+    gauss2 = density.gauss.Gauss(mu2-.005, cov2-.005)
+    component_weights = np.array( (.7, .3) )
+    prop = density.mixture.MixtureDensity((gauss1,gauss2), component_weights)
+
+    # samples, weights and latent variables
+    latent = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1])
+    weights = np.array([12.89295915,  12.89372694,  12.89781423,  12.79548829,
+                        12.89397248,  12.88642498,  12.89875608,  12.8977244 ,
+                        12.8834032 ,  12.81344527,  12.8966767 ,  12.89319812,
+                        20.02787201,  19.89550322,  19.81661548,  19.9733172 ,
+                        19.81867511,  19.81555008,  19.83955669,  19.83352245])
+    samples = np.array([[  9.7070033 ,  -1.14093259,   7.79492513],
+                        [  9.56875908,  -1.3205348 ,   7.3705522 ],
+                        [ 10.53728461,  -0.93171182,   8.76279014],
+                        [  9.80289836,  -1.15107748,   9.27682257],
+                        [  8.91717444,  -1.62000575,   7.60676764],
+                        [  9.55705421,  -1.65785994,   9.4330834 ],
+                        [ 10.90155376,  -0.42097835,   7.64481752],
+                        [ 11.06838483,  -0.65188323,   8.69936008],
+                        [  8.50673184,  -2.45559049,   8.62152455],
+                        [ 10.8097935 ,  -0.33471831,   8.60497435],
+                        [ 10.46129646,  -1.04132199,   9.04460811],
+                        [ 10.23040728,  -0.63621386,   6.48880065],
+                        [-10.76972316,   8.23669361,   2.06283074],
+                        [-11.26019812,   7.03488615,  -0.87321151],
+                        [ -9.99070915,   6.83422119,   0.28846651],
+                        [ -9.39271812,   7.08741571,   1.91672609],
+                        [-10.98814859,   7.55372701,   0.48618477],
+                        [ -9.60983136,   6.24723833,   1.06241101],
+                        [-10.61752466,   7.39052825,   1.17726011],
+                        [-10.4898097 ,   7.48668861,  -2.41443733]])
+
+    def setUp(self):
+        np.random.mtrand.seed(345985345634)
+
+    def test_invalid_usage(self):
+        self.assertRaisesRegexp(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not',
+                                PMC, self.samples, self.prop, self.weights, rb=False)
+        self.assertRaisesRegexp(ValueError, r'["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not',
+                                PMC, self.samples, self.prop, self.weights, mincount=10)
+        self.assertRaisesRegexp(ValueError, r'(["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not)' + \
+                                            r'|' + \
+                                            r'(["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not)',
+                                PMC, self.samples, self.prop, self.weights, mincount=10, rb=False)
+
+        invalid_density = None
+
+        self.assertRaisesRegexp(TypeError, r'.*density.*must be.*MixtureDensity',
+                                PMC, self.samples, invalid_density, self.weights)
+
+    def test_adaptation(self):
+        pmc = PMC(self.samples, self.prop, self.weights, latent=self.latent, rb=False)
+        converged = pmc.run(verbose=True)
+        outdensity = pmc.density
+
+        self.assertEqual(converged, 2)
+
+    @attr('slow')
+    def test_with_overlap(self):
+        # proposal density
+        mu1 = np.array([ 10.5,   1.1,   8.0])
+        mu2 = np.array([ 10.3,   1.4,   7.8])
+
+        cov1 = np.array([[1.15 , 0.875, 0.0],
+                         [0.875, 0.75 ,-0.2],
+                         [0.0  ,-0.2  , 1.1]])
+
+        cov2 = np.array([[1.0  , 0.01 , 0.1],
+                         [0.01 , 0.75 , 0.0],
+                         [0.1  , 0.0  , 2.1]])
+
+        inv_cov1 = np.linalg.inv(cov1)
+        inv_cov2 = np.linalg.inv(cov2)
+
+        gauss1 = density.gauss.Gauss(mu1+1.0, cov1+.1)
+        gauss2 = density.gauss.Gauss(mu2-1.0, cov2-.05)
+        component_weights = np.array( (.7, .3) )
+        prop = density.mixture.MixtureDensity((gauss1,gauss2), component_weights)
+
+        # target density and samples
+        target = density.mixture.create_gaussian_mixture([mu1,mu2], [cov1,cov2], component_weights)
+        samples, latent = target.propose(10**4, trace=True, shuffle=False)
+
+        pmc = PMC(samples, prop, latent=latent, rb=True)
+        pmc.run(verbose=True)
+        adapted_prop = pmc.density
+
+        adapted_comp_weights = adapted_prop.weights
+        adapted_mu1          = adapted_prop.components[0].mu
+        adapted_mu2          = adapted_prop.components[1].mu
+        adapted_sigma1       = adapted_prop.components[0].sigma
+        adapted_sigma2       = adapted_prop.components[1].sigma
+
+        np.testing.assert_allclose(adapted_comp_weights, component_weights, atol=0.01)
+        np.testing.assert_allclose(adapted_mu1         , mu1              , rtol=0.01)
+        np.testing.assert_allclose(adapted_mu2         , mu2              , rtol=0.01)
+        np.testing.assert_allclose(adapted_sigma1      , cov1             , atol=0.03)
+        np.testing.assert_allclose(adapted_sigma2      , cov2             , atol=0.06)
+        # less samples from second component due to smaller component weight --> estimate less accurate
 
 class TestStudentTPMC(unittest.TestCase):
     # proposal density

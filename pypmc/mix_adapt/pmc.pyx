@@ -2,18 +2,6 @@
 
 """
 
-# TODO: convergence criterion:
-# the pmc algorithms are designed to maximize (5) in [Cap+08]
-# that corresponds to calculating (where "weights" corresponds to the self-normalized importance weights):
-#
-# out = 0.0
-# for sample,weight in zip(samples,weights):
-#     out += log_proposal(sample) * weight
-#
-# which is equivalent to:
-#
-# out = (proposal.multi_evaluate(samples) * weights).sum()
-
 from __future__ import division
 from ..density.gauss import Gauss
 from ..density.student_t import StudentT
@@ -126,7 +114,6 @@ def _prepare_pmc_update(_np.ndarray[double, ndim=2] samples, weights, latent, mi
                 print("Component %i died because of too few (%i) samples." %(k, count[k]))
 
     return density, rho, weight_normalization, live_components, need_renormalize
-
 
 def gaussian_pmc(_np.ndarray[double, ndim=2] samples not None, density,
                  weights=None, latent=None, rb=True, mincount=0, copy=True):
@@ -255,6 +242,224 @@ def gaussian_pmc(_np.ndarray[double, ndim=2] samples not None, density,
         density.normalize()
 
     return density
+
+class PMC(object):
+    '''
+    Adapt a Gaussian or Student t mixture ``density`` using the (M-)PMC
+    algorithm according to Cap+08]_, [Kil+09]_, and [HOD12]_. It turns
+    out that running multiple PMC updates using the same samples is often
+    useful.
+
+    :param samples:
+
+        Matrix-like array; the samples to be used for the PMC run.
+
+        .. warning::
+
+            The ``samples`` are **NOT** copied!
+
+    :param density:
+
+        :py:class:`.MixtureDensity` with :py:class:`.Gauss` or
+        :py:class:`.StudentT` components; the density that proposed the
+        ``samples`` and shall be updated.
+
+    :param weights:
+
+        Vector-like array of floats; The (unnormalized) importance
+        weights. If not given, assume all samples have equal weight.
+
+        .. warning::
+
+            The ``weights`` are **NOT** copied!
+
+    :param latent:
+
+        Vector-like array of integers, optional; the latent variables
+        (indices) of the generating components for each sample.
+
+        .. warning::
+
+            The ``latent`` variables are **NOT** copied!
+
+    :param rb:
+
+        Bool;
+        If True, the component which proposed a sample is considered
+        as a latent variable (unknown). This implements the Rao-Blackwellized
+        algorithm.
+        If False, each sample only updates its responsible component. This
+        non-Rao-Blackwellized scheme is faster but only an approximation.
+
+    :param mincount:
+
+        Integer; The minimum number of samples a component has to
+        generate in order not to be ignored during updates. A value of
+        zero (default) disables this feature. The motivation is that
+        components with very small weight generate few samples, so the
+        updates become unstable and it is more efficient to simply assign
+        weight zero.
+
+        .. important::
+
+            Only possible if ``latent`` is provided.
+
+        .. seealso::
+
+            :py:meth:`.MixtureDensity.prune`
+
+    '''
+
+    def __init__(self, _np.ndarray[double, ndim=2] samples not None,
+                 density, weights=None, latent=None, rb=True, mincount=0):
+
+        # check input
+
+        if weights is not None:
+            self.weights = _np.asarray(weights)
+            assert len(weights.shape) == 1, 'Weights must be one-dimensional.'
+            assert len(weights) == len(samples), \
+                "Number of weights (%s) does not match the number of samples (%s)." % (len(weights), len(samples))
+        else:
+            self.weights = None
+
+        if latent is None:
+            if mincount > 0:
+                raise ValueError('`mincount` must be 0 if `latent` is not provided!')
+            if not rb:
+                raise ValueError('`rb` must be True if `latent` is not provided!')
+
+        # Gaussian or Student's t?
+        error_wrong_mixture = '``density`` must be a ``pypmc.density.mixture.MixtureDensity`` with ``pypmc.density.gauss.Gauss`` or ``pypmc.density.student_t.StudentT`` components'
+        if not isinstance(density, MixtureDensity):
+            raise TypeError(error_wrong_mixture)
+        component_type = type(density.components[0])
+
+        if issubclass(component_type, Gauss):
+            self.pmc = gaussian_pmc
+            for component in density.components:
+                if not isinstance(component, Gauss):
+                    raise TypeError(error_wrong_mixture)
+
+        elif issubclass(component_type, StudentT):
+            self.pmc = student_t_pmc
+            for component in density.components:
+                if not isinstance(component, StudentT):
+                    raise TypeError(error_wrong_mixture)
+
+        else:
+            raise TypeError(error_wrong_mixture)
+
+
+        # save remaining input if valid
+
+        self.density = _cp(density) # always copy the density
+        self.samples  = samples
+        self.latent   = latent
+        self.rb       = rb
+        self.mincount = mincount
+
+        if self.weights is not None:
+            self.normalized_weights = self.weights / self.weights.sum()
+
+    def log_likelihood(self):
+        '''
+        Calculate the log likelihood of the current density according to
+        equation (5) in [Cap+08]_.
+
+        '''
+        # the pmc algorithms are designed to maximize (5) in [Cap+08]
+        # that corresponds to calculating (where "weights" corresponds to the self-normalized importance weights):
+        #
+        # out = 0.0
+        # for sample,weight in zip(samples,weights):
+        #     out += log_proposal(sample) * weight
+        #
+        # which is equivalent to:
+        #
+        # out = (proposal.multi_evaluate(samples) * weights).sum()
+
+        if self.weights is None:
+            return (self.density.multi_evaluate(self.samples)).sum() / len(self.samples)
+        else:
+            return (self.density.multi_evaluate(self.samples) * self.normalized_weights).sum()
+
+    def run(self, iterations=1000, rel_tol=1e-10, abs_tol=1e-5, verbose=False):
+        r'''
+        Run PMC updates and check for convergence using the change of the
+        log likelihood of the current and the last step. Convergence is not
+        declared if the likelihood decreased.
+
+        Return the number of iterations at convergence, or None.
+
+        The output density can be accessed via ``self.density``.
+
+        :param iterations:
+
+            Maximum number of updates.
+
+        :param rel_tol:
+
+            Relative tolerance :math:`\epsilon`. If two consecutive values of
+            the log likelihood, :math:`L_t, L_{t-1}`, are close, declare
+            convergence. More precisely, check that
+
+            .. math::
+                \left\| \frac{L_t - L_{t-1}}{L_t} \right\| < \epsilon .
+
+
+        :param abs_tol:
+
+            Absolute tolerance :math:`\epsilon_{a}`. If the current log likelihood
+            :math:`L_t` is close to zero, (:math:`L_t < \epsilon_{a}`), declare
+            convergence if
+
+            .. math::
+                \| L_t - L_{t-1} \| < \epsilon_a .
+
+        :param verbose:
+
+            Output status information after each update.
+
+        '''
+        bound = None
+
+        for i in range(1, iterations + 1):
+            if bound is not None:
+                old_bound = bound
+            # recompute bound in 1st step
+            else:
+                old_bound = self.log_likelihood()
+                if verbose:
+                    print('New bound=%g' % old_bound)
+
+            # copy=False because if ``copy`` is desired then the first call (before the for loop) does this
+            gaussian_pmc(self.samples, self.density, self.weights, self.latent, self.rb, self.mincount, copy=False)
+            bound = self.log_likelihood()
+
+            if verbose:
+                print('After update %d: bound=%.15g' % (i, bound))
+
+            if bound < old_bound:
+                print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
+
+             # exact convergence
+            if bound == old_bound:
+                return i
+            # approximate convergence
+            # but only if bound increased
+            diff = bound - old_bound
+            if diff > 0:
+                # handle case when bound is close to 0
+                if abs(bound) < abs_tol:
+                    if abs(diff) < abs_tol:
+                        return i
+                else:
+                    if abs(diff / bound) < rel_tol:
+                        return i
+
+        # not converged
+        return None
 
 cdef class _DOFCondition(object):
     '''Implements the first order condition for the degree of freedom of
