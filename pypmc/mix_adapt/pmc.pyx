@@ -384,11 +384,11 @@ class PMC(object):
         else:
             return (self.density.multi_evaluate(self.samples) * self.normalized_weights).sum()
 
-    def run(self, iterations=1000, rel_tol=1e-10, abs_tol=1e-5, verbose=False):
+    def run(self, iterations=1000, prune=0., rel_tol=1e-10, abs_tol=1e-5, verbose=False):
         r'''
         Run PMC updates and check for convergence using the change of the
         log likelihood of the current and the last step. Convergence is not
-        declared if the likelihood decreased.
+        declared if the likelihood decreased or if components are removed.
 
         Return the number of iterations at convergence, or None.
 
@@ -397,6 +397,12 @@ class PMC(object):
         :param iterations:
 
             Maximum number of updates.
+
+        :param prune:
+
+            Call :py:meth:`.MixtureDensity.prune` after each update; i.e.,
+            remove components whose component weight is below the threshold.
+            Set ``prune=0`` (default) to deactivate.
 
         :param rel_tol:
 
@@ -422,23 +428,23 @@ class PMC(object):
             Output status information after each update.
 
         '''
-        bound = None
+        old_K = None
 
         for i in range(1, iterations + 1):
-            if bound is not None:
+            if old_K == len(self.density):
                 old_bound = bound
             # recompute bound in 1st step
             else:
                 old_bound = self.log_likelihood()
                 if verbose:
-                    print('New bound=%g' % old_bound)
+                    print('New bound=%g, K=%i' % (old_bound,len(self.density)))
 
             # copy=False because if ``copy`` is desired then the first call (before the for loop) does this
             gaussian_pmc(self.samples, self.density, self.weights, self.latent, self.rb, self.mincount, copy=False)
             bound = self.log_likelihood()
 
             if verbose:
-                print('After update %d: bound=%.15g' % (i, bound))
+                print('After update %d: bound=%.15g, K=%i' % (i, bound, len(self.density)))
 
             if bound < old_bound:
                 print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
@@ -457,6 +463,10 @@ class PMC(object):
                 else:
                     if abs(diff / bound) < rel_tol:
                         return i
+
+            # save K *before* pruning
+            old_K = len(self.density)
+            self.density.prune(prune)
 
         # not converged
         return None

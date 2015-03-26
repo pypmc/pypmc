@@ -438,6 +438,54 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
         np.testing.assert_allclose(adapted_sigma2      , cov2             , atol=0.06)
         # less samples from second component due to smaller component weight --> estimate less accurate
 
+    @attr('slow')
+    def test_prune(self):
+        # proposal density
+        mu1 = np.array([ 10.5,   1.1,   8.0])
+        mu2 = np.array([ 10.3,   1.4,   7.8])
+
+        cov1 = np.array([[1.15 , 0.875, 0.0],
+                         [0.875, 0.75 ,-0.2],
+                         [0.0  ,-0.2  , 1.1]])
+
+        cov2 = np.array([[1.0  , 0.01 , 0.1],
+                         [0.01 , 0.75 , 0.0],
+                         [0.1  , 0.0  , 2.1]])
+
+        inv_cov1 = np.linalg.inv(cov1)
+        inv_cov2 = np.linalg.inv(cov2)
+
+        gauss1 = density.gauss.Gauss(mu1+1.0, cov1+.1)
+        gauss2 = density.gauss.Gauss(mu2-1.0, cov2-.05)
+        gauss3 = density.gauss.Gauss(mu2-1.5, cov2+.05)
+        component_weights = np.array( (.7, .3) )
+        prop = density.mixture.MixtureDensity((gauss1,gauss2,gauss3))
+
+        # target density and samples
+        target = density.mixture.create_gaussian_mixture([mu1,mu2], [cov1,cov2], component_weights)
+        samples = target.propose(10**4)
+
+        pmc = PMC(samples, prop, rb=True)
+        pmc_prune = 0.5 / len(prop)
+        converge_step = pmc.run(30, verbose=True, prune=pmc_prune)
+        adapted_prop = pmc.density
+
+        adapted_comp_weights = adapted_prop.weights
+        adapted_mu1          = adapted_prop.components[0].mu
+        adapted_mu2          = adapted_prop.components[1].mu
+        adapted_sigma1       = adapted_prop.components[0].sigma
+        adapted_sigma2       = adapted_prop.components[1].sigma
+
+        self.assertFalse(converge_step is None)
+        self.assertEqual(len(adapted_prop), 2)
+        np.testing.assert_allclose(adapted_comp_weights, component_weights, atol=0.01)
+        np.testing.assert_allclose(adapted_mu1         , mu1              , rtol=0.01)
+        np.testing.assert_allclose(adapted_mu2         , mu2              , rtol=0.01)
+        np.testing.assert_allclose(adapted_sigma1      , cov1             , atol=0.03)
+        np.testing.assert_allclose(adapted_sigma2      , cov2             , atol=0.06)
+        # less samples from second component due to smaller component weight --> estimate less accurate
+
+
 class TestStudentTPMC(unittest.TestCase):
     # proposal density
     mu1 = np.array([ 10.5,   1.1,   8.0])

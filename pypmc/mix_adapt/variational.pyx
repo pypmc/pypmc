@@ -294,7 +294,7 @@ class GaussianInference(object):
         :param prune:
             Call :py:meth:`prune` after each update; i.e., remove components
             whose associated effective number of samples is below the
-            threshold. Set `prune=0` to deactivate.
+            threshold. Set ``prune=0`` to deactivate.
             Default: 1 (effective samples).
 
         :param rel_tol:
