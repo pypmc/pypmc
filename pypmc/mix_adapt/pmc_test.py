@@ -485,6 +485,65 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
         np.testing.assert_allclose(adapted_sigma2      , cov2             , atol=0.06)
         # less samples from second component due to smaller component weight --> estimate less accurate
 
+class TestStudentTPMCMultipleUpdates(unittest.TestCase):
+    def setUp(self):
+        np.random.mtrand.seed(3026281795684)
+
+    @attr('slow')
+    def test_prune(self):
+        # proposal density
+        mu1 = np.array([ 10.5,   1.1,   8.0])
+        mu2 = np.array([ 10.3,   1.4,   7.8])
+
+        sigma1 = np.array([[1.15 , 0.875, 0.0],
+                           [0.875, 0.75 ,-0.2],
+                           [0.0  ,-0.2  , 1.1]])
+
+        sigma2 = np.array([[1.0  , 0.01 , 0.1],
+                           [0.01 , 0.75 , 0.0],
+                           [0.1  , 0.0  , 2.1]])
+
+        dof1 = 100.
+        dof2 = 110.
+
+        t1 = density.student_t.StudentT(mu1+1.0, sigma1+0.1, 125.)
+        t2 = density.student_t.StudentT(mu2-1.3, sigma2+1.0,  81.)
+        t3 = density.student_t.StudentT(mu2-1.5, sigma2-0.2, 500.)
+        component_weights = np.array( (.7, .3) )
+        prop = density.mixture.MixtureDensity((t1,t2,t3))
+
+        # target density and samples
+        target = density.mixture.create_t_mixture([mu1,mu2], [sigma1,sigma2], [dof1,dof2], component_weights)
+        samples = target.propose(10**4)
+        mindof = 90.
+        maxdof = 120.
+
+        pmc = PMC(samples, prop, rb=True, mindof=mindof, maxdof=maxdof)
+        pmc_prune = 0.5 / len(prop)
+        converge_step = pmc.run(30, verbose=True, prune=pmc_prune)
+        adapted_prop = pmc.density
+
+        adapted_comp_weights = adapted_prop.weights
+        adapted_mu1          = adapted_prop.components[0].mu
+        adapted_mu2          = adapted_prop.components[1].mu
+        adapted_sigma1       = adapted_prop.components[0].sigma
+        adapted_sigma2       = adapted_prop.components[1].sigma
+        adapted_dof1         = adapted_prop.components[0].dof
+        adapted_dof2         = adapted_prop.components[1].dof
+
+        self.assertFalse(converge_step is None)
+        self.assertEqual(len(adapted_prop), 2)
+        np.testing.assert_allclose(adapted_comp_weights, component_weights, atol=0.01)
+        np.testing.assert_allclose(adapted_mu1         , mu1              , rtol=0.01)
+        np.testing.assert_allclose(adapted_mu2         , mu2              , rtol=0.05)
+        np.testing.assert_allclose(adapted_sigma1      , sigma1           , atol=0.3 )
+        np.testing.assert_allclose(adapted_sigma2      , sigma2           , atol=0.3 )
+
+        # not enough samples in the tails, cannot correctly adapt dof
+        self.assertGreaterEqual(adapted_dof1, mindof)
+        self.assertGreaterEqual(adapted_dof2, mindof)
+        self.assertLessEqual   (adapted_dof1, maxdof)
+        self.assertLessEqual   (adapted_dof2, maxdof)
 
 class TestStudentTPMC(unittest.TestCase):
     # proposal density

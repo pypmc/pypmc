@@ -308,10 +308,13 @@ class PMC(object):
 
             :py:meth:`.MixtureDensity.prune`
 
+    Additional keyword arguments are passed to the standalone PMC function.
+
     '''
 
     def __init__(self, _np.ndarray[double, ndim=2] samples not None,
-                 density, weights=None, latent=None, rb=True, mincount=0):
+                 density, weights=None, latent=None, rb=True, mincount=0,
+                 **kwargs):
 
         # check input
 
@@ -358,6 +361,7 @@ class PMC(object):
         self.latent   = latent
         self.rb       = rb
         self.mincount = mincount
+        self.additional_args = kwargs
 
         if self.weights is not None:
             self.normalized_weights = self.weights / self.weights.sum()
@@ -439,8 +443,7 @@ class PMC(object):
                 if verbose:
                     print('New bound=%g, K=%i' % (old_bound,len(self.density)))
 
-            # copy=False because if ``copy`` is desired then the first call (before the for loop) does this
-            gaussian_pmc(self.samples, self.density, self.weights, self.latent, self.rb, self.mincount, copy=False)
+            self.pmc(self.samples, self.density, self.weights, self.latent, self.rb, mincount=self.mincount, copy=False, **self.additional_args)
             bound = self.log_likelihood()
 
             if verbose:
@@ -467,6 +470,7 @@ class PMC(object):
             # save K *before* pruning
             old_K = len(self.density)
             self.density.prune(prune)
+            self.density.normalize()
 
         # not converged
         return None
