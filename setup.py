@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 # bootstrap: download setuptools 3.3 if needed
 from ez_setup import use_setuptools
 use_setuptools()
@@ -40,7 +42,8 @@ try:
                                profile=False, wraparound=False)
     ext_modules = cythonize(extensions, compiler_directives=compiler_directives)
 
-except ImportError:
+except Exception as error:
+    print('WARNING: Could not cythonize:', repr(error))
     ext_modules = []
 
 # either cython not available or we are in a source distribution
