@@ -72,7 +72,7 @@ parallel_sampler = pypmc.tools.parallel_sampler.MPISampler(SequentialIS, target=
 
 # make sure that every process has a different random number generator seed
 if comm.Get_rank() == 0:
-    seed = np.random.randint(1e17)
+    seed = np.random.randint(1e5)
 else:
     seed = None
 seed = comm.bcast(seed)

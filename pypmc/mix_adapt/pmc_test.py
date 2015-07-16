@@ -371,7 +371,7 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
                         [-10.4898097 ,   7.48668861,  -2.41443733]])
 
     def setUp(self):
-        np.random.mtrand.seed(345985345634)
+        np.random.mtrand.seed(345985345634 % 4294967296)
 
     def test_invalid_usage(self):
         self.assertRaisesRegexp(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not',
@@ -487,7 +487,7 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
 
 class TestStudentTPMCMultipleUpdates(unittest.TestCase):
     def setUp(self):
-        np.random.mtrand.seed(3026281795684)
+        np.random.mtrand.seed(3026281795684 % 4294967296)
 
     @attr('slow')
     def test_prune(self):

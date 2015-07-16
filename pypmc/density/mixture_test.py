@@ -6,7 +6,7 @@ from .mixture import *
 import numpy as np
 import unittest
 
-rng_seed  = 12850419774
+rng_seed  = 12850419774 % 4294967296
 rng_steps = 50000
 
 # dummy proposal component (convenient for testing):
@@ -33,6 +33,9 @@ class TestMixtureDensity(unittest.TestCase):
     target = 39.69741490700607
 
     mix = MixtureDensity(proposals, weights)
+
+    def setUp(self):
+        np.random.seed(rng_seed)
 
     def test_dimcheck(self):
         # dimensions of all components have to match
@@ -159,6 +162,7 @@ class TestMixtureDensity(unittest.TestCase):
         prop = MixtureDensity(components)
         samples = prop.propose(50, shuffle=True)
 
+        print(samples)
         # make sure there is "+1" and "-1" within the first few samples
         self.assertAlmostEqual(samples[0][0], -1., delta=1.e-15)
         self.assertAlmostEqual(samples[1][0], +1., delta=1.e-15)

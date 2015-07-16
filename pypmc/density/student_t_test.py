@@ -6,7 +6,7 @@ from .student_t import *
 import numpy as np
 import unittest
 
-rng_seed  = 12850419274
+rng_seed  = 12850419274 % 4294967296
 rng_steps = 50000
 
 singular_sigma = np.array([[0.0, 0.0   , 0.0]
