@@ -29,7 +29,9 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
 
     :param visualize_weights:
         Colorize the components according to their weights if ``True``.
+        One can do `plt.colorbar()` after this function and the bar allows to read off the weights.
         If ``False``, coloring is based on the component index.
+        This option makes it easier to track components by assigning them the same color in subsequent calls to this function.
 
     '''
     # imports inside the function because then "ImportError" is raised on
