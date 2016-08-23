@@ -14,9 +14,8 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     :param cmap:
 
         The color map to which components are mapped in order to
-        choose their facecolor. The facecolor only depends on the
-        index and total number of components. It is unaffected by the
-        ``cutoff``.
+        choose their face color. It is unaffected by the
+        ``cutoff``. The meaning depends on ``visualize_weights``.
 
     :param cutoff:
         Ignore components whose weight is below the ``cut off``.
@@ -30,7 +29,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     :param visualize_weights:
         Colorize the components according to their weights if ``True``.
         One can do `plt.colorbar()` after this function and the bar allows to read off the weights.
-        If ``False``, coloring is based on the component index.
+        If ``False``, coloring is based on the component index and the total number of components.
         This option makes it easier to track components by assigning them the same color in subsequent calls to this function.
 
     '''
@@ -50,9 +49,6 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     if visualize_weights:
         # colors according to weight
         renormalized_component_weights  = np.array(mixture.weights)
-        renormalized_component_weights -= renormalized_component_weights.min()
-        if renormalized_component_weights.max() != 0:
-            renormalized_component_weights /= renormalized_component_weights.max()
         colors = [cmap(k) for k in renormalized_component_weights]
     else:
         # colors according to index
