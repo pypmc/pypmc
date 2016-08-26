@@ -1,0 +1,5 @@
+setuptools>=3.3
+cython
+numpy
+scipy
+matplotlib
