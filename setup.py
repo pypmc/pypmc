@@ -69,7 +69,7 @@ setup(
     author='Frederik Beaujean, Stephan Jahn',
     author_email='Frederik.Beaujean@lmu.de, stephan.jahn@mytum.de',
     url='https://github.com/fredRos/pypmc',
-    description='A toolkit for adaptive importance sampling featuring implementations of variational Bayes and population Monte Carlo.',
+    description='A toolkit for adaptive importance sampling featuring implementations of variational Bayes, population Monte Carlo, and Markov chains.',
     long_description=long_description,
     license='GPLv2',
     install_requires=['numpy', 'scipy', 'setuptools>=3.3'],
