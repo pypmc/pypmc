@@ -129,4 +129,5 @@ plt.title('weighted samples')
 plt.hist2d(sampler.samples[-1][:,0], sampler.samples[-1][:,1], weights=sampler.weights[-1][:,0], cmap='gray_r', bins=200)
 set_axlimits()
 
+plt.tight_layout()
 plt.show()

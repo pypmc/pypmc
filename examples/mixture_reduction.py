@@ -104,4 +104,5 @@ plt.title('hierarchical output')
 pypmc.tools.plot_mixture(h.g)
 set_axlimits()
 
+plt.tight_layout()
 plt.show()

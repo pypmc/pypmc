@@ -103,4 +103,5 @@ plt.title('data')
 plt.hexbin(data[:,0], data[:,1], cmap='gray_r')
 set_axlimits()
 
+plt.tight_layout()
 plt.show()

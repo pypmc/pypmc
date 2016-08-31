@@ -199,4 +199,5 @@ if comm.Get_rank() == 0:
     plt.hist2d(last_samples[:,0], last_samples[:,1], weights=last_weights[:,0], cmap='gray_r', bins=200)
     set_axlimits()
 
+    plt.tight_layout()
     plt.show()
