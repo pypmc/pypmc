@@ -244,10 +244,10 @@ class GaussianInference(object):
             return
 
         components_to_survive = _np.where(self.N_comp >= threshold)[0]
-        self.K = len(components_to_survive)
-
-        # todo check length of members, then automatically prune. Or
-        # is there a K vector that should not be modified?
+        K = len(components_to_survive)
+        if K == 0:
+            raise ValueError("Prune threshold %g too large, would remove all components" % threshold)
+        self.K = K
 
         # list all vector and matrix vmembers
         vmembers = ('alpha0', 'alpha', 'beta0', 'beta', 'expectation_det_ln_lambda',
@@ -774,13 +774,15 @@ class GaussianInference(object):
         # (10.64)
 
         cdef:
-            double  [:] tmp  = _np.zeros(self.dim, dtype=DTYPE)
             DTYPE_t [:] beta = self.beta
             DTYPE_t [:,:] data = self.data
             DTYPE_t [:,:] m = self.m
             DTYPE_t [:] nu = self.nu
             DTYPE_t [:,:] expectation_gauss_exponent = self.expectation_gauss_exponent
+            # use double directly to avoid error
+            # Memoryview 'DTYPE_t[:]' not conformable to memoryview 'double[:]'.
             double  [:,:] W = _np.empty_like(self.W[0])
+            double  [:] tmp  = _np.zeros(self.dim, dtype=DTYPE)
             size_t K = self.K
             size_t N = len(expectation_gauss_exponent)
             size_t dim = self.dim
