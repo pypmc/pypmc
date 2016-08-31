@@ -11,8 +11,8 @@ t components to the target density. The package is able to efficiently
 integrate multimodal functions in up to about 30-40 dimensions at the
 level of 1% accuracy or less. For many problems, this is achieved
 without requiring any manual input from the user about details of the
-function. Importance sampling supports parallelization on multiple
-machines via ``mpi4py``.
+function. ``pypmc`` supports importance sampling on a cluster of
+machines via ``mpi4py`` out of the box.
 
 Useful tools that can be used stand-alone include:
 
@@ -25,7 +25,7 @@ Installation
 ------------
 
 Instructions are maintained at
-http://pythonhosted.org//pypmc/installation.html.
+http://pythonhosted.org/pypmc/installation.html.
 
 Getting started
 ---------------
@@ -38,8 +38,9 @@ free to save and modify them according to your needs.
 Documentation
 -------------
 
-The full documentation of the individual modules is available at
-[PyPI](http://pythonhosted.org//pypmc/).
+A user guide, references to the literature, and the documentation of
+the individual modules are bundled at
+[PyPI](http://pythonhosted.org/pypmc/).
 
 Credits
 -------
