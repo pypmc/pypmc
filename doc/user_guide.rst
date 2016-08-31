@@ -370,8 +370,8 @@ the EM for many iterations or if one gets better results by just
 computing new samples for a mixture that is not quite at the (local)
 optimum.
 
-A :class:`PMC` object handles the convergence testing for both
-Gaussian and Student's t mixtures as follows::
+A :class:`~pypmc.mix_adapt.pmc.PMC` object handles the convergence
+testing for both Gaussian and Student's t mixtures as follows::
 
     pmc = PMC(samples, prop)
     pmc.run(verbose=True)
