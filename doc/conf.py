@@ -39,7 +39,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pypmc'
-copyright = u'2015, Frederik Beaujean and Stephan Jahn'
+copyright = u'2016, Frederik Beaujean and Stephan Jahn'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

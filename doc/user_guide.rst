@@ -13,16 +13,16 @@ where each component :math:`q_j` is either a `Gaussian
 <https://en.wikipedia.org/wiki/Normal_distribution>`_
 
 .. math::
-   q_j(x) = \mathcal{N}(x | \mu_j, \sigma_j)
+   q_j(x) = \mathcal{N}(x | \mu_j, \Sigma_j)
 
 or a `student's t <https://en.wikipedia.org/wiki/Student%27s_t-distribution>`_ distribution
 
 .. math::
-   q_j(x) = \mathcal{T}(x | \mu_j, \sigma_j, \nu) \,.
+   q_j(x) = \mathcal{T}(x | \mu_j, \Sigma_j, \nu) \,.
 
 The free parameters of the mixture density, :math:`\theta`, are the component weights
 :math:`\alpha_j`, the means :math:`\mu_j`, the covariances
-:math:`\sigma_j` and in case :math:`q_j = \mathcal{T}` the degree of
+:math:`\Sigma_j` and in case :math:`q_j = \mathcal{T}` the degree of
 freedom :math:`\nu_j` for :math:`j=1 \dots K`.
 
 Component density
@@ -166,7 +166,7 @@ samples as burn-in or warm-up. Then the samples can be used to tune
 the proposal covariance::
 
     mc.run(10**4)
-    mc.history.clear()
+    mc.clear()
 
     # run 100,000 steps adapting the proposal every 500 steps
     # hereby save the accept count which is returned by mc.run
@@ -175,12 +175,13 @@ the proposal covariance::
     accept_count += mc.run(500)
     mc.adapt()
 
-Note that the proposal can be tuned continously, and the samples are
-still asymptotically distributed according to the target; i.e., there
-is no need to fix the proposal to generate valid samples.
+Note that the proposal can be tuned continously so the Markov property
+is lost but the samples are still asymptotically distributed according
+to the target; i.e., there is no need to fix the proposal to generate
+valid samples.
 
-The parameters like the minimum and maximum acceptance rate can be set
-via
+The parameters like the desired minimum and maximum acceptance rate
+can be set via
 :meth:`~pypmc.sampler.markov_chain.AdaptiveMarkovChain.set_adapt_params`.
 
 Importance sampling
@@ -221,23 +222,18 @@ to draw 500 samples. If the proposal is a
 ``trace_sort=True``, then ``run`` returns the generating component for
 each sample.
 
-The samples are stored in
-:attr:`~pypmc.sampler.importance_sampling.ImportanceSampler.history`. The
-first column contains the weights, and the rest of each row is the
-sample::
+The samples and weights are stored in two
+:attr:`~pypmc.sampler.importance_sampling.ImportanceSampler.history`
+objects::
 
-  weighted_samples = sampler.history[-1]
-  weights = weighted_samples[:, 0]
-  samples = weighted_samples[:,1:]
+  samples = sampler.samples[-1]
+  weights = sampler.weights[-1]
 
 Note that a :class:`~pypmc.tools.History` object can contain the output
 of several runs, the last one is available as ``history[-1]``.
 
 The samples are ordered according to the generating component if
-`trace_sort=True`. To get `randomly` distributed samples, apply a
-shuffle operation::
-
-  np.random.shuffle(weighted_samples)
+`trace_sort=True`.
 
 Deterministic mixture
 ~~~~~~~~~~~~~~~~~~~~~
@@ -254,7 +250,7 @@ l=1 \dots T\}` and :math:`N_l` available samples per proposal, the
 combined importance weight of sample :math:`x` becomes
 
 .. math::
-   P(x) / \frac{1}{\sum_{k=0}^T N_k} \sum_{l=0}^T N_l q_l(x)
+   \frac{P(x)}{\frac{1}{\sum_{k=0}^T N_k} \sum_{l=0}^T N_l q_l(x)}
 
 The function
 :class:`~pypmc.sampler.importance_sampling.combine_weights` takes the
@@ -308,11 +304,11 @@ convergence criterion is reached [BC13]_::
 
   for i in range(10):
       generating_components.append(sampler.run(10**3, trace_sort=True))
-      weighted_samples = sampler.history[-1]
-      weights = weighted_samples[:, 0]
-      samples = weighted_samples[:,1:]
+      samples = sampler.samples[-1]
+      weights = sampler.weights[-1]
       gaussian_pmc(samples, sampler.proposal,
-                   weights, generating_components[-1],
+                   weights,
+                   latent=generating_components[-1],
                    mincount=20, rb=True, copy=False)
 
 In the example code, we keep track of which sample came from which
@@ -329,8 +325,8 @@ variables but when using the recommended Rao-Blackwellization
 (``rb=True``), the generating components are ignored, and the
 corresponding latent variables are inferred from the data. This is
 more time consuming, but leads to more robust fits [Cap+08]_. The
-faster but less powerful variant (``rb=False``) then requires the
-generating components.
+faster but less powerful variant ``rb=False`` then requires that the
+generating components be passed to ``latent``.
 
 The keyword ``copy=False`` allows ``gaussian_pmc`` to update the
 ``density`` in place.
@@ -360,6 +356,30 @@ solver may add a significant overhead to the overall time of one PMC
 update. But since it adds flexibility, our recommendation is to start
 with and only turn it off (``dof_solver_steps=0``) if the overhead is
 intolerable.
+
+PMC with multiple EM steps
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to make the most out of the available samples, it is better
+to run multiple EM update steps to infer the parameters of the mixture
+density. The convergence criterion is the likelihood value given in
+Eq. 5 of [Cap+08]_. Depending on the sought precision, several
+hundreds of EM steps may be required. We advise the user to decide
+based on the cost of computing new samples whether it is worth running
+the EM for many iterations or if one gets better results by just
+computing new samples for a mixture that is not quite at the (local)
+optimum.
+
+A :class:`PMC` object handles the convergence testing for both
+Gaussian and Student's t mixtures as follows::
+
+    pmc = PMC(samples, prop)
+    pmc.run(verbose=True)
+
+The relevant keyword arguments to :class:`~pypmc.mix_adapt.pmc.PMC`
+are passed on to the actual updates done by
+:func:`~pypmc.mix_adapt.pmc.gaussian_pmc` or
+:func:`~pypmc.mix_adapt.pmc.student_t_pmc`.
 
 Variational Bayes
 -----------------

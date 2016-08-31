@@ -1,4 +1,5 @@
-"""Collect importance sampler for Population Monte Carlo
+"""Some useful tools for importance sampling. The main class is
+:py:class:`ImportanceSampler` and there are some utility functions.
 
 """
 
@@ -129,7 +130,7 @@ _docstring_params_importance_sampler = """:param target:
     """
 
 class ImportanceSampler(object):
-    __doc__ = r"""An importance sampler object; generates weighted samples from
+    __doc__ = r"""An importance sampler, generates weighted samples from
     ``target`` using ``proposal``.
 
     """ + _docstring_params_importance_sampler
