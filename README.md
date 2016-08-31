@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc)
+
 pypmc
 =====
 
@@ -48,3 +50,6 @@ Credits
 pypmc was developed by Stephan Jahn (TU Munich) under the supervision
 of Frederik Beaujean (LMU Munich) as part of Stephan's master's thesis
 at the Excellence Cluster Universe, Garching, Germany, in 2014.
+
+If you use ``pypmc`` in academic work, we kindly ask you to cite the
+respective release as indicated by the zenodo DOI above. Thanks!
