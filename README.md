@@ -26,23 +26,23 @@ Useful tools that can be used stand-alone include:
 Installation
 ------------
 
-Instructions are maintained at
-http://pythonhosted.org/pypmc/installation.html.
+Instructions are
+maintained [here](https://www.mpp.mpg.de/~beaujean/pypmc/_build/html/installation.html).
 
 Getting started
 ---------------
 
 Fully documented examples are shipped in the ``examples`` subdirectory
-of the source distribution or available online on
-[GitHub](https://github.com/fredRos/pypmc/tree/master/examples). Feel
+of the source distribution or available online including sample
+output
+[here](https://www.mpp.mpg.de/~beaujean/pypmc/_build/html/examples.html). Feel
 free to save and modify them according to your needs.
 
 Documentation
 -------------
 
-A user guide, references to the literature, and the documentation of
-the individual modules are bundled at
-[PyPI](http://pythonhosted.org/pypmc/).
+The full documentation with a manual and api description is available at
+[here](https://www.mpp.mpg.de/~beaujean/pypmc/_build/html/).
 
 Credits
 -------
