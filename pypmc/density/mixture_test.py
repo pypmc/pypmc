@@ -138,8 +138,8 @@ class TestMixtureDensity(unittest.TestCase):
         # from ``proposals[1]`` with abundance 20% (i.e. according to ``weights``)
 
         occurrences = np.empty(2)
-        values1 = mix.propose(rng_steps/2) # test if value for rng can be omitted
-        values2 = mix.propose(rng_steps/2, np.random) # test if value for rng can be set
+        values1 = mix.propose(rng_steps//2) # test if value for rng can be omitted
+        values2 = mix.propose(rng_steps//2, np.random) # test if value for rng can be set
         occurrences[0] = (values1 <  0.).sum() + (values2 <  0.).sum()
         occurrences[1] = (values1 >= 0.).sum() + (values2 >= 0.).sum()
         abundances = occurrences/float(rng_steps)
