@@ -271,7 +271,7 @@ def combine_weights(samples, weights, proposals):
     "Got %i importance-sampling runs but %i proposal densities" % (len(samples), len(proposals))
 
     # number of samples from each proposal
-    N = _np.empty(len(proposals), dtype=int)
+    N = _np.empty(len(proposals))
     N_total = 0
 
     # basic consistency checks, conversion to numpy array and counting of the total number of samples
