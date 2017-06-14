@@ -56,10 +56,11 @@ class History(object):
 #        list containing start and stop value to extract an individual run
 #        from ``_points``
     def __init__(self, dim, prealloc=1):
-        self.dim = dim
-        self.prealloc = prealloc
+        self.dim = int(dim)
+        assert self.dim == dim, "``dim`` must be an integer"
+        self.prealloc = int(prealloc)
+        assert self.prealloc == prealloc, "``prealloc`` must be an integer"
         self.clear()
-        # the first line in clear() will raise an error if dim or prealloc is invalid
 
     def __getitem__(self, item):
         if not self._slice_for_run_nr[item]:

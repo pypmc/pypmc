@@ -344,7 +344,7 @@ def _combine_weights_log(samples, weights, proposals, combined_weights_history, 
         log_w_t += _np.log(N_total)
 
         # matrix of all proposal evaluated at every sample in step t
-        q = _np.empty((N[t], len(proposals)))
+        q = _np.empty((int(N[t]), len(proposals)))
         q[:,t] = log_q_t
 
         # loop over all indices l != t
