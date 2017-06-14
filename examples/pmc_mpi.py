@@ -185,13 +185,13 @@ if comm.Get_rank() == 0:
 
     plt.subplot(222)
     plt.title('pmc fit')
-    pypmc.tools.plot_mixture(parallel_sampler.sampler.proposal, cmap='spectral', cutoff=0.01)
+    pypmc.tools.plot_mixture(parallel_sampler.sampler.proposal, cmap='nipy_spectral', cutoff=0.01)
     set_axlimits()
 
     plt.subplot(223)
     plt.title('target mixture and pmc fit')
     pypmc.tools.plot_mixture(target_mixture, cmap='jet')
-    pypmc.tools.plot_mixture(parallel_sampler.sampler.proposal, cmap='spectral', cutoff=0.01)
+    pypmc.tools.plot_mixture(parallel_sampler.sampler.proposal, cmap='nipy_spectral', cutoff=0.01)
     set_axlimits()
 
     plt.subplot(224)

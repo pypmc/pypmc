@@ -89,13 +89,13 @@ set_axlimits()
 
 plt.subplot(222)
 plt.title('"best fit"')
-pypmc.tools.plot_mixture(fit_mixture, cmap='spectral')
+pypmc.tools.plot_mixture(fit_mixture, cmap='nipy_spectral')
 set_axlimits()
 
 plt.subplot(223)
 plt.title('target mixture and "best fit"')
 pypmc.tools.plot_mixture(target_mix, cmap='winter')
-pypmc.tools.plot_mixture(fit_mixture, cmap='spectral')
+pypmc.tools.plot_mixture(fit_mixture, cmap='nipy_spectral')
 set_axlimits()
 
 plt.subplot(224)
