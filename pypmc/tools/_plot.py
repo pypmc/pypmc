@@ -3,7 +3,7 @@ from __future__ import division
 _max_color = 0.9
 
 def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
-                 cmap='spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
+                 cmap='nipy_spectral', cutoff=0.0, ellipse_style=dict(alpha=0.3),
                  solid_edge=True, visualize_weights=False):
     '''Plot the (Gaussian) components of the ``mixture`` density as
     one-sigma ellipses in the ``(i,j)`` plane.
@@ -130,7 +130,7 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
         mappable.set_cmap(cmap)
 
 def plot_responsibility(data, responsibility,
-                        cmap='spectral'):
+                        cmap='nipy_spectral'):
     '''Classify the 2D ``data`` according to the ``responsibility`` and
     make a scatter plot of each data point with the color of the
     component it is most likely from. The ``responsibility`` is
