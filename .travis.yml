@@ -27,18 +27,16 @@ before_install:
 
 install:
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython matplotlib mpi4py nomkl nose numpy scipy sphinx
-  - source activate test-environment
-
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then make install2; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then make install3; fi
 
 script:
   # if any line in this section fails, build fails
   - set -e
 
-  # first unit tests
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then make check2 && make check2mpi; fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then make check3 && make check3mpi; fi
+  - source activate test-environment
+
+  # build and run unit tests
+  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then make install2 && make check2 && make check2mpi; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then make install3 && make check3 && make check3mpi; fi
 
   # build and deploy docs only for one python version
   - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then pip install doctr && make doc && doctr deploy . --built-docs doc/_build/; fi
