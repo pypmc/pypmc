@@ -1,0 +1,46 @@
+# $TRAVIS_PYTHON_VERSION only available if language = python
+language: python
+
+# container based has faster start up
+sudo: false
+
+dist: trusty
+
+python:
+  - 2.7
+  - 3.6
+
+addons:
+  apt:
+    packages:
+      - openmpi-bin
+
+before_install:
+  - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  - conda config --add channels conda-forge
+
+install:
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython matplotlib mpi4py nomkl nose numpy scipy sphinx
+  - source activate test-environment
+
+  - make build
+  - make install
+
+script:
+  # if any line in this section fails, build fails
+  - set -e
+
+  # first unit tests
+  - make check
+
+  # build and deploy docs only for one python version
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then pip install doctr && make doc && doctr deploy . --built-docs doc/_build/; fi
+
+notifications:
+  - email: false
