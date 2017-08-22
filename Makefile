@@ -208,3 +208,14 @@ coverage : .build-system-default
 	rm -rf coverage
 	nosetests --with-coverage --cover-package=pypmc --cover-html --cover-html-dir=coverage
 	xdg-open coverage/index.html
+
+.PHONY : install
+install : install2 install3
+
+.PHONY : install2
+install2 : build2
+	python2 setup.py install --user
+
+.PHONY : install3
+install3 : build3
+	python3 setup.py install --user
