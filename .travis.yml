@@ -27,6 +27,8 @@ before_install:
 
 install:
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython matplotlib mpi4py nomkl nose numpy scipy sphinx
+  # set the backend to work in headless env
+  - mkdir -p ~/.config/matplotlib && cp doc/matplotlibrc ~/.config/matplotlib
 
 script:
   # if any line in this section fails, build fails
