@@ -15,6 +15,10 @@ addons:
     packages:
       - openmpi-bin
 
+env:
+  global:
+    - secure: "obtrptOC4ssKOHqwR4dDcFwJYV9JE91E8pvy23zpVVfj+7sXHir+5ebq6AxyoMJUnevI3qakuPW5a/aRlyC+YixZ/24w5UDr6qq7Aa0+fr+VcaH/HQyqMXysq1JuzN3ekGFHRO20XvI055WFzBCJBhIaV9h4hhgWYQCvKlND5gRknaO4DNFdLKwaE6rqW8B/6bD9euGNSsardD26O+GQDDuEH8U6t+mg/3Ulaq8OBbSeejTJxrky+934F4hRt/Y9XCTGl+D5pPmTr+z7yNgsyYvcsqkL/3lH+J0+PWv4rdPhh5eMyI3ZW5wkaInzSuQjGG14KRtoUfniuqrEAis8ILPwKiXA3Uhyrr/7oY+V9IQ3jJm7HIAsfb0tukqVxWgUoQfuahc6y7LexT5wUTV4GefRd9BMzy3JXq1pq/zewwRZfe2rrmjvJxPLNaZQA3bMNcrR2db+2amf0DbxENXmEo8K6nTBCV7Pag/hD1jyD83KhIwIMz8nWnDu0F9YTYAJbyAQm1kh7CfwVdKYK1yXHld7p/d6fkrqv4GHL/1aSPKxAZ9d+3qDC1qWy+B3rQH4+i7tSugIXAMlKddEqwcVu49QFyaFvV3qHmV0jGxWU5CrENjHnVvoXGJybU0eComeBfNuQmPdY8gDtIyNeU63ggR1hLFVCHo6nU6TtDFKLnc="
+
 before_install:
   - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
@@ -40,8 +44,8 @@ script:
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then export NOSETESTS2=nosetests; make install2 && make check2 && make check2mpi; fi
   - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then export NOSETESTS3=nosetests; make install3 && make check3 && make check3mpi; fi
 
-  # build and deploy docs only for one python version
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then pip install doctr && make doc && doctr deploy . --built-docs doc/_build/; fi
+  # build and deploy docs only for one python version and only for changes to master
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then pip install doctr && make doc && doctr deploy . --built-docs doc/_build/ --require-master ; fi
 
 notifications:
   - email: false
