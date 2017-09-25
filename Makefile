@@ -142,19 +142,19 @@ doc-pdf : .build-system-default
 run-examples : build
 	cd examples ; \
 	for file in $$(ls) ; do \
-	    echo running $${file} with python2 && \
-	    python2 $${file} || exit 1 && \
-	    echo running $${file} with python3 && \
-	    python3 $${file} || exit 1 && \
-	    \
-	    # execute with mpirun if mpi4py appears in the file \
-	    if grep -Fq 'mpi4py' $${file} ; then \
+			echo running $${file} with python2 && \
+			python2 $${file} || exit 1 && \
+			echo running $${file} with python3 && \
+			python3 $${file} || exit 1 && \
+			\
+			# execute with mpirun if mpi4py appears in the file \
+			if grep -Fq 'mpi4py' $${file} ; then \
 		echo "$${file}" is mpi parallelized && \
 		echo running $${file} in parallel with python2 && \
 		mpirun -n 2 python2 $${file} || exit 1 && \
 		echo running $${file} in parallel with python3 && \
 		mpirun -n 2 python3 $${file} || exit 1  ; \
-	    fi \
+			fi \
 	; \
 	done
 
@@ -195,7 +195,6 @@ check-sdist3 : build-sdist3
 distcheck : check check-sdist doc
 	@ # execute "run-examples" after all other recipes makes are done
 	make run-examples
-	xdg-open link_to_documentation
 
 .PHONY : show-todos
 grep_cmd = ack-grep -i --no-html --no-cc --no-make [^"au""sphinx.ext."]todo
@@ -205,7 +204,7 @@ show-todos :
 	@ # suppress errors here
 	@ # note that no todo found is considered as error
 	$(grep_cmd) . ; \
-	echo ; 	echo ; \
+	echo ;	echo ; \
 	echo $(begin_red)"********************************************************"$(end_red) ; \
 	echo $(begin_red)"* The following file types are NOT searched for TODOs: *"$(end_red) ; \
 	echo $(begin_red)"* o c source                                           *"$(end_red) ; \
