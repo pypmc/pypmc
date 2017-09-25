@@ -41,7 +41,7 @@ nosetests.xml
 .idea/*
 
 # documentation
-doc/_build/*
+doc/_build/
 
 # backup files
 *.*~
