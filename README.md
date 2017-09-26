@@ -1,3 +1,4 @@
+[![PyPI version](https://badge.fury.io/py/pypmc.svg)](https://badge.fury.io/py/pypmc)
 [![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc) [![Build Status](https://travis-ci.org/fredRos/pypmc.svg?branch=master)](https://travis-ci.org/fredRos/pypmc)
 
 pypmc
