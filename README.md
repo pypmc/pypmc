@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc)
+[![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc) [![Build Status](https://travis-ci.org/fredRos/pypmc.svg?branch=master)](https://travis-ci.org/fredRos/pypmc)
 
 pypmc
 =====
@@ -27,7 +27,7 @@ Installation
 ------------
 
 Instructions are
-maintained [here](https://www.mpp.mpg.de/~beaujean/pypmc/_build/html/installation.html).
+maintained [here](http://fredros.github.io/pypmc/html/installation.html).
 
 Getting started
 ---------------
@@ -35,14 +35,14 @@ Getting started
 Fully documented examples are shipped in the ``examples`` subdirectory
 of the source distribution or available online including sample
 output
-[here](https://www.mpp.mpg.de/~beaujean/pypmc/_build/html/examples.html). Feel
+[here](http://fredros.github.io/pypmc/html/examples.html). Feel
 free to save and modify them according to your needs.
 
 Documentation
 -------------
 
 The full documentation with a manual and api description is available at
-[here](https://www.mpp.mpg.de/~beaujean/pypmc/_build/html/).
+[here](http://fredros.github.io/pypmc/html/).
 
 Credits
 -------
