@@ -51,7 +51,7 @@ def get_extensions():
         ext_modules = []
 
     # either cython not available or we are in a source distribution
-    # todo isn't there a less cumbersome way to emulate cythonize?
+    # TODO isn't there a less cumbersome way to emulate cythonize?
     if not ext_modules:
         ext_modules = [Extension(os.path.splitext(f)[0].replace('/', '.'), # tmp/file.c -> tmp.file
                                  [f],
