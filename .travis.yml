@@ -60,37 +60,38 @@ install:
 script:
   # If any line in this section fails, build fails.
   # Each line is printed before it is executed
-  # - set -e -v
+  - set -e -v
   - source activate test-environment
-  # install and run unit tests
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
-       export NOSETESTS2=nosetests;
-       make install2;
-       make check2;
-       make check2mpi;
-    fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then
-       export NOSETESTS3=nosetests;
-       make install3;
-       make check3;
-       if [[ -z $BUILDWHEELS ]]; then
-           make check3mpi;
-       fi
-    fi
-  # build and deploy docs only for one python version and only for a new release
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 && $TRAVIS_TAG]]; then
-       pip install doctr;
-       make doc;
-       doctr deploy . --built-docs doc/_build/;
-    fi
-  # build wheels and deploy
-  - if [[ $BUILDWHEELS ]]; then
-       pip install cibuildwheel==0.6.0 twine;
-       cibuildwheel --output-dir wheelhouse;
-       # TODO reactivate check once it works
-       # if [[ $TRAVIS_TAG ]]; then
-       python -m twine upload wheelhouse/*.whl;
-       # fi
-    fi
+  # # install and run unit tests
+  # - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
+  #      export NOSETESTS2=nosetests;
+  #      make install2;
+  #      make check2;
+  #      make check2mpi;
+  #   fi
+  # - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then
+  #      export NOSETESTS3=nosetests;
+  #      make install3;
+  #      make check3;
+  #      if [[ -z $BUILDWHEELS ]]; then
+  #          make check3mpi;
+  #      fi
+  #   fi
+  # # build and deploy docs only for one python version and only for a new release
+  # - if [[ $TRAVIS_PYTHON_VERSION == 3.6 && $TRAVIS_TAG]]; then
+  #      pip install doctr;
+  #      make doc;
+  #      doctr deploy . --built-docs doc/_build/;
+  #   fi
+  # # build wheels and deploy
+  # - if [[ $BUILDWHEELS ]]; then
+  #      pip install cibuildwheel==0.6.0 twine;
+  #      cibuildwheel --output-dir wheelhouse;
+  #      # TODO reactivate check once it works
+  #      # if [[ $TRAVIS_TAG ]]; then
+  #      python -m twine upload wheelhouse/*.whl;
+  #      # fi
+  #   fi
+
 notifications:
   - email: false
