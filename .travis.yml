@@ -60,7 +60,7 @@ install:
 script:
   # If any line in this section fails, build fails.
   # Each line is printed before it is executed
-  - set -e -v
+  - set -e
 
   - source activate test-environment
   # install and run unit tests
