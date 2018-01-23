@@ -60,8 +60,7 @@ install:
 script:
   # If any line in this section fails, build fails.
   # Each line is printed before it is executed
-  - set -e
-
+  - set -e -v
   - source activate test-environment
   # install and run unit tests
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
