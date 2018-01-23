@@ -7,8 +7,27 @@ sudo: false
 dist: trusty
 
 python:
-  - 2.7
   - 3.6
+  - 2.7
+
+matrix:
+  # inherit 1st value by default. So python 3.6
+  include:
+    - dist: trusty
+      sudo: required
+      services:
+        - docker
+      env:
+        - PIP=pip
+        - BUILDWHEELS=1
+      script: wheels.sh
+
+    - os: osx
+      language: generic
+      env:
+        - PIP=pip2
+        - BUILDWHEELS=1
+      script: wheels.sh
 
 addons:
   apt:
@@ -18,6 +37,10 @@ addons:
 env:
   global:
     - secure: "obtrptOC4ssKOHqwR4dDcFwJYV9JE91E8pvy23zpVVfj+7sXHir+5ebq6AxyoMJUnevI3qakuPW5a/aRlyC+YixZ/24w5UDr6qq7Aa0+fr+VcaH/HQyqMXysq1JuzN3ekGFHRO20XvI055WFzBCJBhIaV9h4hhgWYQCvKlND5gRknaO4DNFdLKwaE6rqW8B/6bD9euGNSsardD26O+GQDDuEH8U6t+mg/3Ulaq8OBbSeejTJxrky+934F4hRt/Y9XCTGl+D5pPmTr+z7yNgsyYvcsqkL/3lH+J0+PWv4rdPhh5eMyI3ZW5wkaInzSuQjGG14KRtoUfniuqrEAis8ILPwKiXA3Uhyrr/7oY+V9IQ3jJm7HIAsfb0tukqVxWgUoQfuahc6y7LexT5wUTV4GefRd9BMzy3JXq1pq/zewwRZfe2rrmjvJxPLNaZQA3bMNcrR2db+2amf0DbxENXmEo8K6nTBCV7Pag/hD1jyD83KhIwIMz8nWnDu0F9YTYAJbyAQm1kh7CfwVdKYK1yXHld7p/d6fkrqv4GHL/1aSPKxAZ9d+3qDC1qWy+B3rQH4+i7tSugIXAMlKddEqwcVu49QFyaFvV3qHmV0jGxWU5CrENjHnVvoXGJybU0eComeBfNuQmPdY8gDtIyNeU63ggR1hLFVCHo6nU6TtDFKLnc="
+    # Note: TWINE_PASSWORD is set in Travis settings
+    - TWINE_USERNAME=pypmc-travis
+    # TODO remove. Just to test if deploying wheels works
+    - TRAVIS_TAG=1
 
 before_install:
   - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -35,12 +58,12 @@ install:
   - mkdir -p ~/.config/matplotlib && cp doc/matplotlibrc ~/.config/matplotlib
 
 script:
-  # if any line in this section fails, build fails
-  - set -e
+  # If any line in this section fails, build fails.
+  # Each line is printed before it is executed
+  - set -ev
 
   - source activate test-environment
-
-  # build and run unit tests
+  # install and run unit tests
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
        export NOSETESTS2=nosetests;
        make install2;
@@ -51,15 +74,24 @@ script:
        export NOSETESTS3=nosetests;
        make install3;
        make check3;
-       make check3mpi;
+       if [[ -z $BUILDWHEELS ]]; then
+           make check3mpi;
+       fi
     fi
-
-  # build and deploy docs only for one python version and only for changes to master
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then
-       pip install doctr;
-       make doc;
-       doctr deploy . --built-docs doc/_build/;
+  # build and deploy docs only for one python version and only for a new release
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 && $TRAVIS_TAG]]; then
+       pip install doctr
+       make doc
+       doctr deploy . --built-docs doc/_build/
     fi
-
+  # build wheels and deploy
+  - if [[ $BUILDWHEELS ]]; then
+       pip install cibuildwheel==0.6.0 twine
+       cibuildwheel --output-dir wheelhouse
+       # TODO reactivate check once it works
+       # if [[ $TRAVIS_TAG ]]; then
+       python -m twine upload wheelhouse/*.whl
+       # fi
+    fi
 notifications:
   - email: false
