@@ -85,11 +85,12 @@ script:
   #   fi
   # build wheels and deploy
   - if [[ $BUILDWHEELS ]]; then
-       pip install cibuildwheel==0.6.0 twine;
-       cibuildwheel --output-dir wheelhouse;
+       echo "OK"
+       # pip install cibuildwheel==0.6.0 twine;
+       # cibuildwheel --output-dir wheelhouse;
        # TODO reactivate check once it works
        # if [[ $TRAVIS_TAG ]]; then
-       python -m twine upload wheelhouse/*.whl;
+       # python -m twine upload wheelhouse/*.whl;
        # fi
     fi
 
