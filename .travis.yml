@@ -21,7 +21,8 @@ matrix:
         - PIP=pip
         - BUILDWHEELS=1
         # need to install numpy again inside the centos5 docker image
-        - CIBW_BEFORE_BUILD="yum install python-numpy"
+        # - CIBW_BEFORE_BUILD="yum install python-numpy"
+        - CIBW_BEFORE_BUILD="{pip} install Cython numpy"
 
     - os: osx
       language: generic
