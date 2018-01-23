@@ -43,6 +43,8 @@ env:
     - TWINE_USERNAME=pypmc-travis
     # TODO remove. Just to test if deploying wheels works
     - TRAVIS_TAG=1
+    # numpy not supported anymore on python3.3
+    - CIBW_SKIP="cp33-*"
 
 before_install:
   - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
