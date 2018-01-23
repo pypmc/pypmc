@@ -20,12 +20,15 @@ matrix:
       env:
         - PIP=pip
         - BUILDWHEELS=1
+        # need to install numpy again inside the centos5 docker image
+        - CIBW_BEFORE_BUILD="yum install python-numpy"
 
     - os: osx
       language: generic
       env:
         - PIP=pip2
         - BUILDWHEELS=1
+        # - CIBW_BEFORE_BUILD="brew install numpy"
 
 addons:
   apt:
@@ -83,7 +86,7 @@ script:
   # build wheels and deploy
   - |
     if [[ $BUILDWHEELS ]]; then
-       pip install cibuildwheel==0.6.0 twine;
+       $PIP install cibuildwheel==0.7.0 twine;
        cibuildwheel --output-dir wheelhouse;
        # TODO reactivate check once it works
        # if [[ $TRAVIS_TAG ]]; then
