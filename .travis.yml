@@ -84,16 +84,16 @@ script:
   #      doctr deploy . --built-docs doc/_build/;
   #   fi
   # build wheels and deploy
-  - echo "OK"
-  # - if [[ $BUILDWHEELS ]]; then
-  #      echo "OK"
-       # pip install cibuildwheel==0.6.0 twine;
-       # cibuildwheel --output-dir wheelhouse;
+  # - echo "OK"
+  - |
+    if [[ $BUILDWHEELS ]]; then
+       pip install cibuildwheel==0.6.0 twine;
+       cibuildwheel --output-dir wheelhouse;
        # TODO reactivate check once it works
        # if [[ $TRAVIS_TAG ]]; then
        # python -m twine upload wheelhouse/*.whl;
        # fi
-    # fi
+    fi
 
 notifications:
   - email: false
