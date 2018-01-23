@@ -20,14 +20,12 @@ matrix:
       env:
         - PIP=pip
         - BUILDWHEELS=1
-      script: wheels.sh
 
     - os: osx
       language: generic
       env:
         - PIP=pip2
         - BUILDWHEELS=1
-      script: wheels.sh
 
 addons:
   apt:
@@ -59,8 +57,7 @@ install:
 
 script:
   # If any line in this section fails, build fails.
-  # Each line is printed before it is executed
-  - set -e -v
+  - set -e
   - source activate test-environment
   # install and run unit tests
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
@@ -84,7 +81,6 @@ script:
   #      doctr deploy . --built-docs doc/_build/;
   #   fi
   # build wheels and deploy
-  # - echo "OK"
   - |
     if [[ $BUILDWHEELS ]]; then
        pip install cibuildwheel==0.6.0 twine;
