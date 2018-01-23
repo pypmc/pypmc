@@ -42,5 +42,5 @@ class TestLinalg(unittest.TestCase):
         negative_sigma = -1.0 * np.eye(13)
 
         for matrix in [singular_sigma, negative_sigma]:
-            self.assertRaisesRegexp(np.linalg.LinAlgError, 'minor not positive definite',
+            self.assertRaisesRegexp(np.linalg.LinAlgError, 'not positive definite',
                                     chol_inv_det, matrix)
