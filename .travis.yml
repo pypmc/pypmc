@@ -8,7 +8,7 @@ dist: trusty
 
 python:
   - 3.6
-  # - 2.7
+  - 2.7
 
 matrix:
   # inherit 1st value by default. So python 3.6
@@ -72,10 +72,10 @@ script:
   - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then
        export NOSETESTS3=nosetests;
        make install3;
-       # make check3;
-       # if [[ -z $BUILDWHEELS ]]; then
-       #     make check3mpi;
-       # fi
+       make check3;
+       if [[ -z $BUILDWHEELS ]]; then
+           make check3mpi;
+       fi
     fi
   # # build and deploy docs only for one python version and only for a new release
   # - if [[ $TRAVIS_PYTHON_VERSION == 3.6 && $TRAVIS_TAG ]]; then
