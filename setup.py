@@ -28,8 +28,10 @@ def find_files(directory, pattern):
 def get_extensions():
     import numpy
 
+    # remove warnings due to the code that cython emits
     extra_compile_args=["-Wno-unused-but-set-variable",
                         "-Wno-unused-function",
+                        "-Wno-sign-compare",
                         "-O3"]
     include_dirs = [numpy.get_include()]
 
@@ -43,7 +45,9 @@ def get_extensions():
 
         compiler_directives = dict(boundscheck=False, cdivision=True,
                                    embedsignature=True,
-                                   profile=False, wraparound=False)
+                                   profile=False, wraparound=False,
+                                   # needed to make cython>0.29 happy
+                                   language_level=2)
         ext_modules = cythonize(extensions, compiler_directives=compiler_directives)
 
     except Exception as error:
