@@ -8,6 +8,7 @@ dist: trusty
 
 python:
   - 3.6
+  - 3.7
   - 2.7
 
 matrix:
@@ -47,7 +48,14 @@ env:
     - CIBW_SKIP="cp33-*"
 
 before_install:
-  - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  - set -e
+  - |
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      os_name="Linux"
+    elif [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      os_name="MacOSX"
+    fi
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-${os_name}-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
@@ -89,7 +97,7 @@ script:
   # build wheels and deploy
   - |
     if [[ $BUILDWHEELS ]]; then
-       $PIP install cibuildwheel==0.7.0 twine;
+       $PIP install cibuildwheel==0.11.1 twine;
        cibuildwheel --output-dir wheelhouse;
        # TODO reactivate check once it works
        # if [[ $TRAVIS_TAG ]]; then
