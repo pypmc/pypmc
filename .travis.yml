@@ -4,7 +4,7 @@ language: python
 # container based has faster start up
 sudo: false
 
-dist: trusty
+dist: xenial
 
 python:
   - 3.6
@@ -46,6 +46,8 @@ env:
     - TRAVIS_TAG=1
     # numpy not supported anymore on python3.3
     - CIBW_SKIP="cp33-*"
+    # run mpi with just one process on travis
+    - PYPMC_MPI_NPROC=1
 
 before_install:
   - set -e

@@ -3,6 +3,7 @@
 
 NOSETESTS2 ?= nosetests-2.7
 NOSETESTS3 ?= nosetests3
+PYPMC_MPI_NPROC ?= 2
 
 .DEFAULT_GOAL=build
 .PHONY .SILENT : help
@@ -183,13 +184,13 @@ check-sdist : check-sdist2 check-sdist3
 check-sdist2 : build-sdist2
 	cd dist/*/build/lib*2.7 && \
 	$(NOSETESTS2) --processes=-1 --process-timeout=60 && \
-	mpirun -n 2 $(NOSETESTS2)
+	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
 
 .PHONY : check-sdist3
 check-sdist3 : build-sdist3
 	cd dist/*/build/lib*3.* && \
 	$(NOSETESTS3) --processes=-1 --process-timeout=60 && \
-	mpirun -n 2 $(NOSETESTS3)
+	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
 
 .PHONY : distcheck
 distcheck : check check-sdist doc
