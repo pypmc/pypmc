@@ -110,7 +110,7 @@ check2 : build2
 .PHONY : check2mpi
 check2mpi : build2
 	@# run tests in parallel
-	mpirun -n 2 $(NOSETESTS2)
+	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
 
 .PHONY : check3
 check3 : build3
@@ -120,7 +120,7 @@ check3 : build3
 .PHONY : check3mpi
 check3mpi : build3
 	@# run tests in parallel
-	mpirun -n 2 $(NOSETESTS3)
+	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
 
 .PHONY : check-fast
 check-fast : build
