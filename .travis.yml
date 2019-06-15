@@ -11,27 +11,6 @@ python:
   - 3.7
   - 2.7
 
-matrix:
-  # inherit 1st value by default. So python 3.6
-  include:
-    - dist: xenial
-      sudo: required
-      services:
-        - docker
-      env:
-        - PIP=pip
-        - BUILDWHEELS=1
-        # need to install numpy again inside the centos5 docker image
-        # - CIBW_BEFORE_BUILD="yum install python-numpy"
-        - CIBW_BEFORE_BUILD="{pip} install Cython numpy"
-
-    - os: osx
-      language: generic
-      env:
-        - PIP=pip2
-        - BUILDWHEELS=1
-        # - CIBW_BEFORE_BUILD="brew install numpy"
-
 addons:
   apt:
     packages:
@@ -40,12 +19,8 @@ addons:
 env:
   global:
     - secure: "obtrptOC4ssKOHqwR4dDcFwJYV9JE91E8pvy23zpVVfj+7sXHir+5ebq6AxyoMJUnevI3qakuPW5a/aRlyC+YixZ/24w5UDr6qq7Aa0+fr+VcaH/HQyqMXysq1JuzN3ekGFHRO20XvI055WFzBCJBhIaV9h4hhgWYQCvKlND5gRknaO4DNFdLKwaE6rqW8B/6bD9euGNSsardD26O+GQDDuEH8U6t+mg/3Ulaq8OBbSeejTJxrky+934F4hRt/Y9XCTGl+D5pPmTr+z7yNgsyYvcsqkL/3lH+J0+PWv4rdPhh5eMyI3ZW5wkaInzSuQjGG14KRtoUfniuqrEAis8ILPwKiXA3Uhyrr/7oY+V9IQ3jJm7HIAsfb0tukqVxWgUoQfuahc6y7LexT5wUTV4GefRd9BMzy3JXq1pq/zewwRZfe2rrmjvJxPLNaZQA3bMNcrR2db+2amf0DbxENXmEo8K6nTBCV7Pag/hD1jyD83KhIwIMz8nWnDu0F9YTYAJbyAQm1kh7CfwVdKYK1yXHld7p/d6fkrqv4GHL/1aSPKxAZ9d+3qDC1qWy+B3rQH4+i7tSugIXAMlKddEqwcVu49QFyaFvV3qHmV0jGxWU5CrENjHnVvoXGJybU0eComeBfNuQmPdY8gDtIyNeU63ggR1hLFVCHo6nU6TtDFKLnc="
-    # Note: TWINE_PASSWORD is set in Travis settings
-    - TWINE_USERNAME=pypmc-travis
     # TODO remove. Just to test if deploying wheels works
     - TRAVIS_TAG=1
-    # numpy not supported anymore on python3.3
-    - CIBW_SKIP="cp33-*"
     # run mpi with just one process on travis
     - PYPMC_MPI_NPROC=1
 
@@ -90,22 +65,34 @@ script:
            make check3mpi;
        fi
     fi
-  # # build and deploy docs only for one python version and only for a new release
-  # - if [[ $TRAVIS_PYTHON_VERSION == 3.6 && $TRAVIS_TAG ]]; then
-  #      pip install doctr;
-  #      make doc;
-  #      doctr deploy . --built-docs doc/_build/;
-  #   fi
-  # build wheels and deploy
-  - |
-    if [[ $BUILDWHEELS ]]; then
-       $PIP install cibuildwheel==0.11.1 twine;
+
+jobs:
+  include:
+    - stage: deploy
+      env:
+        # Note: TWINE_PASSWORD is set in Travis settings
+        - TWINE_USERNAME=pypmc-travis
+        # numpy not supported anymore on python3.3
+        - CIBW_SKIP="cp33-*"
+        # need to install numpy again inside the centos5 docker image
+        - CIBW_BEFORE_BUILD="{pip} install Cython numpy"
+      script:
+      # build wheels and deploy
+      - |
+       $PIP install cibuildwheel==0.11.1;
        cibuildwheel --output-dir wheelhouse;
-       # TODO reactivate check once it works
-       # if [[ $TRAVIS_TAG ]]; then
-       # python -m twine upload wheelhouse/*.whl;
-       # fi
-    fi
+       if [[ $TRAVIS_TAG ]]; then
+         python -m pip install twine;
+         python -m twine upload wheelhouse/*.whl;
+       fi
+    - dist: xenial
+      sudo: required
+      services:
+        - docker
+      env: PIP=pip
+    - os: osx
+      language: generic
+      env: PIP=pip2
 
 notifications:
   - email: false
