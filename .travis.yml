@@ -75,6 +75,7 @@ jobs:
         - CIBW_SKIP="cp33-*"
         # need to install numpy again inside the centos5 docker image
         - CIBW_BEFORE_BUILD="{pip} install Cython numpy"
+        - PIP=pip
       script:
         # build wheels and deploy
         - |
@@ -86,9 +87,7 @@ jobs:
           fi
       dist: xenial
       sudo: required
-      services:
-        - docker
-      env: PIP=pip
+      services: [docker]
 
 notifications:
   - email: false
