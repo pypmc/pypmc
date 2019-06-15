@@ -11,6 +11,9 @@ python:
   - 3.7
   - 2.7
 
+# OSX and python not supported on travis
+# https://github.com/travis-ci/travis-ci/issues/2312
+
 addons:
   apt:
     packages:
@@ -26,13 +29,7 @@ env:
 
 before_install:
   - set -e
-  - |
-    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-      os_name="Linux"
-    elif [ "$TRAVIS_OS_NAME" == "osx" ]; then
-      os_name="MacOSX"
-    fi
-    wget https://repo.continuum.io/miniconda/Miniconda3-latest-${os_name}-x86_64.sh -O miniconda.sh
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
@@ -42,22 +39,24 @@ before_install:
   - conda config --add channels conda-forge
 
 install:
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython matplotlib mpi4py nomkl nose numpy scipy sphinx
+  - conda create -q -n test-environment python=${TRAVIS_PYTHON_VERSION} cython matplotlib mpi4py nomkl nose numpy scipy sphinx
   # set the backend to work in headless env
   - mkdir -p ~/.config/matplotlib && cp doc/matplotlibrc ~/.config/matplotlib
 
 script:
   # If any line in this section fails, build fails.
-  - set -e
-  - source activate test-environment
-  # install and run unit tests
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
+  - |
+    set -e
+    source activate test-environment
+    # install and run unit tests
+    if [[ ${TRAVIS_PYTHON_VERSION} == 2.7 ]]; then
        export NOSETESTS2=nosetests;
        make install2;
        make check2;
        make check2mpi;
     fi
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then
+    dpkg --compare-versions ${TRAVIS_PYTHON_VERSION} "gt" "3.5"
+    if [[ $? -eq "0" ]]; then
        export NOSETESTS3=nosetests;
        make install3;
        make check3;
@@ -77,22 +76,19 @@ jobs:
         # need to install numpy again inside the centos5 docker image
         - CIBW_BEFORE_BUILD="{pip} install Cython numpy"
       script:
-      # build wheels and deploy
-      - |
-       $PIP install cibuildwheel==0.11.1;
-       cibuildwheel --output-dir wheelhouse;
-       if [[ $TRAVIS_TAG ]]; then
-         python -m pip install twine;
-         python -m twine upload wheelhouse/*.whl;
-       fi
-    - dist: xenial
+        # build wheels and deploy
+        - |
+          $PIP install cibuildwheel==0.11.1;
+          cibuildwheel --output-dir wheelhouse;
+          if [[ $TRAVIS_TAG ]]; then
+            python -m pip install twine;
+            python -m twine upload wheelhouse/*.whl;
+          fi
+      dist: xenial
       sudo: required
       services:
         - docker
       env: PIP=pip
-    - os: osx
-      language: generic
-      env: PIP=pip2
 
 notifications:
   - email: false
