@@ -59,7 +59,7 @@ def setup_package():
         license='GPLv2',
         install_requires=['numpy>=1.6, <2.0', 'scipy'],
         extras_require={'testing': ['nose'], 'plotting': ['matplotlib'], 'parallelization': ['mpi4py']},
-        classifiers=['Development Status :: 4 - Beta',
+        classifiers=['Development Status :: 5 - Production/Stable',
                      'Intended Audience :: Developers',
                      'Intended Audience :: Science/Research',
                      'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
