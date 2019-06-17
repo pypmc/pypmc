@@ -8,8 +8,8 @@ dist: xenial
 
 python:
   - 3.6
-  - 3.7
   - 2.7
+  - 3.7
 
 # OSX and python not supported on travis
 # https://github.com/travis-ci/travis-ci/issues/2312
@@ -61,7 +61,10 @@ script:
        make check3;
        make check3mpi;
        exit 0;
+    else
+       exit 1;
     fi
+    exit 2;
 
 jobs:
   include:
