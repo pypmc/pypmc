@@ -22,8 +22,6 @@ addons:
 env:
   global:
     - secure: "obtrptOC4ssKOHqwR4dDcFwJYV9JE91E8pvy23zpVVfj+7sXHir+5ebq6AxyoMJUnevI3qakuPW5a/aRlyC+YixZ/24w5UDr6qq7Aa0+fr+VcaH/HQyqMXysq1JuzN3ekGFHRO20XvI055WFzBCJBhIaV9h4hhgWYQCvKlND5gRknaO4DNFdLKwaE6rqW8B/6bD9euGNSsardD26O+GQDDuEH8U6t+mg/3Ulaq8OBbSeejTJxrky+934F4hRt/Y9XCTGl+D5pPmTr+z7yNgsyYvcsqkL/3lH+J0+PWv4rdPhh5eMyI3ZW5wkaInzSuQjGG14KRtoUfniuqrEAis8ILPwKiXA3Uhyrr/7oY+V9IQ3jJm7HIAsfb0tukqVxWgUoQfuahc6y7LexT5wUTV4GefRd9BMzy3JXq1pq/zewwRZfe2rrmjvJxPLNaZQA3bMNcrR2db+2amf0DbxENXmEo8K6nTBCV7Pag/hD1jyD83KhIwIMz8nWnDu0F9YTYAJbyAQm1kh7CfwVdKYK1yXHld7p/d6fkrqv4GHL/1aSPKxAZ9d+3qDC1qWy+B3rQH4+i7tSugIXAMlKddEqwcVu49QFyaFvV3qHmV0jGxWU5CrENjHnVvoXGJybU0eComeBfNuQmPdY8gDtIyNeU63ggR1hLFVCHo6nU6TtDFKLnc="
-    # TODO remove. Just to test if deploying wheels works
-    - TRAVIS_TAG=1
     # run mpi with just one process on travis
     - PYPMC_MPI_NPROC=1
 
@@ -54,21 +52,23 @@ script:
        make install2;
        make check2;
        make check2mpi;
+       exit 0;
     fi
     dpkg --compare-versions ${TRAVIS_PYTHON_VERSION} "gt" "3.5"
     if [[ $? -eq "0" ]]; then
        export NOSETESTS3=nosetests;
        make install3;
        make check3;
-       if [[ -z $BUILDWHEELS ]]; then
-           make check3mpi;
-       fi
+       make check3mpi;
+       exit 0;
     fi
 
 jobs:
   include:
     - stage: deploy
       env:
+        # TODO remove. Just to test if deploying wheels works
+        - TRAVIS_TAG=1
         # Note: TWINE_PASSWORD is set in Travis settings
         - TWINE_USERNAME=pypmc-travis
         # numpy not supported anymore on python3.3
