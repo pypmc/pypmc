@@ -59,4 +59,8 @@ In a ``conda`` environment, you achieve the same with::
   conda install cython numpy scipy
   conda install matplotlib mpi4py nose
 
+To be able to build the documentation, do
+
+  conda install sphinx
+
 To facilitate the handling, a ``Makefile`` has useful targets for building, testing, etc.
