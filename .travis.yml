@@ -68,7 +68,15 @@ script:
 
 jobs:
   include:
-    - stage: deploy
+    - stage: doc
+      script:
+        - |
+          make doc;
+          if [[ $TRAVIS_TAG ]]; then
+            pip install doctr;
+            doctr deploy . --built-docs doc/_build/;
+          fi
+    - stage: deploy_wheels
       env:
         # Note: TWINE_PASSWORD is set in Travis settings
         - TWINE_USERNAME=pypmc-travis
