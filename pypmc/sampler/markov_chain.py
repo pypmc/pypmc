@@ -95,7 +95,7 @@ class MarkovChain(object):
         if self.target_values is not None:
             self.target_values.clear()
 
-    def run(self, N=1):
+    def run(self, N=1, continue_on_NaN=False):
         '''Run the chain and store the history of visited points into
         the member variable ``self.samples``. Returns the number of
         accepted points during the run.
@@ -107,6 +107,12 @@ class MarkovChain(object):
 
             An int which defines the number of steps to run the chain.
 
+        :param continue_on_NaN:
+
+            A boolean flag defining the behavior when encountering an NaN in
+            the user-supplied target density for a proposed point.
+            Default: ``False`` (-> raise ``ValueError``). If ``True``, reject
+            the proposed point and continue.
         '''
         if N == 0:
             return 0
@@ -132,27 +138,21 @@ class MarkovChain(object):
             log_rho = get_log_rho(proposed_point, proposed_eval)
 
             # check for NaN
-            if _np.isnan(log_rho): raise ValueError('encountered NaN')
-
-            # accept if rho = 1
-            if log_rho >=0:
-                accept_count += 1
-                this_run[i_N]            = proposed_point
-                self.current_point       = proposed_point
-                self.current_target_eval = proposed_eval
-
-            # accept with probability rho
-            elif log_rho >= _np.log(self.rng.rand()):
-                accept_count += 1
-                this_run[i_N]            = proposed_point
-                self.current_point       = proposed_point
-                self.current_target_eval = proposed_eval
-
-            # reject if not accepted
-            else:
+            if _np.isnan(log_rho):
+                if not continue_on_NaN: raise ValueError('encountered NaN')
+                # otherwise reject
                 this_run[i_N] = self.current_point
-                #do not need to update self.current
-                #self.current = self.current
+            else:
+                # accept if rho >= 1 or with with probability rho (if rho < 1)
+                if log_rho >=0 or log_rho >= _np.log(self.rng.rand()) :
+                    accept_count += 1
+                    this_run[i_N]            = proposed_point
+                    self.current_point       = proposed_point
+                    self.current_target_eval = proposed_eval
+
+                # reject if not accepted
+                else:
+                    this_run[i_N] = self.current_point
 
             # save target value if desired
             if self.target_values is not None:
@@ -206,10 +206,10 @@ class AdaptiveMarkovChain(MarkovChain):
         self.unscaled_sigma = self.proposal.sigma / self.covar_scale_factor
 
     @_inherit_docstring(MarkovChain)
-    def run(self, N=1):
+    def run(self, N=1, continue_on_NaN=False):
         if N == 0:
             return 0
-        self._last_accept_count = super(AdaptiveMarkovChain, self).run(N)
+        self._last_accept_count = super(AdaptiveMarkovChain, self).run(N, continue_on_NaN)
         return self._last_accept_count
 
     def set_adapt_params(self, *args, **kwargs):
