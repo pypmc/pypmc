@@ -1,3 +1,5 @@
 include ez_setup.py
 include README.md
 include LICENSE
+include */*/*.pyx
+include */*/*.pxd
