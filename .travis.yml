@@ -10,6 +10,8 @@ python:
   - 3.6
   - 2.7
   - 3.7
+  - 3.8
+  - 3.9
 
 # OSX and python not supported on travis
 # https://github.com/travis-ci/travis-ci/issues/2312
@@ -62,6 +64,7 @@ script:
        make install3;
        make check3;
        make check3mpi;
+       make install-sdist3
        exit 0;
     else
        exit 1;

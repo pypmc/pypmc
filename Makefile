@@ -4,6 +4,7 @@
 NOSETESTS2 ?= nosetests-2.7
 NOSETESTS3 ?= nosetests3
 PYPMC_MPI_NPROC ?= 2
+TEST_INSTALL_DIR ?= /tmp/pypmc-test-install
 
 .DEFAULT_GOAL=build
 .PHONY .SILENT : help
@@ -85,6 +86,8 @@ clean:
 	# remove dist/
 	rm -rf dist
 
+	rm -rf $(TEST_INSTALL_DIR)
+
 .PHONY : build
 build : build2 build3
 
@@ -161,7 +164,7 @@ run-examples : build
 
 .PHONY : sdist
 sdist :
-	python setup.py sdist
+	python3 setup.py sdist
 
 .PHONY : build-sdist
 build-sdist : build-sdist2 build-sdist3
@@ -177,6 +180,14 @@ build-sdist2 : ./dist/pypmc*/NUL
 build-sdist3 : ./dist/pypmc*/NUL
 	cd dist/pypmc* && python3 setup.py build
 
+.PHONY: clean-test-install
+clean-test-install:
+	rm -rf $(TEST_INSTALL_DIR)
+
+.PHONY: install-sdist3
+install-sdist3: sdist clean-test-install
+	pip3 install --target $(TEST_INSTALL_DIR) dist/pypmc-*.tar.gz
+
 .PHONY : check-sdist
 check-sdist : check-sdist2 check-sdist3
 
@@ -187,7 +198,7 @@ check-sdist2 : build-sdist2
 	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
 
 .PHONY : check-sdist3
-check-sdist3 : build-sdist3
+check-sdist3 : build-sdist3 install-sdist3
 	cd dist/*/build/lib*3.* && \
 	$(NOSETESTS3) --processes=-1 --process-timeout=60 && \
 	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
