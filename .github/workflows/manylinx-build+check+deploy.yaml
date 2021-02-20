@@ -1,0 +1,100 @@
+on:
+    push:
+        branches: [ master, testing ]
+
+    pull_request:
+
+name: Build/Check/Deploy to PyPI
+
+jobs:
+    pypi:
+        name: Build on manylinux2014
+        runs-on: ubuntu-18.04
+        strategy:
+            matrix:
+                cfg:
+                    - { python: /opt/python/cp36-cp36m }
+                    - { python: /opt/python/cp37-cp37m }
+                    - { python: /opt/python/cp38-cp38  }
+        container:
+            image: quay.io/pypa/manylinux2014_x86_64:latest
+        steps:
+            - name: Checkout git repository
+              uses: actions/checkout@v2
+              with:
+                path: _src/
+
+            - name: Fetch tags
+              shell: bash
+              run: |
+                pushd _src
+                git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+                popd
+
+            - name: Prepare VM
+              env:
+                PYTHON: ${{ matrix.cfg.python }}/bin/python3
+              shell: bash
+              run: |
+                export PATH="${{ matrix.cfg.python }}/bin:/usr/lib64/openmpi/bin/:${PATH}"
+                yum install -y openmpi-devel
+                $PYTHON -m pip install cython cibuildwheel matplotlib mpi4py nose numpy scipy sphinx twine
+                mkdir -p ~/.config/matplotlib
+                cp _src/doc/matplotlibrc ~/.config/matplotlib
+
+            - name: Build and install and run tests
+              env:
+                PYTHON:         ${{ matrix.cfg.python }}/bin/python3
+                PYPMC_MPI_NPROC: 1
+              shell: bash
+              run: |
+                export PATH="${{ matrix.cfg.python }}/bin:/usr/lib64/openmpi/bin/:${PATH}"
+                pushd _src
+                export NOSETESTS3=nosetests
+                export PYPMC_MPI_ARGS=--allow-run-as-root
+                make install3
+                make check3
+                make check3mpi
+                popd
+
+            - name: Build and deploy documentation
+              env:
+                PYTHON:         ${{ matrix.cfg.python }}/bin/python3
+                PYPMC_MPI_NPROC: 1
+                PYPMC_ACCESS_TOKEN: "${{ secrets.PYPMC_ACCESS_TOKEN }}"
+              shell: bash
+              run: |
+                export PATH="${{ matrix.cfg.python }}/bin:${PATH}"
+                pushd _src
+                make doc
+                [[ -n ${GITHUB_ACCESS_TOKEN} ]] || exit 0
+                mkdir _doc
+                git clone -o gh "https://pypmc:${PYPMC_ACCESS_TOKEN}@github.com/pypmc/pypmc.github.io" _doc
+                mv -r doc/_build/html/* _doc/
+                pushd _doc
+                git config user.email ""
+                git config user.name  "PyPMC"
+                git add --all
+                git commit --allow-empty -m "Updating documentation based on PyPMC revision ${{ github.sha }}"
+                git push
+                popd
+                popd
+
+            - name: Build wheel
+              env:
+                PYTHON:         ${{ matrix.cfg.python }}/bin/python3
+                TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
+                TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+              shell: bash
+              run: |
+                pushd _src
+                $PYTHON setup.py bdist_wheel
+                # check if this is not a tagged commit, and exit immediatly if true.
+                if ! git describe --abbrev=0 --tags --exact-match HEAD &> /dev/null ; then exit 0 ; fi
+                $PYTHON -m twine upload dist/*.whl
+
+            - name: Upload wheel as artifact
+              uses: actions/upload-artifact@v1
+              with:
+                name: pypmc-source-manylinux2014-${{ matrix.cfg.pysuffix }}-${{ github.sha }}
+                path: _src/dist/
