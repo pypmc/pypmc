@@ -283,7 +283,7 @@ def combine_weights(samples, weights, proposals):
             "Dimension of samples[0] (%i) does not match the dimension of samples[%i] (%i)" \
             % (dim, i, samples[i].shape[-1])
         N[i] = len(samples[i])
-        N_total += N[i]
+        N_total += int(N[i])
 
         weights[i] = _np.asarray(weights[i])
         assert N[i] == len(weights[i]), \
