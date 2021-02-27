@@ -113,7 +113,7 @@ check2 : build2
 .PHONY : check2mpi
 check2mpi : build2
 	@# run tests in parallel
-	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
+	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
 
 .PHONY : check3
 check3 : build3
@@ -123,7 +123,7 @@ check3 : build3
 .PHONY : check3mpi
 check3mpi : build3
 	@# run tests in parallel
-	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
+	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
 
 .PHONY : check-fast
 check-fast : build
@@ -155,9 +155,9 @@ run-examples : build
 			if grep -Fq 'mpi4py' $${file} ; then \
 		echo "$${file}" is mpi parallelized && \
 		echo running $${file} in parallel with python2 && \
-		mpirun -n 2 python2 $${file} || exit 1 && \
+		mpirun $(PYPMC_MPI_ARGS) -n 2 python2 $${file} || exit 1 && \
 		echo running $${file} in parallel with python3 && \
-		mpirun -n 2 python3 $${file} || exit 1  ; \
+		mpirun $(PYPMC_MPI_ARGS) -n 2 python3 $${file} || exit 1  ; \
 			fi \
 	; \
 	done
@@ -195,13 +195,13 @@ check-sdist : check-sdist2 check-sdist3
 check-sdist2 : build-sdist2
 	cd dist/*/build/lib*2.7 && \
 	$(NOSETESTS2) --processes=-1 --process-timeout=60 && \
-	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
+	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(NOSETESTS2)
 
 .PHONY : check-sdist3
 check-sdist3 : build-sdist3 install-sdist3
 	cd dist/*/build/lib*3.* && \
 	$(NOSETESTS3) --processes=-1 --process-timeout=60 && \
-	mpirun -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
+	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
 
 .PHONY : distcheck
 distcheck : check check-sdist doc
