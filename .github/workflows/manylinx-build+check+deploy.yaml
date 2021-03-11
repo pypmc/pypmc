@@ -38,7 +38,7 @@ jobs:
               run: |
                 export PATH="${{ matrix.cfg.python }}/bin:/usr/lib64/openmpi/bin/:${PATH}"
                 yum install -y openmpi-devel
-                $PYTHON -m pip install cython cibuildwheel matplotlib mpi4py nose numpy scipy sphinx twine
+                $PYTHON -m pip install cython cibuildwheel matplotlib mpi4py nose numpy scipy sphinx sphinx_rtd_theme twine
                 mkdir -p ~/.config/matplotlib
                 cp _src/doc/matplotlibrc ~/.config/matplotlib
 
