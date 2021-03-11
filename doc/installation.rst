@@ -45,7 +45,7 @@ Developer notes
 ---------------
 
 If you want to build the latest version from `source
-<https://github.com/fredRos/pypmc/>`_, you need install the dependencies
+<https://github.com/pypmc/pypmc/>`_, you need install the dependencies
 yourself.
 
 On a debian-based system such as ubuntu >= 16.04, you can install all required
