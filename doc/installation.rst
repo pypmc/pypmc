@@ -1,7 +1,7 @@
 Installation
 ------------
 
-pypmc is developed and tested for both python 2.7 and 3.x.
+pypmc is developed and tested for python 3.6 and higher.
 
 pypmc depends only on a few standard modules:
 
