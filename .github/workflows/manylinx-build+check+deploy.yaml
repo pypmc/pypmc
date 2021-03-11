@@ -50,11 +50,10 @@ jobs:
               run: |
                 export PATH="${{ matrix.cfg.python }}/bin:/usr/lib64/openmpi/bin/:${PATH}"
                 pushd _src
-                export NOSETESTS3=nosetests
+                export NOSETESTS=nosetests
                 export PYPMC_MPI_ARGS=--allow-run-as-root
-                make install3
-                make check3
-                make check3mpi
+                make install
+                make check
                 popd
 
             - name: Build and deploy documentation

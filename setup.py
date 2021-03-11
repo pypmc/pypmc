@@ -1,9 +1,3 @@
-from __future__ import print_function
-
-# bootstrap: download setuptools 3.3 if needed
-from ez_setup import use_setuptools
-use_setuptools()
-
 from setuptools import setup, find_packages, Extension
 import os
 import sys
