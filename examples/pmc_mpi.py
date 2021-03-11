@@ -6,7 +6,6 @@ In order to have a multiprocessing enviroment invoke this script with
 
 '''
 
-from __future__ import print_function
 
 from mpi4py.MPI import COMM_WORLD as comm
 

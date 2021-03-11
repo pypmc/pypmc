@@ -10,7 +10,6 @@ from data using variational Bayes.
 ## 4. Plot the original and the generated mixture
 
 
-from __future__ import print_function
 import numpy as np
 import pypmc
 

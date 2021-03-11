@@ -4,7 +4,6 @@ mixture with a reduced number of components.
 
 '''
 
-from __future__ import print_function
 import numpy as np
 from scipy.stats import chi2
 import pypmc
