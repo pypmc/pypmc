@@ -1,5 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/pypmc.svg)](https://badge.fury.io/py/pypmc)
-[![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc) [![Build Status](https://travis-ci.org/fredRos/pypmc.svg?branch=master)](https://travis-ci.org/fredRos/pypmc)
+[![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc)
+[![Build/Check/Deploy to PyPI](https://github.com/pypmc/pypmc/actions/workflows/manylinx-build+check+deploy.yaml/badge.svg)](https://github.com/pypmc/pypmc/actions/workflows/manylinx-build+check+deploy.yaml)
 
 pypmc
 =====
@@ -28,7 +29,7 @@ Installation
 ------------
 
 Instructions are
-maintained [here](http://fredros.github.io/pypmc/html/installation.html).
+maintained [here](http://pypmc.github.io/installation.html).
 
 Getting started
 ---------------
@@ -36,14 +37,14 @@ Getting started
 Fully documented examples are shipped in the ``examples`` subdirectory
 of the source distribution or available online including sample
 output
-[here](http://fredros.github.io/pypmc/html/examples.html). Feel
+[here](http://pypmc.github.io/examples.html). Feel
 free to save and modify them according to your needs.
 
 Documentation
 -------------
 
 The full documentation with a manual and api description is available at
-[here](http://fredros.github.io/pypmc/html/).
+[here](http://pypmc.github.io/).
 
 Credits
 -------
@@ -54,3 +55,5 @@ at the Excellence Cluster Universe, Garching, Germany, in 2014.
 
 If you use ``pypmc`` in academic work, we kindly ask you to cite the
 respective release as indicated by the zenodo DOI above. Thanks!
+
+Day to day maintenance is assisted by Danny van Dyk.
