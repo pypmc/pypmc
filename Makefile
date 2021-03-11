@@ -5,6 +5,7 @@ NOSETESTS2 ?= nosetests-2.7
 NOSETESTS3 ?= nosetests3
 PYPMC_MPI_NPROC ?= 2
 TEST_INSTALL_DIR ?= /tmp/pypmc-test-install
+PYTHON ?= python3
 
 .DEFAULT_GOAL=build
 .PHONY .SILENT : help
@@ -132,7 +133,7 @@ check-fast : build
 
 .PHONY : .build-system-default
 .build-system-default :
-	python setup.py build_ext --inplace
+	$(PYTHON) setup.py build_ext --inplace
 
 .PHONY : doc
 doc : .build-system-default
