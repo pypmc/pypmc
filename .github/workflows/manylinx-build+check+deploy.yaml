@@ -79,7 +79,7 @@ jobs:
                 popd
                 popd
 
-            - name: Build wheel
+            - name: Build distributions and deploy to PyPI
               env:
                 PYTHON:         ${{ matrix.cfg.python }}/bin/python3
                 TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
@@ -87,12 +87,13 @@ jobs:
               shell: bash
               run: |
                 pushd _src
-                $PYTHON setup.py bdist_wheel
+                $PYTHON setup.py sdist bdist_wheel
                 # check if this is not a tagged commit, and exit immediatly if true.
                 if ! git describe --abbrev=0 --tags --exact-match HEAD &> /dev/null ; then exit 0 ; fi
-                $PYTHON -m twine upload dist/*.whl
+                # upload source distributions and wheels
+                $PYTHON -m twine upload dist/*
 
-            - name: Upload wheel as artifact
+            - name: Upload distributions as artifact
               uses: actions/upload-artifact@v1
               with:
                 name: pypmc-source-manylinux2014-${{ matrix.cfg.pysuffix }}-${{ github.sha }}
