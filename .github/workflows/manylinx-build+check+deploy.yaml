@@ -13,9 +13,9 @@ jobs:
         strategy:
             matrix:
                 cfg:
-                    - { python: /opt/python/cp36-cp36m }
-                    - { python: /opt/python/cp37-cp37m }
-                    - { python: /opt/python/cp38-cp38  }
+                    - { python: '/opt/python/cp36-cp36m', deploydoc: 'yes'}
+                    - { python: '/opt/python/cp37-cp37m', deploydoc: 'no' }
+                    - { python: '/opt/python/cp38-cp38',  deploydoc: 'no' }
         container:
             image: quay.io/pypa/manylinux2014_x86_64:latest
         steps:
@@ -61,18 +61,26 @@ jobs:
                 PYTHON:         ${{ matrix.cfg.python }}/bin/python3
                 PYPMC_MPI_NPROC: 1
                 PYPMC_ACCESS_TOKEN: "${{ secrets.PYPMC_ACCESS_TOKEN }}"
+                PYPMC_DEPLOY_DOC: "${{ matrix.cfg.deploydoc }}"
               shell: bash
               run: |
                 export PATH="${{ matrix.cfg.python }}/bin:${PATH}"
                 pushd _src
                 make doc
-                [[ -n ${GITHUB_ACCESS_TOKEN} ]] || exit 0
+                if ! [[ ${PYPMC_DEPLOY_DOC} == "yes" ]] ; then
+                    echo "Skipping documentation deployment due to configuration"
+                    exit 0
+                fi
+                if [[ -z ${PYPMC_ACCESS_TOKEN} ]] ; then
+                    echo "Skipping documentation deployment due to missing access token"
+                    exit 0
+                fi
                 mkdir _doc
                 git clone -o gh "https://pypmc:${PYPMC_ACCESS_TOKEN}@github.com/pypmc/pypmc.github.io" _doc
-                mv -r doc/_build/html/* _doc/
+                cp -a doc/_build/html/* _doc/
                 pushd _doc
                 git config user.email ""
-                git config user.name  "PyPMC"
+                git config user.name  "GitHub Actions"
                 git add --all
                 git commit --allow-empty -m "Updating documentation based on PyPMC revision ${{ github.sha }}"
                 git push
