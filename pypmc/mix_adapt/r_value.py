@@ -2,7 +2,6 @@
 
 '''
 
-from __future__ import division as _div
 import numpy as _np
 from ..tools._doc import _add_to_docstring
 from ..tools import partition as _part

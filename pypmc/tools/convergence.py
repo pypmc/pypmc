@@ -1,7 +1,6 @@
 '''Provide functions to rate the quality of weighted samples.
 
 '''
-from __future__ import division as _div
 import numpy as _np
 
 def perp(weights):

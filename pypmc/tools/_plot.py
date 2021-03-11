@@ -1,5 +1,3 @@
-from __future__ import division
-
 _max_color = 0.9
 
 def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),

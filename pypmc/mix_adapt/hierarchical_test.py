@@ -1,7 +1,6 @@
 """Unit tests for the hierarchical clustering.
 
 """
-from __future__ import division
 from .hierarchical import *
 from ..density.gauss import Gauss
 from ..density.mixture import MixtureDensity
