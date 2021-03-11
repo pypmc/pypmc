@@ -1,7 +1,6 @@
 """Unit tests for Variational Bayes.
 
 """
-from __future__ import print_function
 from .variational import *
 from ..density.gauss import Gauss
 from ..density.student_t import StudentT

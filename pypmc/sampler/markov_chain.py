@@ -1,6 +1,6 @@
 """Collect Markov Chain"""
 
-from __future__ import division as _div, print_function as _print
+from __future__ import division as _div
 from copy import deepcopy as _cp
 import numpy as _np
 from ..tools import History as _History
