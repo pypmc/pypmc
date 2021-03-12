@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest',
               'sphinx.ext.todo', 'sphinx.ext.coverage',
-              'sphinx.ext.viewcode', 'sphinx.ext.mathjax',
+              'sphinx.ext.viewcode',
               'matplotlib.sphinxext.plot_directive']
 
 # Add any paths that contain templates here, relative to this directory.
@@ -183,11 +183,23 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'pypmcdoc'
 
-# mathjax doesn't support preambles
-pngmath_latex_preamble = r"""
+# mathjax does now support TeX macro definitions.
+# we use the old preamble as a private variable later on:
+_pngmath_latex_preamble = r"""
 \newcommand{\vecgamma}{\vec{\gamma}}
 \newcommand{\vecth}{\vec{\theta}}
 """
+# new version
+mathjax_config = {
+    'extensions': ['tex2jax.js'],
+    'jax': ['input/TeX', 'output/HTML-CSS'],
+    'TeX': {
+        'Macros': {
+            'vecgamma': '{\\vec \\gamma}',
+            'vecth':    '{\\vec \\theta}',
+        }
+    }
+}
 
 # -- Options for LaTeX output --------------------------------------------------
 
@@ -201,7 +213,7 @@ latex_elements = {
 # reuse LaTeX preamble from html for pdf
 'preamble':
     r'\usepackage{mathpazo}' + '\n' +
-    pngmath_latex_preamble,
+    _pngmath_latex_preamble,
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
