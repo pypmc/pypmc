@@ -13,9 +13,9 @@ jobs:
         strategy:
             matrix:
                 cfg:
-                    - { python: '/opt/python/cp36-cp36m', deploydoc: 'yes'}
-                    - { python: '/opt/python/cp37-cp37m', deploydoc: 'no' }
-                    - { python: '/opt/python/cp38-cp38',  deploydoc: 'no' }
+                    - { python: '/opt/python/cp36-cp36m', deploydoc: 'yes', deployextra: 'sdist' }
+                    - { python: '/opt/python/cp37-cp37m', deploydoc: 'no',  deployextra: ''      }
+                    - { python: '/opt/python/cp38-cp38',  deploydoc: 'no',  deployextra: ''      }
         container:
             image: quay.io/pypa/manylinux2014_x86_64:latest
         steps:
@@ -92,14 +92,16 @@ jobs:
                 PYTHON:         ${{ matrix.cfg.python }}/bin/python3
                 TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
                 TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+                PYPMC_DEPLOY_EXTRA: "${{ matrix.cfg.deployextra }}"
               shell: bash
               run: |
                 pushd _src
-                $PYTHON setup.py sdist bdist_wheel
+                $PYTHON setup.py bdist_wheel ${PYPMC_DEPLOY_EXTRA}
                 # check if this is not a tagged commit, and exit immediatly if true.
                 if ! git describe --abbrev=0 --tags --exact-match HEAD &> /dev/null ; then exit 0 ; fi
                 # upload source distributions and wheels
                 $PYTHON -m twine upload dist/*
+                popd
 
             - name: Upload distributions as artifact
               uses: actions/upload-artifact@v1
