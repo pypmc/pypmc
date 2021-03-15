@@ -7,7 +7,7 @@ is to approximate the integral of :math:`P` as
 
 .. math::
    \int \mbox{d} x \, P(x) = \int \mbox{d} x \, q(x) \frac{P(x)}{q(x)}
-   \approx \frac{1}{N} \sum_{i=1}{N} \frac{P(x_i)}{q(x_i)}
+   \approx \frac{1}{N} \sum_{i=1}^{N} \frac{P(x_i)}{q(x_i)}
 
 where each :math:`x` is a :math:`D`-dimensional vector drawn
 independently from :math:`q`. The :math:`i`-th importance weight is
