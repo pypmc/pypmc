@@ -13,9 +13,9 @@ jobs:
         strategy:
             matrix:
                 cfg:
-                    - { python: '/opt/python/cp36-cp36m', deploydoc: 'yes', deployextra: 'sdist' }
-                    - { python: '/opt/python/cp37-cp37m', deploydoc: 'no',  deployextra: ''      }
-                    - { python: '/opt/python/cp38-cp38',  deploydoc: 'no',  deployextra: ''      }
+                    - { python: '/opt/python/cp36-cp36m', pyver: '3.6', deploydoc: 'yes', deployextra: 'sdist' }
+                    - { python: '/opt/python/cp37-cp37m', pyver: '3.7', deploydoc: 'no',  deployextra: ''      }
+                    - { python: '/opt/python/cp38-cp38',  pyver: '3.8', deploydoc: 'no',  deployextra: ''      }
         container:
             image: quay.io/pypa/manylinux2014_x86_64:latest
         steps:
@@ -106,5 +106,5 @@ jobs:
             - name: Upload distributions as artifact
               uses: actions/upload-artifact@v1
               with:
-                name: pypmc-source-manylinux2014-${{ matrix.cfg.pysuffix }}-${{ github.sha }}
+                name: pypmc-dists-manylinux2014-${{ matrix.cfg.pyver }}-${{ github.sha }}
                 path: _src/dist/
