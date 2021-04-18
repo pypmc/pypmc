@@ -46,7 +46,7 @@ def setup_package():
         packages=find_packages(),
         version=__version__,
         author='Frederik Beaujean, Stephan Jahn',
-        author_email='beaujean@mpp.mpg.de, stephan.jahn@mytum.de',
+        author_email='beaujean@pm.me, stephan.jahn@mytum.de',
         url='https://github.com/pypmc/pypmc',
         description='A toolkit for adaptive importance sampling featuring implementations of variational Bayes, population Monte Carlo, and Markov chains.',
         long_description=long_description,
