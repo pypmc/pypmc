@@ -91,8 +91,8 @@ jobs:
             - name: Build distributions and deploy to PyPI
               env:
                 PYTHON:         ${{ matrix.cfg.python }}/bin/python3
-                TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
-                TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+                TWINE_USERNAME: ${{ secrets.PYPI_USER     }}
+                TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
                 PYPMC_DEPLOY_EXTRA: "${{ matrix.cfg.deployextra }}"
               shell: bash
               run: |
