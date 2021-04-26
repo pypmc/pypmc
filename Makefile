@@ -72,7 +72,7 @@ clean:
 	# remove egg info
 	rm -rf pypmc.egg-info
 
-	# remove downloaded seutptools
+	# remove downloaded setuptools
 	rm -f setuptools-3.3.zip
 
 	# remove dist/

@@ -1,7 +1,7 @@
 Overview
 ========
 
-Let :math:`P` denote the target target density, and let :math:`q`
+Let :math:`P` denote the target density, and let :math:`q`
 equal the proposal density. Then the basic idea of importance sampling
 is to approximate the integral of :math:`P` as
 
@@ -20,7 +20,7 @@ The most accurate estimate is obtained for :math:`q=P`, so the goal is
 make :math:`q` as close as possible to :math:`P`.
 
 In pypmc, we choose :math:`q` to be a mixture density composed of
-either Gaussian or student's t components :math:`q_j`
+either Gaussian or Student's t components :math:`q_j`
 
 .. math::
    q(x) = \sum_j \alpha_j q_j(x), \: \sum_j \alpha_j = 1 \,.
@@ -34,7 +34,7 @@ general method to automatically determine the bulk of the target is to
 run multiple Markov chains, and to use clustering to extract a mixture
 density from the samples [BC13]_. We provide a generic implementation
 of adaptive local-random-walk MCMC [HST01]_ featuring Gauss and
-student's t local proposals. MCMC can be used standalone and is
+Student's t local proposals. MCMC can be used standalone and is
 usually all one needs for a unimodal distribution if the evidence is
 not of interest. For the clustering, we offer several options. At the
 level of individual samples, we have
@@ -63,10 +63,10 @@ PMC
 ---
 
 Based on the original proposal by Cappé et al. [Cap+08]_, we offer
-updates for a mixture of Gaussian or student's t components. Important
+updates for a mixture of Gaussian or Student's t components. Important
 improvements are:
 
-* The option to adapt the student's t degree of freedom - individually
+* The option to adapt the Student's t degree of freedom - individually
   for each component - as in [HOD12]_. That's one less parameter that
   the user has to guess.
 * The power to combine the proposals of subsequent steps
@@ -90,7 +90,7 @@ Performance
 
 Importance sampling naturally lends itself to massive parallelization
 because once the samples are drawn from the proposal, the computation
-of N importance weights requires N independent calls to the target
+of :math:`N` importance weights requires :math:`N` independent calls to the target
 density. Even for moderately complicated problems, these calls are
 typically the most expensive part of the calculation. With pypmc, the
 importance weights can optionally be computed in multiple processes on
@@ -101,6 +101,6 @@ The second major contribution to overall computing time is the update
 algorithm itself. We profiled the program and transferred the relevant
 loops from python to compiled C code via cython.
 
-The code is designed such that it does not get into the users way;
+The code is designed such that it does not get into the user's way;
 full control over how individual components interact is a major design
 goal.
