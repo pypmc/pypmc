@@ -15,7 +15,7 @@ where each component :math:`q_j` is either a `Gaussian
 .. math::
    q_j(x) = \mathcal{N}(x | \mu_j, \Sigma_j)
 
-or a `student's t <https://en.wikipedia.org/wiki/Student%27s_t-distribution>`_ distribution
+or a `Student's t <https://en.wikipedia.org/wiki/Student%27s_t-distribution>`_ distribution
 
 .. math::
    q_j(x) = \mathcal{T}(x | \mu_j, \Sigma_j, \nu) \,.
@@ -28,7 +28,7 @@ freedom :math:`\nu_j` for :math:`j=1 \dots K`.
 Component density
 ~~~~~~~~~~~~~~~~~
 
-The two densities --- Gauss and student's t --- supported by pypmc
+The two densities --- Gauss and Student's t --- supported by pypmc
 come in two variants whose methods have identical names but differ in
 their arguments. The standard classes are
 :class:`~pypmc.density.gauss.Gauss` and
@@ -65,7 +65,7 @@ Mixture densities are represented by
 :class:`~pypmc.density.mixture.MixtureDensity`. One can create a
 mixture density from a list of arbitrary component densities and
 weights. However, usually all one needs are the convenience shortcuts
-to create mixtures of Gaussians and student's from means and
+to create mixtures of Gaussians and Student's from means and
 covariances. For example, for two components with weight 60% and 40%::
 
   from pypmc.density.mixture import create_gaussian_mixture, create_t_mixture
@@ -102,15 +102,18 @@ discussed below. It is defined as
    0, {\rm else}
    \end{cases}
 
-The :mod:`~pypmc.tools.indicator` module has provides indicator
+The :mod:`~pypmc.tools.indicator` module provides indicator
 functions for a :func:`~pypmc.tools.indicator.ball` and a
 :func:`~pypmc.tools.indicator.hyperrectangle` in :math:`D` dimensions.
 The indicator function can be merged with the (unbounded) target
-density such that the the wrapper calls the target density only if the
+density such that the wrapper calls the target density only if the
 parameter vector is in V and returns :math:`\log(0)= -\infty` otherwise::
 
     from pypmc.tools.indicator import \
          merge_function_with_indicator
+
+    def target_density(x):
+        # define unbounded density on log scale
 
     # define indicator
     ind_lower = [p.range_min for p in priors]
@@ -118,7 +121,7 @@ parameter vector is in V and returns :math:`\log(0)= -\infty` otherwise::
     ind = pypmc.tools.indicator.hyperrectangle(ind_lower, ind_upper)
 
     # merge with indicator
-    log_target = merge_function_with_indicator(ana, ind, -np.inf)
+    log_target = merge_function_with_indicator(target_density, ind, -np.inf)
 
 Markov chain
 ------------
@@ -127,10 +130,14 @@ Initialization
 ~~~~~~~~~~~~~~
 
 We provide a generic implementation of adaptive local-random-walk MCMC
-[HST01]_ featuring Gauss and student's t local proposals. To create a
-:class:`~pypmc.sampler.markov_chain.MarkovChain`, one needs to be able to evaluate the target
-density on the log scale, and then a local proposal density, and a valid
-initial point::
+[HST01]_ featuring Gauss and Student's t local proposals. To create a
+:class:`~pypmc.sampler.markov_chain.MarkovChain`, one needs three ingredients:
+
+1. Evaluate the target density on the log scale.
+2. A local proposal density.
+3. A valid initial point.
+
+For example::
 
   import pypmc.density.student_t.LocalStudentT
   import pypmc.sampler.markov_chain.AdaptiveMarkovChain
@@ -147,12 +154,12 @@ initial point::
 The initial proposal covariance should be chosen similar to the
 target's covariance, but scaled to yield an acceptance rate in the
 range of 20%. For a Gaussian target and a Gaussian proposal in
-:math:`D` dimensions, the scaling should be :math:`2.38^2/D`
+:math:`D` dimensions, the scaling should be :math:`2.38^2/D`.
 
 In order to constrain the support of the target in a simple way, one
 can pass an :class:`~pypmc.tools.indicator` function to the
 constructor using the keyword argument ``ind=indicator``. Then any
-proposed point is first checked to lie in the support; i.e.,
+proposed point is first checked to lie in the support; i.e., if
 ``indicator(x) == True``. Only then is the target density called. This
 leads to significant speed-ups if the mass of the target density is
 close to a boundary, and its evaluation is slow.
@@ -282,7 +289,7 @@ values taken over the unknown target distribution are approximated by
 importance sampling using samples from the proposal mixture; the set
 of samples is the *population*. The algorithm is a form of expectation
 maximization (EM) and yields the optimal values of the parameters of a
-Gaussian or student's t mixture density. The crucial task (more on
+Gaussian or Student's t mixture density. The crucial task (more on
 this below) is to supply a good initial proposal.
 
 Basic approach
@@ -334,7 +341,7 @@ The keyword ``copy=False`` allows ``gaussian_pmc`` to update the
 Student's t
 ~~~~~~~~~~~
 
-A student's t distribution should be preferred over a Gaussian mixture
+A Student's t distribution should be preferred over a Gaussian mixture
 if one suspects long tails in the target density. In the original
 proposal by Cappé et al. [Cap+08]_, the degree of freedom of each
 component, :math:`\nu_k`, had to be set manually, and it was not
@@ -346,15 +353,15 @@ The function :func:`~pypmc.mix_adapt.pmc.student_t_pmc` is invoked
 just like its Gaussian counterpart, but has three extra arguments to
 limit the number of steps of the numerical solver
 (``dof_solver_steps``), and to pass the allowed range of values of
-:math:`\nu_k` (``mindof, maxdof``). The student's t converges to the
-Gaussian distribution as :math:`\nu_k \to \infty`, but for practical
-purposes, :math:`\nu_k \approx 30` is usually close enough to
-:math:`\infty` and thus provides a sufficient upper bound.
+:math:`\nu_k` (``mindof, maxdof``). The Student's t distribution
+converges to the Gaussian distribution as :math:`\nu_k \to \infty`,
+but for practical purposes, :math:`\nu_k \approx 30` is usually close
+enough to :math:`\infty` and thus provides a sufficient upper bound.
 
 For small problems (few samples/components), the numerical
 solver may add a significant overhead to the overall time of one PMC
 update. But since it adds flexibility, our recommendation is to start
-with and only turn it off (``dof_solver_steps=0``) if the overhead is
+with it and to only turn it off (``dof_solver_steps=0``) if the overhead is
 intolerable.
 
 PMC with multiple EM steps
@@ -374,12 +381,13 @@ A :class:`~pypmc.mix_adapt.pmc.PMC` object handles the convergence
 testing for both Gaussian and Student's t mixtures as follows::
 
     pmc = PMC(samples, prop)
-    pmc.run(verbose=True)
+    pmc.run(iterations=1000, rel_tol=1e-10, abs_tol=1e-5, verbose=True)
 
-The relevant keyword arguments to :class:`~pypmc.mix_adapt.pmc.PMC`
-are passed on to the actual updates done by
+This means a maximum number of 1000 updates is performed but the
+updates are stopped if convergence is reached before that. For
+details, see :meth:`~pypmc.mix_adapt.pmc.PMC.run` that calls
 :func:`~pypmc.mix_adapt.pmc.gaussian_pmc` or
-:func:`~pypmc.mix_adapt.pmc.student_t_pmc`.
+:func:`~pypmc.mix_adapt.pmc.student_t_pmc` to do the heavy lifting.
 
 Variational Bayes
 -----------------
@@ -653,7 +661,8 @@ same interface; please check :ref:`classic-vb`.
 The great advantage compared to hierarchical clustering is that the
 number of output components is chosen automatically. One starts with
 (too) many components, updates, and removes those components with
-vanishing weight using ``prune()``.
+small weight using the ``prune`` argument to
+:py:meth:`pypmc.mix_adapt.variational.GaussianInference.run`.
 
 Putting it all together
 -----------------------
@@ -668,5 +677,5 @@ from a multimodal function:
   #. combine the samples into a mixture density with variational Bayes
   #. run importance sampling
   #. rerun variational Bayes on importance samples
-  #. repeat importance with improved proposal
+  #. repeat importance sampling with improved proposal
   #. combine samples with the deterministic-mixture approach

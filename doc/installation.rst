@@ -42,25 +42,40 @@ pypmc source directory due to import mismatches. Just change to any other direct
 and it should work if the installation was successful.
 
 Developer notes
----------------
+````````````````````
 
 If you want to build the latest version from `source
 <https://github.com/pypmc/pypmc/>`_, you need install the dependencies
 yourself.
 
-On a debian-based system such as ubuntu >= 16.04, you can install all required
+To facilitate the handling, the ``Makefile`` in the top-level directory has useful targets for building, testing, doc generation and more::
+
+  make build
+  make check
+  make doc
+  make sdist
+
+Debian or derivative
+''''''''''''''''''''''''
+
+On a debian-based system such as ubuntu >= 20.04, you can install all required
 and optional dependencies from the package manager like this::
 
   sudo apt install cython3 python3-numpy python3-scipy
   sudo apt install python3-matplotlib python3-mpi4py python3-nose
+
+To build the documentation::
+
+  sudo apt install python3-sphinx-rtd-theme
+
+Conda
+'''''''
 
 In a ``conda`` environment, you achieve the same with::
 
   conda install cython numpy scipy
   conda install matplotlib mpi4py nose
 
-To build the documentation, first::
+To build the documentation::
 
-  conda install sphinx
-
-To facilitate the handling, a ``Makefile`` has useful targets for building, testing, etc.
+  conda install sphinx sphinx_rtd_theme
