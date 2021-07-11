@@ -39,7 +39,7 @@ jobs:
               run: |
                 export PATH="${{ matrix.cfg.python }}/bin:/usr/lib64/openmpi/bin/:${PATH}"
                 yum install -y openmpi-devel
-                $PYTHON -m pip install cython cibuildwheel matplotlib mpi4py nose numpy scipy sphinx sphinx_rtd_theme twine
+                $PYTHON -m pip install auditwheel cython cibuildwheel matplotlib mpi4py nose numpy scipy sphinx sphinx_rtd_theme twine
                 mkdir -p ~/.config/matplotlib
                 cp _src/doc/matplotlibrc ~/.config/matplotlib
 
@@ -98,6 +98,8 @@ jobs:
               run: |
                 pushd _src
                 $PYTHON setup.py bdist_wheel ${PYPMC_DEPLOY_EXTRA}
+                auditwheel repair --plat "manylinux2014_x86_64" -w dist dist/*.whl
+                rm -f  dist/*-linux_x86_64.whl dist/*.egg
                 # check if this is not a tagged commit, and exit immediatly if true.
                 if ! git describe --abbrev=0 --tags --exact-match HEAD &> /dev/null ; then exit 0 ; fi
                 # upload source distributions and wheels
