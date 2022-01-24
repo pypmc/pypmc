@@ -315,10 +315,11 @@ class GaussianInference(object):
             .. math::
                 \| L_t - L_{t-1} \| < \epsilon_a .
 
-        :param verbose:
-            Output status information after each update.
-
         '''
+        if verbose:
+            from pypmc.tools.util import depr_warn_verbose
+            depr_warn_verbose( __name__)
+
         old_K = None
         for i in range(1, iterations + 1):
             # recompute bound in 1st step or if components were removed

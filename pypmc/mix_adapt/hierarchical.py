@@ -56,7 +56,7 @@ class Hierarchical(object):
         # the i-th element is :math:`min_j KL(f_i || g_j)`
         self.min_kl = np.zeros(self.nin) + np.inf
 
-    def _cleanup(self, kill, verbose):
+    def _cleanup(self, kill):
         """Look for dead components (weight=0) and remove them
         if enabled by ``kill``.
         Resize storage. Recompute determinant and covariance.
@@ -175,18 +175,18 @@ class Hierarchical(object):
 
              Perform a maximum number of update steps.
 
-        :param verbose:
-
-             Output information on progress of algorithm.
-
         """
+        if verbose:
+            from pypmc.tools.util import depr_warn_verbose
+            depr_warn_verbose(__name__)
+
         old_distance = np.finfo(np.float64).max
         new_distance = np.finfo(np.float64).max
 
         logger.info('Starting hierarchical clustering with %d components.' % len(self.g.components))
         converged = False
         for step in range(1, max_steps + 1):
-            self._cleanup(kill, verbose)
+            self._cleanup(kill)
             self._regroup()
             self._refit()
 
@@ -211,7 +211,7 @@ class Hierarchical(object):
             # save distance for comparison in next step
             old_distance = new_distance
 
-        self._cleanup(kill, verbose)
+        self._cleanup(kill)
         logger.info('%d components remain.' % len(self.g.components))
 
         if converged:

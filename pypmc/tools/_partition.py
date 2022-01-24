@@ -48,11 +48,11 @@ def patch_data(data, L=100, try_diag=True, verbose=False):
         that fails as well, the patch is skipped.
         If ``False`` the patch is skipped directly.
 
-    :param verbose:
-
-        Bool; If ``True`` print all status information.
-
     '''
+    if verbose:
+        from pypmc.tools.util import depr_warn_verbose
+        depr_warn_verbose(__name__)
+
     # patch data into length L patches
     patches = _np.array([data[patch_start:patch_start + L] for patch_start in range(0, len(data), L)])
 
