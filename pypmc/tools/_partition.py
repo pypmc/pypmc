@@ -6,6 +6,9 @@ import numpy as _np
 from ..density.gauss import Gauss
 from ..density.mixture import MixtureDensity
 
+import logging
+logger = logging.getLogger(__name__)
+
 def partition(N, k):
     '''Distribute ``N`` into ``k`` parts such that each part
     takes the value ``N//k`` or ``N//k + 1`` where ``//`` denotes integer
@@ -65,25 +68,22 @@ def patch_data(data, L=100, try_diag=True, verbose=False):
             this_comp = Gauss(mean, cov)
             components.append(this_comp)
         except _np.linalg.LinAlgError as error1:
-            if verbose:
-                print("Could not form Gauss from patch %i. Reason: %s" % (i, repr(error1)))
+            logger.info("Could not form Gauss from patch %i. Reason: %s" % (i, repr(error1)))
             if try_diag:
                 cov = _np.diag(_np.diag(cov))
                 try:
                     this_comp = Gauss(mean, cov)
                     components.append(this_comp)
-                    if verbose:
-                        print('Diagonal covariance attempt succeeded.')
+                    logger.info('Diagonal covariance attempt succeeded.')
                 except _np.linalg.LinAlgError as error2:
                     skipped.append(i)
-                    if verbose:
-                        print("Diagonal covariance attempt failed. Reason: %s" % repr(error2))
+                    logger.info("Diagonal covariance attempt failed. Reason: %s" % repr(error2))
             else: # if not try_diag
                 skipped.append(i)
 
     # print skipped components if any
     if skipped:
-        print("WARNING: Could not form Gaussians from: %s" % skipped)
+        logger.warning("Could not form Gaussians from: %s" % skipped)
 
     # create and return mixture
     return MixtureDensity(components)

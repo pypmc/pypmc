@@ -18,6 +18,9 @@ cimport numpy as _np
 from libc.math cimport exp, log
 from pypmc.tools._linalg cimport bilinear_sym, chol_inv_det
 
+import logging
+logger = logging.getLogger(__name__)
+
 DTYPE = _np.float64
 ctypedef double DTYPE_t
 
@@ -161,13 +164,13 @@ class GaussianInference(object):
             #      because in that case \frac{\alpha_k - 1}{normalization} > 0
             pi = self.alpha[k] - 1.
             if pi <= 0:
-                print("Skipped component %i because of zero weight" %k)
+                logger.warning("Skipped component %i because of zero weight" %k)
                 skipped.append(k)
                 continue
 
             # Gauss-Wishart mode
             if self.nu[k] <= self.dim:
-                print("WARNING: Gauss-Wishart mode of component %i is not defined" %k)
+                logger.warning("Gauss-Wishart mode of component %i is not defined" %k)
                 skipped.append(k)
                 continue
 
@@ -176,8 +179,7 @@ class GaussianInference(object):
                 cov = chol_inv_det(W)[1]
                 components.append(Gauss(self.m[k], cov))
             except Exception as error:
-                print("ERROR: Could not create component %i." %k)
-                print("The error was:", repr(error) )
+                logger.error("Could not create component %i. The error was: %s" %(k, repr(error)))
                 skipped.append(k)
                 continue
 
@@ -185,7 +187,7 @@ class GaussianInference(object):
             weights.append(pi)
 
         if skipped:
-            print("The following components have been skipped:", skipped)
+            logger.warning("The following components have been skipped:", skipped)
 
         return MixtureDensity(components, weights)
 
@@ -324,17 +326,15 @@ class GaussianInference(object):
                 old_bound = bound
             else:
                 old_bound = self.likelihood_bound()
-                if verbose:
-                    print('New bound=%g, K=%d, N_k=%s' % (old_bound, self.K, self.N_comp))
+                logger.info('New bound=%g, K=%d, N_k=%s' % (old_bound, self.K, self.N_comp))
 
             self.update()
             bound = self.likelihood_bound()
 
-            if verbose:
-                print('After update %d: bound=%.15g, K=%d, N_k=%s' % (i, bound, self.K, self.N_comp))
+            logger.info('After update %d: bound=%.15g, K=%d, N_k=%s' % (i, bound, self.K, self.N_comp))
 
             if bound < old_bound:
-                print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
+                logger.warning('Bound decreased from %g to %g' % (old_bound, bound))
 
              # exact convergence
             if bound == old_bound:

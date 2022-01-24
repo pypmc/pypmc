@@ -17,6 +17,8 @@ from pypmc.tools._linalg cimport bilinear_sym
 from libc.math cimport exp, log
 cimport numpy as _np
 
+import logging
+logger = logging.getLogger(__name__)
 
 cdef _np.ndarray[double, ndim=2] calculate_rho_rb(_np.ndarray[double, ndim=2] samples,
                                                   density, live_components):
@@ -111,7 +113,7 @@ def _prepare_pmc_update(_np.ndarray[double, ndim=2] samples, weights, latent, mi
                 density.weights[k] = 0.
                 # when a component is pruned, the other weights must be renormalized
                 need_renormalize = True
-                print("Component %i died because of too few (%i) samples." %(k, count[k]))
+                logger.warning("Component %i died because of too few (%i) samples." %(k, count[k]))
 
     return density, rho, weight_normalization, live_components, need_renormalize
 
@@ -232,7 +234,7 @@ def gaussian_pmc(_np.ndarray[double, ndim=2] samples not None, density,
         try:
             component.update(mu[k], cov[k])
         except _np.linalg.LinAlgError:
-            print("Could not update component %i --> weight is set to zero." %k)
+            logger.warning("Could not update component %i --> weight is set to zero." %k)
             component.update(old_mu, old_sigma)
             density.weights[k] = 0.
             # when a component is pruned, the other weights must be renormalized
@@ -440,17 +442,15 @@ class PMC(object):
             # recompute bound in 1st step
             else:
                 old_bound = self.log_likelihood()
-                if verbose:
-                    print('New bound=%g, K=%i' % (old_bound,len(self.density)))
+                logger.info('New bound=%g, K=%i' % (old_bound,len(self.density)))
 
             self.pmc(self.samples, self.density, self.weights, self.latent, self.rb, mincount=self.mincount, copy=False, **self.additional_args)
             bound = self.log_likelihood()
 
-            if verbose:
-                print('After update %d: bound=%.15g, K=%i, component_weights=%s' % (i, bound, len(self.density), self.density.weights))
+            logger.info('After update %d: bound=%.15g, K=%i, component_weights=%s' % (i, bound, len(self.density), self.density.weights))
 
             if bound < old_bound:
-                print('WARNING: bound decreased from %g to %g' % (old_bound, bound))
+                logger.warning('Bound decreased from %g to %g' % (old_bound, bound))
 
              # exact convergence
             if bound == old_bound:
@@ -695,7 +695,7 @@ def student_t_pmc(_np.ndarray[double, ndim=2] samples not None, density, weights
             try:
                 new_dof[k] = _find_root(nu_condition, mindof, maxdof, maxiter=dof_solver_steps)
             except RuntimeError: # occurs if not converged
-                print("WARNING: ``dof`` solver for component %i did not converge." % k)
+                logger.warning("``dof`` solver for component %i did not converge." % k)
                 new_dof[k] = density.components[k].dof
             except ValueError as error:
                 # check if nu_condition has the same sign at mindof and maxdof
@@ -727,7 +727,7 @@ def student_t_pmc(_np.ndarray[double, ndim=2] samples not None, density, weights
         try:
             component.update(mu[k], cov[k], new_dof[k])
         except _np.linalg.LinAlgError:
-            print("Could not update component %i --> weight is set to zero." % k)
+            logger.warning("Could not update component %i --> weight is set to zero." % k)
             component.update(old_mu, old_sigma, old_dof)
             density.weights[k] = 0.
             # when a component is pruned, the other weights must be renormalized
