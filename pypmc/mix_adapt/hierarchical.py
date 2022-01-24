@@ -5,6 +5,9 @@ import copy
 import numpy as np
 import scipy.linalg as linalg
 
+import logging
+logger = logging.getLogger(__name__)
+
 class Hierarchical(object):
     """Hierarchical clustering as described in [GR04]_.
 
@@ -64,8 +67,8 @@ class Hierarchical(object):
 
             self.nout -= len(removed_indices)
 
-            if verbose and removed_indices:
-                print('Removing %s' % removed_indices)
+            if removed_indices:
+                logger.info('Removing %s' % removed_indices)
 
             for j in removed_indices:
                 self.inv_map.pop(j[0])
@@ -180,8 +183,7 @@ class Hierarchical(object):
         old_distance = np.finfo(np.float64).max
         new_distance = np.finfo(np.float64).max
 
-        if verbose:
-            print('Starting hierarchical clustering with %d components.' % len(self.g.components))
+        logger.info('Starting hierarchical clustering with %d components.' % len(self.g.components))
         converged = False
         for step in range(1, max_steps + 1):
             self._cleanup(kill, verbose)
@@ -191,12 +193,10 @@ class Hierarchical(object):
             new_distance = self._distance()
             assert new_distance >= 0, 'Found non-positive distance %d' % new_distance
 
-            if verbose:
-                print('Distance in step %d: %g' % (step, new_distance))
+            logger.info('Distance in step %d: %g' % (step, new_distance))
             if new_distance == old_distance:
                 converged = True
-                if verbose:
-                    print('Exact minimum found after %d steps' % step)
+                logger.info('Exact minimum found after %d steps' % step)
                 break
 
             rel_change = (old_distance - new_distance) / old_distance
@@ -204,16 +204,15 @@ class Hierarchical(object):
 
             if rel_change < eps and not converged and step > 0:
                 converged = True
-                if verbose and new_distance != old_distance:
-                    print('Close enough to local minimum after %d steps' % step)
+                if new_distance != old_distance:
+                    logger.info('Close enough to local minimum after %d steps' % step)
                 break
 
             # save distance for comparison in next step
             old_distance = new_distance
 
         self._cleanup(kill, verbose)
-        if verbose:
-            print('%d components remain.' % len(self.g.components))
+        logger.info('%d components remain.' % len(self.g.components))
 
         if converged:
             return step

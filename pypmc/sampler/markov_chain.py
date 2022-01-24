@@ -6,6 +6,9 @@ from ..tools import History as _History
 from ..tools.indicator import merge_function_with_indicator as _indmerge
 from ..tools._doc import _inherit_docstring
 
+import logging
+logger = logging.getLogger(__name__)
+
 class MarkovChain(object):
     r"""A Markov chain to generate samples from the target density.
 
@@ -375,15 +378,15 @@ class AdaptiveMarkovChain(MarkovChain):
         try:
             self.proposal.update(scaled_sigma)
         except _np.linalg.LinAlgError:
-            print("WARNING: Markov chain self adaptation failed; trying diagonalization ... ", end='')
+            logger.warning("Markov chain self adaptation failed; trying diagonalization")
             # try to insert offdiagonal elements only
             diagonal_matrix = _np.zeros_like(scaled_sigma)
             _np.fill_diagonal(diagonal_matrix, _np.diag(scaled_sigma))
             try:
                 self.proposal.update(diagonal_matrix)
-                print('success')
+                logger.warning('Diagonalization succeeded')
             except _np.linalg.LinAlgError:
-                print('fail')
+                logger.warning('Diagonalization failed')
                 # just scale the old covariance matrix if everything else fails
                 self.proposal.update(self.proposal.sigma / self.covar_scale_multiplier)
 
