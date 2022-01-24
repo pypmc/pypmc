@@ -344,7 +344,7 @@ class TestGaussianInference(unittest.TestCase):
         samples = sam.samples[:]
 
         clust = GaussianInference(samples, 2, weights=weights, m=np.vstack((prop_mean1,prop_mean2)))
-        converged = clust.run(verbose=True)
+        converged = clust.run()
         self.assertTrue(converged)
 
         resulting_mixture = clust.make_mixture()
@@ -418,7 +418,7 @@ class TestGaussianInference(unittest.TestCase):
         # to result in same numbers, except it works also when
         # components were reduced => nsteps2 + 1
         eps = 1e-15
-        nsteps2 = infer2.run(20, verbose=True)
+        nsteps2 = infer2.run(20)
         self.assertEqual(nsteps2 + 1, nsteps)
 
         result2 = infer2.make_mixture()
@@ -493,7 +493,7 @@ class TestVBMerge(unittest.TestCase):
 
     def test_1d(self):
         vb = VBMerge(self.input_mix, N=self.N, initial_guess=self.initial_guess)
-        vb.run(verbose=True)
+        vb.run()
         mix = vb.make_mixture()
         self.assertEqual(len(mix), 1)
         # means agree as m0 = 0 but correction from beta0
@@ -609,7 +609,7 @@ class TestVBMerge(unittest.TestCase):
         # restart, should converge immediately
         pripos = vb.prior_posterior()
         vb2 = VBMerge(input_mix, vb.N, **pripos)
-        nsteps = vb2.run(verbose=True)
+        nsteps = vb2.run()
         self.assertEqual(nsteps, 1)
         self.assertEqual(vb2.likelihood_bound(), vb.likelihood_bound())
 
@@ -699,7 +699,7 @@ class TestVBMerge(unittest.TestCase):
         # converge exactly in two steps
         # prune out one component after first update
         # then get same bound twice
-        self.assertEqual(vb.run(verbose=True), 2)
+        self.assertEqual(vb.run(), 2)
         self.assertEqual(vb.K, 1)
         res = vb.make_mixture()
         np.testing.assert_allclose(res.components[0].mu   , target_mean,  rtol=1e-3)

@@ -390,7 +390,7 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
 
     def test_adaptation(self):
         pmc = PMC(self.samples, self.prop, self.weights, latent=self.latent, rb=False)
-        converged = pmc.run(verbose=True)
+        converged = pmc.run()
         outdensity = pmc.density
 
         self.assertEqual(converged, 2)
@@ -422,7 +422,7 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
         samples, latent = target.propose(10**4, trace=True, shuffle=False)
 
         pmc = PMC(samples, prop, latent=latent, rb=True)
-        pmc.run(verbose=True)
+        pmc.run()
         adapted_prop = pmc.density
 
         adapted_comp_weights = adapted_prop.weights
@@ -467,7 +467,7 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
 
         pmc = PMC(samples, prop, rb=True)
         pmc_prune = 0.5 / len(prop)
-        converge_step = pmc.run(30, verbose=True, prune=pmc_prune)
+        converge_step = pmc.run(30, prune=pmc_prune)
         adapted_prop = pmc.density
 
         adapted_comp_weights = adapted_prop.weights
@@ -520,7 +520,7 @@ class TestStudentTPMCMultipleUpdates(unittest.TestCase):
 
         pmc = PMC(samples, prop, rb=True, mindof=mindof, maxdof=maxdof)
         pmc_prune = 0.5 / len(prop)
-        converge_step = pmc.run(30, verbose=True, prune=pmc_prune)
+        converge_step = pmc.run(30, prune=pmc_prune)
         adapted_prop = pmc.density
 
         adapted_comp_weights = adapted_prop.weights
