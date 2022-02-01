@@ -65,8 +65,8 @@ for i in range(10):
     generating_components.append(sampler.run(10**3, trace_sort=True))
 
     # get a reference to the weights and samples that have just been generated
-    samples = sampler.samples[:]
-    weights = sampler.weights[:][:,0]
+    samples = sampler.samples[-1]
+    weights = sampler.weights[-1][:,0]
 
     # update the proposal using the pmc algorithm in the non Rao-Blackwellized form
     pypmc.mix_adapt.pmc.gaussian_pmc(samples, sampler.proposal, weights, generating_components[-1],
