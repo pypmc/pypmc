@@ -3,6 +3,8 @@ on:
         branches: [ master, testing ]
 
     pull_request:
+    schedule:
+      - cron: '2 8 3,18 * *'
 
 name: Build/Check/Deploy to PyPI
 
