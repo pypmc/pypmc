@@ -6,7 +6,6 @@ from .pmc import *
 from .. import density
 import numpy as np
 import unittest
-from nose.plugins.attrib import attr
 
 class TestGaussianPMCNoOverlap(unittest.TestCase):
     # proposal density
@@ -395,7 +394,6 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
 
         self.assertEqual(converged, 2)
 
-    @attr('slow')
     def test_with_overlap(self):
         # proposal density
         mu1 = np.array([ 10.5,   1.1,   8.0])
@@ -438,7 +436,6 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
         np.testing.assert_allclose(adapted_sigma2      , cov2             , atol=0.06)
         # less samples from second component due to smaller component weight --> estimate less accurate
 
-    @attr('slow')
     def test_prune(self):
         # proposal density
         mu1 = np.array([ 10.5,   1.1,   8.0])
@@ -489,7 +486,6 @@ class TestStudentTPMCMultipleUpdates(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(3026281795684 % 4294967296)
 
-    @attr('slow')
     def test_prune(self):
         # proposal density
         mu1 = np.array([ 10.5,   1.1,   8.0])

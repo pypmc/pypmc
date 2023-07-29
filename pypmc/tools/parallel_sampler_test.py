@@ -5,7 +5,6 @@ In order to run tests in parallel, you have to execute this test with
 '''
 
 import numpy as np
-from nose.plugins.attrib import attr
 from ..sampler.markov_chain import MarkovChain, AdaptiveMarkovChain
 from ..sampler.importance_sampling import ImportanceSampler
 from ..density.mixture_test import DummyComponent
@@ -43,7 +42,6 @@ class TestMPISampler(unittest.TestCase):
     def setUp(self):
         np.random.mtrand.seed(rng_seed)
 
-    @attr('slow')
     def test_mc_self_adaptive_sampling(self):
         NumberOfRandomSteps = 20000
         delta_mean = .01

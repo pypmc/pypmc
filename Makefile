@@ -96,16 +96,12 @@ check-nompi : check3
 .PHONY : check3
 check3 : build3
 	@ # run tests
-	$(NOSETESTS) --processes=-1 --process-timeout=60
+	$(PYTHON) -m unittest discover -p "*_test.py"
 
 .PHONY : check3mpi
 check3mpi : build3
 	@# run tests in parallel
-	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(NOSETESTS)
-
-.PHONY : check-fast
-check-fast : build
-	$(NOSETESTS)    -a '!slow' --processes=-1 --process-timeout=60
+	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(PYTHON) -m unittest discover -p "*_test.py"
 
 .PHONY : .build-system-default
 .build-system-default :
@@ -165,8 +161,8 @@ check-sdist : check-sdist3
 .PHONY : check-sdist3
 check-sdist3 : build-sdist3 install-sdist3
 	cd dist/*/build/lib*3.* && \
-	$(NOSETESTS3) --processes=-1 --process-timeout=60 && \
-	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(NOSETESTS3)
+	$(PYTHON) -m unittest discover -p "*_test.py" && \
+	mpirun $(PYPMC_MPI_ARGS) -n $(PYPMC_MPI_NPROC) $(PYTHON) -m unittest discover -p "*_test.py"
 
 .PHONY : distcheck
 distcheck : check check-sdist doc

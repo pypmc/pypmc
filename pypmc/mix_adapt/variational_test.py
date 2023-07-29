@@ -9,7 +9,6 @@ from ..sampler import importance_sampling
 from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
 import copy
-from nose.plugins.attrib import attr
 import numpy as np
 from scipy.special import digamma
 import unittest
@@ -291,7 +290,6 @@ class TestGaussianInference(unittest.TestCase):
         W     = np.linalg.inv(inv_W)
         np.testing.assert_allclose(infer.W[0], W)
 
-    @attr('slow')
     def test_weighted(self):
         # this test uses pypmc.pmc.importance_sampling --> before debugging here,
         # first make sure that importance_sampling works
@@ -390,7 +388,6 @@ class TestGaussianInference(unittest.TestCase):
         # try creation of new GaussianInference instance with these values
         GaussianInference(samples, **posterior_as_prior)
 
-    @attr('slow')
     def test_prune(self):
         # generate test data from two independent gaussians
         target_abundances = np.array((.1, .9))
@@ -618,7 +615,6 @@ class TestVBMerge(unittest.TestCase):
         for k, v in params2.items():
             np.testing.assert_array_equal(v, pripos[k])
 
-    @attr('slow')
     def test_large_prune(self):
         #Compress large number of similar components into a single component.
 
