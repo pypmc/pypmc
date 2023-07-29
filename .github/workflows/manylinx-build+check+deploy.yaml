@@ -9,7 +9,7 @@ name: Build/Check/Deploy to PyPI
 jobs:
     pypi:
         name: Build on manylinux2014
-        runs-on: ubuntu-18.04
+        runs-on: ubuntu-latest
         strategy:
             matrix:
                 cfg:
