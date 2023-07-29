@@ -15,8 +15,10 @@ jobs:
                 cfg:
                     - { python: '/opt/python/cp38-cp38',    pyver: '3.8',  deploydoc: 'yes', deployextra: 'sdist' }
                     - { python: '/opt/python/cp39-cp39',    pyver: '3.9',  deploydoc: 'no',  deployextra: ''      }
+                    - { python: '/opt/python/cp310-cp310',  pyver: '3.10', deploydoc: 'no',  deployextra: ''      }
+                    - { python: '/opt/python/cp311-cp311',  pyver: '3.11', deploydoc: 'no',  deployextra: ''      }
         container:
-            image: quay.io/pypa/manylinux2014_x86_64:latest
+            image: quay.io/pypa/manylinux2014_x86_64:2023-07-29-8793e83
         steps:
             - name: Checkout git repository
               uses: actions/checkout@v2
