@@ -4,7 +4,7 @@
 
 import numpy as _np
 from ..tools._doc import _add_to_docstring
-from ..tools import partition as _part
+from ..density import partition as _part
 from ..density.mixture import create_gaussian_mixture as _mkgauss, create_t_mixture as _mkt
 
 _manual_param_n = ''':param n:
