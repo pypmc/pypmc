@@ -1,9 +1,9 @@
 """Unit tests for the R-value clustering.
 
 """
-from .r_value import *
-from .r_value import _make_r_patches
-from ..density.mixture import recover_gaussian_mixture, recover_t_mixture
+from pypmc.mix_adapt.r_value import *
+from pypmc.mix_adapt.r_value import _make_r_patches
+from pypmc.density.mixture import recover_gaussian_mixture, recover_t_mixture
 import numpy as np
 import unittest
 

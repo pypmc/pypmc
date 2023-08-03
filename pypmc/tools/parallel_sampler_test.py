@@ -5,11 +5,11 @@ In order to run tests in parallel, you have to execute this test with
 '''
 
 import numpy as np
-from ..sampler.markov_chain import MarkovChain, AdaptiveMarkovChain
-from ..sampler.importance_sampling import ImportanceSampler
-from ..density.mixture_test import DummyComponent
-from .. import density
-from ._probability_densities import unnormalized_log_pdf_gauss
+from pypmc.sampler.markov_chain import MarkovChain, AdaptiveMarkovChain
+from pypmc.sampler.importance_sampling import ImportanceSampler
+from pypmc.density.mixture_test import DummyComponent
+from pypmc import density
+from pypmc.tools._probability_densities import unnormalized_log_pdf_gauss
 
 def setUpModule():
     try:

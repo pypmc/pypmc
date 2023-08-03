@@ -1,12 +1,12 @@
 """Unit tests for Variational Bayes.
 
 """
-from .variational import *
-from ..density.gauss import Gauss
-from ..density.student_t import StudentT
-from ..density.mixture import MixtureDensity, create_gaussian_mixture, recover_gaussian_mixture
-from ..sampler import importance_sampling
-from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
+from pypmc.mix_adapt.variational import *
+from pypmc.density.gauss import Gauss
+from pypmc.density.student_t import StudentT
+from pypmc.density.mixture import MixtureDensity, create_gaussian_mixture, recover_gaussian_mixture
+from pypmc.sampler import importance_sampling
+from pypmc.tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
 
 import copy
 import numpy as np

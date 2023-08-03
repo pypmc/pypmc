@@ -2,7 +2,7 @@
 
 import unittest
 import numpy as np
-from ._linalg import *
+from pypmc.tools._linalg import *
 
 class TestLinalg(unittest.TestCase):
     def test_bilinear_sym(self):

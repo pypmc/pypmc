@@ -2,8 +2,8 @@
 
 """
 
-from .gauss import *
-from .student_t_test import fake_rng
+from pypmc.density.gauss import *
+from pypmc.density.student_t_test import fake_rng
 import numpy as np
 import unittest
 

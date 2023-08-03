@@ -1,6 +1,6 @@
 """Unit tests for the base class probability densities"""
 
-from .base import *
+from pypmc.density.base import *
 import numpy as np
 import unittest
 

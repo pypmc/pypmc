@@ -1,7 +1,7 @@
 'Unit tests for convergence diagnostics'
 
 import numpy as np
-from .convergence import *
+from pypmc.tools.convergence import *
 
 import unittest
 

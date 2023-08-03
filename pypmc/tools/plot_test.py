@@ -1,8 +1,8 @@
 from sys import version
 import numpy as np
-from ._plot import *
-from ..density.gauss import Gauss
-from ..density.mixture import MixtureDensity
+from pypmc.tools._plot import *
+from pypmc.density.gauss import Gauss
+from pypmc.density.mixture import MixtureDensity
 
 import unittest
 
