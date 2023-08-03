@@ -1,7 +1,7 @@
 'Unit tests for logsumexp 1D and 2D'
 
 import numpy as np
-from ._regularize import *
+from pypmc.tools._regularize import *
 
 import unittest
 

@@ -2,7 +2,7 @@
 
 """
 
-from . import *
+from pypmc.tools.indicator import *
 import numpy as np
 import unittest
 

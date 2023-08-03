@@ -2,7 +2,7 @@
 
 """
 
-from .mixture import *
+from pypmc.density.mixture import *
 import numpy as np
 import unittest
 

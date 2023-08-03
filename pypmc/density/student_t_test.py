@@ -2,7 +2,7 @@
 
 """
 
-from .student_t import *
+from pypmc.density.student_t import *
 import numpy as np
 import unittest
 

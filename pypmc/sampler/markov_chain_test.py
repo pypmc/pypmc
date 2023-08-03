@@ -2,9 +2,9 @@
 
 """
 
-from .markov_chain import *
-from .. import density
-from ..tools._probability_densities import unnormalized_log_pdf_gauss
+from pypmc.sampler.markov_chain import *
+from pypmc import density
+from pypmc.tools._probability_densities import unnormalized_log_pdf_gauss
 import numpy as np
 import unittest
 

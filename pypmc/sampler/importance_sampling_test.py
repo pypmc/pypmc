@@ -2,11 +2,11 @@
 
 '''
 
-from .importance_sampling import *
-from .. import density
-from ..density.mixture_test import DummyComponent
-from ..tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
-from ..tools import History
+from pypmc.sampler.importance_sampling import *
+from pypmc import density
+from pypmc.density.mixture_test import DummyComponent
+from pypmc.tools._probability_densities import unnormalized_log_pdf_gauss, normalized_pdf_gauss
+from pypmc.tools import History
 import numpy as np
 import unittest
 from math import exp, log

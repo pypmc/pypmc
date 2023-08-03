@@ -2,8 +2,8 @@
 
 '''
 
-from .pmc import *
-from .. import density
+from pypmc.mix_adapt.pmc import *
+from pypmc import density
 import numpy as np
 import unittest
 

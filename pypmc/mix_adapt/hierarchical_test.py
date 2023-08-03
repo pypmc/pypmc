@@ -1,9 +1,9 @@
 """Unit tests for the hierarchical clustering.
 
 """
-from .hierarchical import *
-from ..density.gauss import Gauss
-from ..density.mixture import MixtureDensity
+from pypmc.mix_adapt.hierarchical import *
+from pypmc.density.gauss import Gauss
+from pypmc.density.mixture import MixtureDensity
 import numpy as np
 import unittest
 
