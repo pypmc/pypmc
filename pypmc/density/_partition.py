@@ -3,8 +3,8 @@
 '''
 
 import numpy as _np
-from ..density.gauss import Gauss
-from ..density.mixture import MixtureDensity
+from .gauss import Gauss
+from .mixture import MixtureDensity
 
 import logging
 logger = logging.getLogger(__name__)
