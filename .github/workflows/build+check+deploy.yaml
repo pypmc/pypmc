@@ -1,0 +1,63 @@
+name: Build, Check, and Deploy
+
+on:
+  push:
+    branches:
+      - master
+      - testing
+
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macOS-latest]
+
+    env:
+      CIBW_SKIP: pp* *-musllinux* cp36* cp37*
+      CIBW_ARCHS_MACOS: x86_64 arm64
+      CIBW_ARCHS_LINUX: x86_64 aarch64
+      CIBW_TEST_COMMAND: python3 -m unittest discover -s {package} pypmc -p *_test.py
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # Used to host cibuildwheel
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install QEMU and emulation on the Ubuntu runner
+        if: runner.os == 'Linux'
+        run: sudo apt install qemu-user-static
+
+      - name: Install cibuildwheel
+        run: python3 -m pip install cibuildwheel==2.14.1
+
+      - name: Build wheels, install them and run tests
+        run: python3 -m cibuildwheel --output-dir wheelhouse
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./wheelhouse/*.whl
+
+  upload_pypi:
+    needs: [build_wheels]
+    if: ${{ github.ref == 'refs/tags/*' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: artifact
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@v1.4.2
+        with:
+          user: ${{ secrets.PYPI_USER }}
+          password: ${{ secrets.PYPI_PASSWORD }}
+          skip_existing: true

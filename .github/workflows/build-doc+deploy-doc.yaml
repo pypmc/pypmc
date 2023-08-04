@@ -1,0 +1,56 @@
+name: Build Documentation and Deploy Documentation
+
+on:
+  push:
+    branches:
+      - master
+      - testing
+
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build_and_deploy_doc:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install auditwheel cython matplotlib numpy scipy sphinx sphinx_rtd_theme twine
+
+      - name: Build package and documentation
+        shell: bash
+        run: |
+          mkdir -p ~/.config/matplotlib
+          cp doc/matplotlibrc ~/.config/matplotlib
+          make install
+          make doc
+
+      - name: Deploy documentation
+        if: ${{ github.ref == 'refs/tags/*' }}
+        env:
+          PYPMC_ACCESS_TOKEN: "${{ secrets.PYPMC_ACCESS_TOKEN }}"
+          PYPMC_MPI_NPROC: 1
+        shell: bash
+        run: |
+          if [[ -z ${PYPMC_ACCESS_TOKEN} ]] ; then
+            echo "Skipping documentation deployment due to missing access token"
+            exit 0
+          fi
+          mkdir _doc
+          git clone -o gh "https://pypmc:${PYPMC_ACCESS_TOKEN}@github.com/pypmc/pypmc.github.io" _doc
+          cp -a doc/_build/html/* _doc/
+          pushd _doc
+          git config user.email "github-actions@github.com"
+          git config user.name  "GitHub Actions"
+          git add --all
+          git commit --allow-empty -m "Updating documentation based on PyPMC revision ${{ github.sha }}"
+          git push
+          popd
