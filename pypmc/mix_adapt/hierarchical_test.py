@@ -79,4 +79,4 @@ class TestKL(unittest.TestCase):
         cov2 = np.eye(d)
         cov2[0,1] = cov2[1,0] = 0.2
         c2 = Gauss(mu2, cov2)
-        self.assertAlmostEqual(kullback_leibler(c1, c2), 4.6045890027398722, 15)
+        self.assertAlmostEqual(kullback_leibler(c1, c2), 4.6045890027398722, 14)

@@ -1,7 +1,7 @@
 'Unit tests for integer partition'
 
 import numpy as np
-from pypmc.tools._partition import *
+from pypmc.density._partition import *
 from pypmc.density.mixture import recover_gaussian_mixture
 
 import unittest
