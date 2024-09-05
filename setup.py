@@ -51,6 +51,7 @@ def setup_package():
         description='A toolkit for adaptive importance sampling featuring implementations of variational Bayes, population Monte Carlo, and Markov chains.',
         long_description=long_description,
         license='GPLv2',
+        python_requires='>=3.9',
         install_requires=['numpy>=1.6, <2.0', 'scipy'],
         extras_require={'testing': ['nose'], 'plotting': ['matplotlib'], 'parallelization': ['mpi4py']},
         classifiers=['Development Status :: 5 - Production/Stable',
