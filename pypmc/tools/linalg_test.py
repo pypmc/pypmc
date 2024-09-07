@@ -33,8 +33,8 @@ class TestLinalg(unittest.TestCase):
 
         asymmetric_sigma  = np.array([[0.01 , 0.003 ]
                              ,[0.001, 0.0025]])
-        self.assertRaisesRegexp(np.linalg.LinAlgError, 'not symmetric',
-                                chol_inv_det, asymmetric_sigma)
+        self.assertRaisesRegex(np.linalg.LinAlgError, 'not symmetric',
+                               chol_inv_det, asymmetric_sigma)
 
         singular_sigma = np.array([[0.0, 0.0   , 0.0]
                                    ,[0.0, 0.0025, 0.0]
@@ -42,5 +42,5 @@ class TestLinalg(unittest.TestCase):
         negative_sigma = -1.0 * np.eye(13)
 
         for matrix in [singular_sigma, negative_sigma]:
-            self.assertRaisesRegexp(np.linalg.LinAlgError, 'not positive definite',
-                                    chol_inv_det, matrix)
+            self.assertRaisesRegex(np.linalg.LinAlgError, 'not positive definite',
+                                   chol_inv_det, matrix)

@@ -114,16 +114,16 @@ class TestMixtureDensity(unittest.TestCase):
         components           = [0]
 
         self.mix.multi_evaluate(samples, individual=individual_ok) # should be ok
-        self.assertRaisesRegexp(AssertionError, 'x.*wrong dim.*',
-                                self.mix.multi_evaluate, samples_wrong_dim, individual=individual_ok)
-        self.assertRaisesRegexp(AssertionError, 'individual.*must.*shape',
-                                self.mix.multi_evaluate, samples, individual=individual_too_short)
-        self.assertRaisesRegexp(AssertionError, 'individual.*must.*shape',
-                                self.mix.multi_evaluate, samples, individual=individual_wrong_K)
-        self.assertRaisesRegexp(AssertionError, 'components.*not None.*out.*must be None',
-                                self.mix.multi_evaluate, samples, out_ok, components=components)
-        self.assertRaisesRegexp(AssertionError, 'out.*must.*len.*3',
-                                self.mix.multi_evaluate, samples, out_too_long)
+        self.assertRaisesRegex(AssertionError, 'x.*wrong dim.*',
+                               self.mix.multi_evaluate, samples_wrong_dim, individual=individual_ok)
+        self.assertRaisesRegex(AssertionError, 'individual.*must.*shape',
+                               self.mix.multi_evaluate, samples, individual=individual_too_short)
+        self.assertRaisesRegex(AssertionError, 'individual.*must.*shape',
+                               self.mix.multi_evaluate, samples, individual=individual_wrong_K)
+        self.assertRaisesRegex(AssertionError, 'components.*not None.*out.*must be None',
+                               self.mix.multi_evaluate, samples, out_ok, components=components)
+        self.assertRaisesRegex(AssertionError, 'out.*must.*len.*3',
+                               self.mix.multi_evaluate, samples, out_too_long)
 
     def test_propose(self):
         np.random.seed(rng_seed)
@@ -169,7 +169,7 @@ class TestMixtureDensity(unittest.TestCase):
 
     def test_no_segfault(self):
         # passing an empty list as ``components`` used to cause segfault
-        self.assertRaisesRegexp(AssertionError, ".*at least.*['one''1'].*component", MixtureDensity, [])
+        self.assertRaisesRegex(AssertionError, ".*at least.*['one''1'].*component", MixtureDensity, [])
 
 means = np.array([[ 1.0,  5.4, -3.1],
                   [-3.8,  2.5,  0.4],
@@ -200,10 +200,10 @@ normalized_weights = weights/weights.sum()
 
 class TestCreateGaussian(unittest.TestCase):
     def test_invalid_input(self):
-        self.assertRaisesRegexp(AssertionError, 'Number of means.*?not match.*?number of cov',
-                                create_gaussian_mixture, means    , covs[:2]   )
-        self.assertRaisesRegexp(AssertionError, 'Number of means.*?not match.*?number of cov',
-                                create_gaussian_mixture, means[:2], covs       )
+        self.assertRaisesRegex(AssertionError, 'Number of means.*?not match.*?number of cov',
+                               create_gaussian_mixture, means    , covs[:2]   )
+        self.assertRaisesRegex(AssertionError, 'Number of means.*?not match.*?number of cov',
+                               create_gaussian_mixture, means[:2], covs       )
 
     def test_create_no_weights(self):
         mix = create_gaussian_mixture(means, covs)
@@ -241,12 +241,12 @@ class TestRecoverGaussian(unittest.TestCase):
 
 class TestCreateStudentT(unittest.TestCase):
     def test_invalid_input(self):
-        self.assertRaisesRegexp(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
-                                create_t_mixture, means    , covs[:2], dofs       )
-        self.assertRaisesRegexp(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
-                                create_t_mixture, means[:2], covs    , dofs       )
-        self.assertRaisesRegexp(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
-                                create_t_mixture, means[:2], covs    , dofs[:2]   )
+        self.assertRaisesRegex(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
+                               create_t_mixture, means    , covs[:2], dofs       )
+        self.assertRaisesRegex(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
+                               create_t_mixture, means[:2], covs    , dofs       )
+        self.assertRaisesRegex(AssertionError, 'Number of.*?means.*?covs.*?dofs.*?not match.',
+                               create_t_mixture, means[:2], covs    , dofs[:2]   )
 
     def test_create_no_weights(self):
         mix = create_t_mixture(means, covs, dofs)

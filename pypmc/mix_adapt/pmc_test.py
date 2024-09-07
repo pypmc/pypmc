@@ -57,14 +57,14 @@ class TestGaussianPMCNoOverlap(unittest.TestCase):
                         [-10.4898097 ,   7.48668861,  -2.41443733]])
 
     def test_invalid_usage(self):
-        self.assertRaisesRegexp(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not',
-                                gaussian_pmc, self.samples, self.prop, self.weights, rb=False)
-        self.assertRaisesRegexp(ValueError, r'["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not',
-                                gaussian_pmc, self.samples, self.prop, self.weights, mincount=10)
-        self.assertRaisesRegexp(ValueError, r'(["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not)' + \
-                                            r'|' + \
-                                            r'(["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not)',
-                                gaussian_pmc, self.samples, self.prop, self.weights, mincount=10, rb=False)
+        self.assertRaisesRegex(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not',
+                               gaussian_pmc, self.samples, self.prop, self.weights, rb=False)
+        self.assertRaisesRegex(ValueError, r'["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not',
+                               gaussian_pmc, self.samples, self.prop, self.weights, mincount=10)
+        self.assertRaisesRegex(ValueError, r'(["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not)' + \
+                                           r'|' + \
+                                           r'(["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not)',
+                               gaussian_pmc, self.samples, self.prop, self.weights, mincount=10, rb=False)
 
     def test_mincount_and_copy(self):
         self.prop_weights = self.prop.weights.copy()
@@ -373,19 +373,19 @@ class TestGaussianPMCMultipleUpdates(unittest.TestCase):
         np.random.mtrand.seed(345985345634 % 4294967296)
 
     def test_invalid_usage(self):
-        self.assertRaisesRegexp(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not',
-                                PMC, self.samples, self.prop, self.weights, rb=False)
-        self.assertRaisesRegexp(ValueError, r'["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not',
-                                PMC, self.samples, self.prop, self.weights, mincount=10)
-        self.assertRaisesRegexp(ValueError, r'(["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not)' + \
-                                            r'|' + \
-                                            r'(["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not)',
-                                PMC, self.samples, self.prop, self.weights, mincount=10, rb=False)
+        self.assertRaisesRegex(ValueError, r'["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not',
+                               PMC, self.samples, self.prop, self.weights, rb=False)
+        self.assertRaisesRegex(ValueError, r'["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not',
+                               PMC, self.samples, self.prop, self.weights, mincount=10)
+        self.assertRaisesRegex(ValueError, r'(["\'` ]*mincount["\'` ]*must.*["\' `]*[0(zero)]["\'` ]* if["\'` ]*latent["\'` ]*.*not)' + \
+                                           r'|' + \
+                                           r'(["\'` ]*rb["\'` ]*must.*["\' `]*True["\'` ]* if["\'` ]*latent["\'` ]*.*not)',
+                               PMC, self.samples, self.prop, self.weights, mincount=10, rb=False)
 
         invalid_density = None
 
-        self.assertRaisesRegexp(TypeError, r'.*density.*must be.*MixtureDensity',
-                                PMC, self.samples, invalid_density, self.weights)
+        self.assertRaisesRegex(TypeError, r'.*density.*must be.*MixtureDensity',
+                               PMC, self.samples, invalid_density, self.weights)
 
     def test_adaptation(self):
         pmc = PMC(self.samples, self.prop, self.weights, latent=self.latent, rb=False)

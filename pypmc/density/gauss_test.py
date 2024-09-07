@@ -140,7 +140,7 @@ class TestGauss(unittest.TestCase):
     def test_dim_mismatch(self):
         mu    = np.ones(2)
         sigma = np.eye (3)
-        self.assertRaisesRegexp(AssertionError, 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!', Gauss, mu, sigma)
+        self.assertRaisesRegex(AssertionError, 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!', Gauss, mu, sigma)
 
     def test_evaluate(self):
         self.assertAlmostEqual(self.comp.evaluate(self.point), self.target)

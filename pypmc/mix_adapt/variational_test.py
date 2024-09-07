@@ -80,19 +80,19 @@ class TestGaussianInference(unittest.TestCase):
         # alpha, m and W should be valid
         GaussianInference(data, components=2, alpha=alpha, m=m, W=W)
 
-        self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
-                                GaussianInference, data)
+        self.assertRaisesRegex(ValueError, 'either.*components.*or.*initial_guess',
+                               GaussianInference, data)
 
         # should not be able to pass both initial_guess and something out of [alpha, beta, nu, m, W]
-        self.assertRaisesRegexp(ValueError, 'EITHER.*W.*OR.*initial_guess',
+        self.assertRaisesRegex(ValueError, 'EITHER.*W.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, W=W)
-        self.assertRaisesRegexp(ValueError, 'EITHER.*m.*OR.*initial_guess',
+        self.assertRaisesRegex(ValueError, 'EITHER.*m.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, m=m)
-        self.assertRaisesRegexp(ValueError, 'EITHER.*alpha.*OR.*initial_guess',
+        self.assertRaisesRegex(ValueError, 'EITHER.*alpha.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, alpha=alpha)
-        self.assertRaisesRegexp(ValueError, 'EITHER.*beta.*OR.*initial_guess',
+        self.assertRaisesRegex(ValueError, 'EITHER.*beta.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, beta=beta)
-        self.assertRaisesRegexp(ValueError, 'EITHER.*nu.*OR.*initial_guess',
+        self.assertRaisesRegex(ValueError, 'EITHER.*nu.*OR.*initial_guess',
                                GaussianInference, data, initial_guess=target_mix, nu=nu)
 
 
@@ -132,15 +132,15 @@ class TestGaussianInference(unittest.TestCase):
         np.testing.assert_almost_equal(re_component_weights, normalized_weights                  )
 
         # test default
-        self.assertRaisesRegexp(ValueError, 'Specify ``m``',
-                                GaussianInference, data, len(data) + 10)
+        self.assertRaisesRegex(ValueError, 'Specify ``m``',
+                               GaussianInference, data, len(data) + 10)
         # specify some m with too many components
         GaussianInference(data, len(data) + 10, m=np.zeros((len(data) + 10, 2)))
         GaussianInference(data, K)
 
         # test 'first'
-        self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
-                                GaussianInference, data, initial_guess='first')
+        self.assertRaisesRegex(ValueError, 'either.*components.*or.*initial_guess',
+                               GaussianInference, data, initial_guess='first')
         vb = GaussianInference(data, K, initial_guess='first', alpha0=alpha0, beta0=beta0, nu0=nu0)
         np.testing.assert_equal(vb.m, data[0:K])
 
@@ -470,14 +470,14 @@ class TestVBMerge(unittest.TestCase):
         means, _, _ = recover_gaussian_mixture(self.input_mix)
 
         # test default
-        self.assertRaisesRegexp(ValueError, 'Specify ``m``',
-                                VBMerge, self.input_mix, self.N, 32)
+        self.assertRaisesRegex(ValueError, 'Specify ``m``',
+                               VBMerge, self.input_mix, self.N, 32)
         # specify some m with too many components
         VBMerge(self.input_mix, self.N, 32, m=np.zeros((32, 1)))
         VBMerge(self.input_mix, self.N, K)
         # test 'first'
-        self.assertRaisesRegexp(ValueError, 'either.*components.*or.*initial_guess',
-                                VBMerge, self.input_mix, self.N, initial_guess='first')
+        self.assertRaisesRegex(ValueError, 'either.*components.*or.*initial_guess',
+                               VBMerge, self.input_mix, self.N, initial_guess='first')
 
 
         vb = VBMerge(self.input_mix, self.N, K, initial_guess='first')

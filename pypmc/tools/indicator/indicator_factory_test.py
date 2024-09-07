@@ -48,8 +48,8 @@ class TestBall(unittest.TestCase):
 
         self.assertTrue(unit_ball_with_bdy(point3d))
         self.assertTrue(unit_ball_no_bdy(point3d))
-        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_ball_no_bdy  , point2d)
-        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_ball_with_bdy, point2d)
+        self.assertRaisesRegex(ValueError, 'input has wrong dimension', unit_ball_no_bdy  , point2d)
+        self.assertRaisesRegex(ValueError, 'input has wrong dimension', unit_ball_with_bdy, point2d)
 
     def test_input_copy(self):
         center_array = np.array([.1, 2.])
@@ -110,8 +110,8 @@ class TestHyperrectangle(unittest.TestCase):
 
         self.assertTrue(unit_hr_with_bdy(point3d))
         self.assertTrue(unit_hr_no_bdy(point3d))
-        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_hr_with_bdy, point2d)
-        self.assertRaisesRegexp(ValueError, 'input has wrong dimension', unit_hr_no_bdy  , point2d)
+        self.assertRaisesRegex(ValueError, 'input has wrong dimension', unit_hr_with_bdy, point2d)
+        self.assertRaisesRegex(ValueError, 'input has wrong dimension', unit_hr_no_bdy  , point2d)
 
     def test_hr_wrong_init(self):
         # hyperrectangle should raise an error if any lower > upper
