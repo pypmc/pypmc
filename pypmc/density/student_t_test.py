@@ -50,8 +50,8 @@ class TestLocalStudentT(unittest.TestCase):
 
     def test_bad_dof(self):
         expected_error_msg = ".*dof.*must.*((larger)|(greater)).*(0|(zero))"
-        self.assertRaisesRegexp(AssertionError, expected_error_msg, LocalStudentT, offdiag_sigma,  0.0)
-        self.assertRaisesRegexp(AssertionError, expected_error_msg, LocalStudentT, offdiag_sigma, -1.1)
+        self.assertRaisesRegex(AssertionError, expected_error_msg, LocalStudentT, offdiag_sigma,  0.0)
+        self.assertRaisesRegex(AssertionError, expected_error_msg, LocalStudentT, offdiag_sigma, -1.1)
 
     def test_badCovarianceInput(self):
         self.assertRaises(np.linalg.LinAlgError, lambda: LocalStudentT(singular_sigma, 10) )
@@ -207,7 +207,7 @@ class TestStudentT(unittest.TestCase):
         mu    = np.ones(2)
         sigma = np.eye (3)
         dof   = 4.
-        self.assertRaisesRegexp(AssertionError,
+        self.assertRaisesRegex(AssertionError,
                 'Dimensions of mean \(2\) and covariance matrix \(3\) do not match!',
                 StudentT, mu, sigma, dof)
 

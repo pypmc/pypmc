@@ -142,7 +142,7 @@ class TestMarkovChain(unittest.TestCase):
 
         mc = MarkovChain(bad_target, prop, start)
 
-        self.assertRaisesRegexp(ValueError, 'encountered NaN', mc.run)
+        self.assertRaisesRegex(ValueError, 'encountered NaN', mc.run)
 
     def test_history(self):
         # dummy; not a real proposal
@@ -357,7 +357,7 @@ class TestAdaptiveMarkovChain(unittest.TestCase):
         self.assertEqual(mc.force_acceptance_min   , test_value)
         self.assertEqual(mc.damping                , test_value)
 
-        self.assertRaisesRegexp(TypeError, r'keyword args only; try set_adapt_parameters\(keyword = value\)',
-                                mc.set_adapt_params, test_value)
-        self.assertRaisesRegexp(TypeError, r"unexpected keyword\(s\)\: ",
-                                mc.set_adapt_params, unknown_kw = test_value)
+        self.assertRaisesRegex(TypeError, r'keyword args only; try set_adapt_parameters\(keyword = value\)',
+                               mc.set_adapt_params, test_value)
+        self.assertRaisesRegex(TypeError, r"unexpected keyword\(s\)\: ",
+                               mc.set_adapt_params, unknown_kw = test_value)

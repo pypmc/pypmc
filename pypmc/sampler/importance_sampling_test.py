@@ -184,13 +184,13 @@ class TestCalculateExpextaction(unittest.TestCase):
     def test_error_messages(self):
         too_many_weights = [1.,2.,3.,4.]
 
-        with self.assertRaisesRegexp(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
+        with self.assertRaisesRegex(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
             calculate_expectation(self.samples, too_many_weights, lambda x: x)
 
-        with self.assertRaisesRegexp(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
+        with self.assertRaisesRegex(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
             calculate_mean(self.samples, too_many_weights)
 
-        with self.assertRaisesRegexp(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
+        with self.assertRaisesRegex(AssertionError, ".*number of samples.*must.*equal.*number of weights"):
             calculate_covariance(self.samples, too_many_weights)
 
     def test_calculate(self):
@@ -391,21 +391,21 @@ class TestCombineWeights(unittest.TestCase):
                         [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
                         [perfect_prop, perfect_prop])
 
-        with self.assertRaisesRegexp(AssertionError, 'Got 2 importance-sampling runs but 1 proposal densities'):
+        with self.assertRaisesRegex(AssertionError, 'Got 2 importance-sampling runs but 1 proposal densities'):
             combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
                             [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
                             [perfect_prop])
 
-        with self.assertRaisesRegexp(AssertionError, 'Got 2 importance-sampling runs but 1 weights'):
+        with self.assertRaisesRegex(AssertionError, 'Got 2 importance-sampling runs but 1 weights'):
             combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:]],
                             [weighted_samples_1[:,0]],
                             [perfect_prop, perfect_prop])
 
-        with self.assertRaisesRegexp(AssertionError, "``samples\[0\]`` is not matrix like."):
+        with self.assertRaisesRegex(AssertionError, "``samples\[0\]`` is not matrix like."):
             combine_weights([range(9), weighted_samples_2[:,1:]],
                             [weighted_samples_1[:,0],  weighted_samples_2[:,0]],
                             [perfect_prop, perfect_prop])
 
-        with self.assertRaisesRegexp(AssertionError, "Dimension of samples\[0\] \(2\) does not match the dimension of samples\[1\] \(1\)"):
+        with self.assertRaisesRegex(AssertionError, "Dimension of samples\[0\] \(2\) does not match the dimension of samples\[1\] \(1\)"):
             combine_weights([weighted_samples_1[:,1:], weighted_samples_2[:,1:2]],
                             [weighted_samples_1[:,0],  weighted_samples_2[:,0]],[perfect_prop, perfect_prop])

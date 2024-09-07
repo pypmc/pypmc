@@ -159,14 +159,14 @@ class TestRGroup(unittest.TestCase):
         # ``covs`` must be 2d
         two_covariances_wrong_shape = np.array(  [1., 2.]  )
 
-        self.assertRaisesRegexp(AssertionError, '.*means.*not match.*variances',
-                                r_group, two_means, three_variances, 10)
-        self.assertRaisesRegexp(AssertionError, '.*means.*must.*[Mm]atrix',
-                                r_group, three_means_wrong_shape, three_variances, 10)
-        self.assertRaisesRegexp(AssertionError, '.*variances.*must.*2[\ -]?[Dd]im',
-                                r_group, two_means, two_covariances_wrong_shape, 10)
-        self.assertRaisesRegexp(AssertionError, 'Dimensionality.*means.*variances.*not match',
-                                r_group, two_means, two_vars_wrong_dimension, 10)
+        self.assertRaisesRegex(AssertionError, '.*means.*not match.*variances',
+                               r_group, two_means, three_variances, 10)
+        self.assertRaisesRegex(AssertionError, '.*means.*must.*[Mm]atrix',
+                               r_group, three_means_wrong_shape, three_variances, 10)
+        self.assertRaisesRegex(AssertionError, '.*variances.*must.*2[\ -]?[Dd]im',
+                               r_group, two_means, two_covariances_wrong_shape, 10)
+        self.assertRaisesRegex(AssertionError, 'Dimensionality.*means.*variances.*not match',
+                               r_group, two_means, two_vars_wrong_dimension, 10)
 
 # making mixtures out of data:
 
@@ -285,13 +285,13 @@ class TestMakeRPatches(unittest.TestCase):
 
             # invalid argument
             kwargs['indices'] = []
-            self.assertRaisesRegexp(AssertionError, 'Invalid.*indices',
-                                    _make_r_patches, index_data, **kwargs)
+            self.assertRaisesRegex(AssertionError, 'Invalid.*indices',
+                                   _make_r_patches, index_data, **kwargs)
 
 class TestMakeRGaussmix(unittest.TestCase):
     def test_error_messages(self):
-        self.assertRaisesRegexp(AssertionError, 'Every chain.*same.*number.*points',
-                                make_r_gaussmix, wrong_data)
+        self.assertRaisesRegex(AssertionError, 'Every chain.*same.*number.*points',
+                               make_r_gaussmix, wrong_data)
 
     def test_make_r_gaussmix(self):
         inferred_mixture = make_r_gaussmix(data, K_g=2, critical_r=critical_r)
@@ -306,12 +306,12 @@ class TestMakeRTmix(unittest.TestCase):
     invalid_dof = 1. # for finite covariance: dof > 2
 
     def test_error_messages(self):
-        self.assertRaisesRegexp(AssertionError, 'Every chain.*same.*number.*points',
-                                make_r_tmix, wrong_data)
-        self.assertRaisesRegexp(AssertionError, 'dof.*(greater|larger).*?2',
-                                make_r_tmix, data, dof=self.invalid_dof)
-        self.assertRaisesRegexp(AssertionError, 'dof.*(greater|larger).*?2',
-                                make_r_tmix, data, dof=2)
+        self.assertRaisesRegex(AssertionError, 'Every chain.*same.*number.*points',
+                               make_r_tmix, wrong_data)
+        self.assertRaisesRegex(AssertionError, 'dof.*(greater|larger).*?2',
+                               make_r_tmix, data, dof=self.invalid_dof)
+        self.assertRaisesRegex(AssertionError, 'dof.*(greater|larger).*?2',
+                               make_r_tmix, data, dof=2)
 
     def test_make_r_tmix(self):
         target_dofs = np.array([self.valid_dof] * 4)
