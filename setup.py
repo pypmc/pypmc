@@ -52,7 +52,7 @@ def setup_package():
         long_description=long_description,
         license='GPLv2',
         python_requires='>=3.9',
-        install_requires=['numpy>=1.6, <2.0', 'scipy', 'setuptools>=40.8.0'],
+        install_requires=['numpy>=1.6', 'scipy', 'setuptools>=40.8.0'],
         extras_require={'testing': ['nose'], 'plotting': ['matplotlib'], 'parallelization': ['mpi4py']},
         classifiers=['Development Status :: 5 - Production/Stable',
                      'Intended Audience :: Developers',
