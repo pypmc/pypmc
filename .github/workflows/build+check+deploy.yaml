@@ -55,17 +55,31 @@ jobs:
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.version }}
+          name: dist-wheel-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.version }}
           path: ./wheelhouse/*.whl
 
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build source distribution
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: ./dist/*.tar.gz
+
   upload_pypi:
-    needs: [ build_wheels ]
+    needs: [ build_wheels, build_sdist ]
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: wheel-*
+          pattern: dist-*
           merge-multiple: true
           path: dist
 
