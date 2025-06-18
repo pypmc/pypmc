@@ -23,18 +23,22 @@ jobs:
           - { version: cp310, arch: x86_64,  os: ubuntu-20.04 }
           - { version: cp311, arch: x86_64,  os: ubuntu-20.04 }
           - { version: cp312, arch: x86_64,  os: ubuntu-20.04 }
+          - { version: cp313, arch: x86_64,  os: ubuntu-20.04 }
           - { version: cp39,  arch: aarch64, os: ubuntu-20.04 }
           - { version: cp310, arch: aarch64, os: ubuntu-20.04 }
           - { version: cp311, arch: aarch64, os: ubuntu-20.04 }
           - { version: cp312, arch: aarch64, os: ubuntu-20.04 }
+          - { version: cp313, arch: aarch64, os: ubuntu-20.04 }
           - { version: cp39,  arch: x86_64,  os: macOS-latest }
           - { version: cp310, arch: x86_64,  os: macOS-latest }
           - { version: cp311, arch: x86_64,  os: macOS-latest }
           - { version: cp312, arch: x86_64,  os: macOS-latest }
+          - { version: cp313, arch: x86_64,  os: macOS-latest }
           - { version: cp39,  arch: arm64,   os: macOS-latest }
           - { version: cp310, arch: arm64,   os: macOS-latest }
           - { version: cp311, arch: arm64,   os: macOS-latest }
           - { version: cp312, arch: arm64,   os: macOS-latest }
+          - { version: cp313, arch: arm64,   os: macOS-latest }
     name: Build wheels on ${{ matrix.os }}/${{ matrix.arch }} for ${{ matrix.version }}
     runs-on: ${{ matrix.os }}
     steps:
