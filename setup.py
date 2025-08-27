@@ -8,6 +8,7 @@ package_name = 'pypmc'
 with open('pypmc/_version.py') as f:
     exec(f.read())
 
+_abi3 = sys.version_info >= (3, 11)
 
 def get_extensions():
     import numpy
@@ -21,7 +22,9 @@ def get_extensions():
 
     extensions = [Extension('*', ['pypmc/*/*.pyx'],
                             extra_compile_args=extra_compile_args,
-                            include_dirs=include_dirs)]
+                            include_dirs=include_dirs,
+                            define_macros=[('Py_LIMITED_API', '0x030B0000')] if _abi3 else [],
+                            py_limited_api=_abi3)]
 
     compiler_directives = dict(boundscheck=False, cdivision=True,
                                embedsignature=True,
@@ -78,7 +81,7 @@ def setup_package():
         setup_args['packages'] = find_packages()
         setup_args['ext_modules'] = get_extensions()
 
-    setup(**setup_args)
+    setup(**setup_args, options={'bdist_wheel': {'py_limited_api': 'cp311'}} if _abi3 else {})
 
 
 if __name__ == '__main__':
