@@ -19,14 +19,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - { version: cp39,  arch: x86_64,  os: ubuntu-20.04 }
-          - { version: cp310, arch: x86_64,  os: ubuntu-20.04 }
-          - { version: cp311, arch: x86_64,  os: ubuntu-20.04 }
-          - { version: cp312, arch: x86_64,  os: ubuntu-20.04 }
-          - { version: cp39,  arch: aarch64, os: ubuntu-20.04 }
-          - { version: cp310, arch: aarch64, os: ubuntu-20.04 }
-          - { version: cp311, arch: aarch64, os: ubuntu-20.04 }
-          - { version: cp312, arch: aarch64, os: ubuntu-20.04 }
+          - { version: cp39,  arch: x86_64,  os: ubuntu-latest }
+          - { version: cp310, arch: x86_64,  os: ubuntu-latest }
+          - { version: cp311, arch: x86_64,  os: ubuntu-latest }
+          - { version: cp312, arch: x86_64,  os: ubuntu-latest }
+          - { version: cp39,  arch: aarch64, os: ubuntu-latest }
+          - { version: cp310, arch: aarch64, os: ubuntu-latest }
+          - { version: cp311, arch: aarch64, os: ubuntu-latest }
+          - { version: cp312, arch: aarch64, os: ubuntu-latest }
           - { version: cp39,  arch: x86_64,  os: macOS-latest }
           - { version: cp310, arch: x86_64,  os: macOS-latest }
           - { version: cp311, arch: x86_64,  os: macOS-latest }
