@@ -1,7 +1,7 @@
 [![PyPI version](https://badge.fury.io/py/pypmc.svg)](https://badge.fury.io/py/pypmc)
 [![Conda Forge version](https://anaconda.org/conda-forge/pypmc/badges/version.svg)](https://anaconda.org/conda-forge/pypmc)
 [![DOI](https://zenodo.org/badge/15123/fredRos/pypmc.svg)](https://zenodo.org/badge/latestdoi/15123/fredRos/pypmc)
-[![Build/Check/Deploy to PyPI](https://github.com/pypmc/pypmc/actions/workflows/manylinx-build+check+deploy.yaml/badge.svg)](https://github.com/pypmc/pypmc/actions/workflows/manylinx-build+check+deploy.yaml)
+[![Build/Check/Deploy to PyPI](https://github.com/pypmc/pypmc/actions/workflows/build+check+deploy.yaml/badge.svg)](https://github.com/pypmc/pypmc/actions/workflows/build+check+deploy.yaml)
 
 pypmc
 =====
