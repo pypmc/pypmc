@@ -70,8 +70,8 @@ cpdef object chol_inv_det(m):
 
     # work around a bug in older versions of scipy
     # that inverts the lower argument
-    from pkg_resources import parse_version
-    if parse_version(scipy.__version__) < parse_version('0.14'):
+    from packaging.version import parse
+    if parse(scipy.__version__) < parse('0.14'):
         lower = not lower
 
     # inverse from lower Cholesky
