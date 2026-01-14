@@ -36,13 +36,13 @@ def plot_mixture(mixture, i=0, j=1, center_style=dict(s=0.15),
     import numpy as np
     from matplotlib import pyplot as plt
     from matplotlib.patches import Ellipse
-    from matplotlib.cm import get_cmap
+    from matplotlib import colormaps
 
     assert i >= 0 and j >= 0, 'Invalid submatrix specification (%d, %d)' % (i, j)
     assert i != j, 'Identical dimension given: i=j=%d' % i
     assert mixture.dim >= 2, '1D plot not supported'
 
-    cmap = get_cmap(name=cmap)
+    cmap = colormaps[cmap]
 
     if visualize_weights:
         # colors according to weight
@@ -151,7 +151,6 @@ def plot_responsibility(data, responsibility,
     '''
     import numpy as np
     from matplotlib import pyplot as plt
-    from matplotlib.cm import get_cmap
 
     data = np.asarray(data)
     responsibility = np.asarray(responsibility)
