@@ -202,12 +202,16 @@ class ImportanceSampler(object):
         if self.target_values is None:
             for i in range(N):
                 tmp = self.target(this_samples[i]) - self.proposal.evaluate(this_samples[i])
+                if _np.ndim(tmp) != 0: # tmp is (sometimes) an array of size 1
+                    tmp = tmp.item()
                 this_weights[i] = _exp(tmp)
         else:
             this_target_values = self.target_values.append(N)
             for i in range(N):
                 this_target_values[i] = self.target(this_samples[i])
                 tmp = this_target_values[i] - self.proposal.evaluate(this_samples[i])
+                if _np.ndim(tmp) != 0: # tmp is (sometimes) an array of size 1
+                    tmp = tmp.item()
                 this_weights[i] = _exp(tmp)
 
     def _get_samples(self, N, trace_sort):
