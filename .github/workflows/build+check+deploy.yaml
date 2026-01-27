@@ -41,7 +41,7 @@ jobs:
         run: sudo apt install qemu-user-static
 
       - name: Build wheels, install them and run tests
-        uses: pypa/cibuildwheel@v2.15.0
+        uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD: ${{ matrix.version }}-*
           CIBW_SKIP: \*-musllinux_*
